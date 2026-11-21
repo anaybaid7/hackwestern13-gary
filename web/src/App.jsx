@@ -203,7 +203,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
         )}
 
         <main className="view">
-          {tab === 'home' && <Home state={state} flash={flash} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
+          {tab === 'home' && <Home state={state} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}

@@ -97,7 +97,7 @@ the handheld; on a phone it fills the screen.
   the patches add horns, the scarf and the beard per stage.
 - **A place on the map.** Add its name and `[lat, lng]` to `KNOWN` in `src/places.js`.
 - **The fog.** `FOG_COLOUR`, `CLEAR_METRES`, `FRONTIER` (the edge's colour) and `REVEAL_MS` (how long a new place takes to open) at the top of `src/screens/MapScreen.jsx`. With reduced motion on, places open at once.
-- **Gary's voice.** `src/voice.js`. A line tied to a thing goes in `BY_THING`.
+- **Gary's voice.** `src/gary_lines.json` (Gemini, read by a person): edit a line there, or run `scout/gary_lines.py` again and read the result.
   Keep him dry and kind: no nagging, no guilt, nothing about missed days.
 - **A picture for a thing.** `src/things.js`. A thing with no picture shows
   its initials.

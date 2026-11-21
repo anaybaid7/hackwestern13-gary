@@ -755,6 +755,21 @@ def test_the_line_pack_keeps_only_safe_lines_for_real_things():
     assert out["pools"]["quest"] == ["Well climbed."] and out["pools"]["napping"] == ["Zzz."] and out["pools"]["again"] == []
 
 
+def test_progress_templates_use_only_their_own_slots():
+    import gary_lines
+
+    def ask(prompt, key, model):
+        assert "{finds_today}" in prompt and "never claim" in prompt
+        return {"today": ["{finds_today} so far.", "{xp_left} to go.", "Nothing to fill."],
+                "start": ["Look for {target} at {place}.", "Look for {target}."],
+                "encourage": ["Any pace is the right pace.", "Feed the ducks."], "almost": "not a list"}
+    out = gary_lines.progress_templates("key", ask=ask)
+    assert out["today"] == ["{finds_today} so far."]                 # a slot from elsewhere, or none: dropped
+    assert out["start"] == ["Look for {target} at {place}."]        # both required slots, or dropped
+    assert out["encourage"] == ["Any pace is the right pace."]      # the same safety checks as every line
+    assert out["almost"] == [] and out["guide"] == []
+
+
 def test_no_file_here_hides_a_python_module():
     for name in os.listdir(SCOUT):
         if name.endswith(".py"):

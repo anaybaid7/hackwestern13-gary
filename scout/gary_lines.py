@@ -2,6 +2,7 @@
 """gary_lines.py - Gemini writes Gary's lines for the web page, once.
 
     python3 scout/gary_lines.py            writes web/src/gary_lines.json
+    python3 scout/gary_lines.py --progress only the home-screen progress templates
 
 For each of the things Gary can recognise (contract/labels.json): one line for
 finding it, and two facts about it. Plus bigger pools of his everyday lines
@@ -16,6 +17,7 @@ Needs GEMINI_API_KEY (scout/.env).
 """
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +53,54 @@ For each situation below, write 6 different things Gary might say, each at most 
 No emoji, no quotation marks, no guilt, no hurry.
 Situations: {situations}
 Reply as a JSON object mapping each situation name to a list of 6 strings."""
+
+
+# Gary's line on the home screen, about the person's own progress. Gemini
+# writes templates once; the page fills the {slots} from the state, so the
+# line is personal and needs no network. Each situation: (when, slots it must use).
+PROGRESS = {
+    "start": ("no finds yet today, and there is a quest to do", ["target", "place"]),
+    "today": ("the person has found things today", ["finds_today"]),
+    "almost": ("Gary is close to growing into his next stage", ["xp_left", "next_stage"]),
+    "guide": ("how full Gary's field guide of things is", ["guide"]),
+    "encourage": ("a warm nudge about body, mind or friends outdoors: getting outside, moving at any pace, noticing "
+                  "small things, feeling calmer, a place never visited, bringing a friend. Never pressure, and never "
+                  "claim that it improves anyone's health", []),
+}
+SLOTS = {"target": "the thing to find, with a or an (a bench)", "place": "where the quest is (Harris Park)",
+         "finds_today": "how many finds today, with the word (3 finds, 1 find)", "last": "the last thing found (a squirrel)",
+         "xp_left": "XP still needed to grow (20 XP)", "next_stage": "Gary's next stage name (Ibex)",
+         "guide": "how many things found of all (12 of 90 things)"}
+PROGRESS_PROMPT = GARY + """
+
+Write lines Gary says on the home screen about the person's own progress. Each line is a template:
+put a slot name in curly braces where a value goes. The slots are:
+{slots}
+For each situation below write 8 lines. Each must use the slots listed for it, may use {{last}}, and no other slots.
+At most 80 characters before the slots are filled. No emoji, no quotation marks, no guilt, no hurry, never "you should".
+Situations:
+{situations}
+Reply as a JSON object mapping each situation name to a list of 8 strings."""
+
+
+def progress_templates(key, model=None, ask=None):
+    """{situation: [templates]} that use only the allowed slots and every required one."""
+    import gary_voice
+    from scout import risk_in
+    ask = ask or ask_json
+    reply = ask(PROGRESS_PROMPT.format(
+        slots="\n".join("{%s}: %s" % kv for kv in SLOTS.items()),
+        situations="\n".join("%s (%s): must use %s" % (name, when, ", ".join("{%s}" % s for s in need))
+                              for name, (when, need) in PROGRESS.items())), key, model)
+    out = {}
+    for name, (_, need) in PROGRESS.items():
+        good = []
+        for line in (reply.get(name) or []) if isinstance(reply, dict) else []:
+            used = set(re.findall(r"\{(\w+)\}", line)) if isinstance(line, str) else {"?"}
+            if used <= set(need) | {"last"} and set(need) <= used and gary_voice.safe_line(line.replace("{", "").replace("}", ""), risk_in, 90):
+                good.append(line.strip())
+        out[name] = good[:8]
+    return out
 
 
 def labels():
@@ -100,7 +150,17 @@ def main():
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         sys.exit("Set GEMINI_API_KEY in scout/.env first (a free key from Google AI Studio).")
+    if "--progress" in sys.argv[1:]:  # only the progress templates; the rest of the file, read and fixed by hand, stays
+        with open(OUT, encoding="utf-8") as f:
+            content = json.load(f)
+        content["progress"] = progress_templates(key, os.environ.get("GEMINI_MODEL"))
+        with open(OUT, "w", encoding="utf-8") as f:
+            json.dump(content, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        print("Wrote the progress templates: %s" % {k: len(v) for k, v in content["progress"].items()})
+        return
     content = build(key, os.environ.get("GEMINI_MODEL"))
+    content["progress"] = progress_templates(key, os.environ.get("GEMINI_MODEL"))
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(content, f, indent=2, ensure_ascii=False)
         f.write("\n")

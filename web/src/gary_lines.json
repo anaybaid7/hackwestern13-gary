@@ -1,5 +1,5 @@
 {
-  "_note": "Written by scout/gary_lines.py with Gemini, then read by a person, who fixed five facts and added six lines. Edit by hand freely.",
+  "_note": "Written by scout/gary_lines.py with Gemini, then read by a person, who fixed five facts, added six lines and removed templates that read badly once filled. Edit by hand freely.",
   "things": {
     "bicycle": {
       "line": "A bicycle is just a metal spider with two round feet that cannot climb rocks.",
@@ -682,6 +682,53 @@
       "I am looking at the horizon.",
       "Show me some steep rock.",
       "The morning air is crisp enough."
+    ]
+  },
+  "progress": {
+    "start": [
+      "We are heading to find {target} at {place}.",
+      "Up toward {target} in {place} we go.",
+      "We could look for {target} at {place}.",
+      "Time to seek {target} in {place}.",
+      "Let us check {place} for {target}."
+    ],
+    "today": [
+      "We logged {finds_today} so far.",
+      "That makes {finds_today} for our book.",
+      "You spotted {finds_today} nicely.",
+      "We collected {finds_today} today.",
+      "Our tally sits at {finds_today}.",
+      "We gathered {finds_today} on the rocks.",
+      "Counted {finds_today} since we set out."
+    ],
+    "almost": [
+      "Just {xp_left} until I become {next_stage}.",
+      "Only {xp_left} to reach {next_stage}.",
+      "We need {xp_left} to grow into {next_stage}.",
+      "Another {xp_left} makes me {next_stage}.",
+      "We are {xp_left} shy of {next_stage}.",
+      "A mere {xp_left} to be {next_stage}.",
+      "Soon I will be {next_stage} with {xp_left}.",
+      "Waiting on {xp_left} for {next_stage}."
+    ],
+    "guide": [
+      "Our book holds {guide}.",
+      "We have marked {guide} total.",
+      "Pages show {guide} so far.",
+      "Logged {guide} in the archives.",
+      "Our record stands at {guide}.",
+      "We know {guide} across the hills.",
+      "The ledger reads {guide}.",
+      "Noted {guide} in our travels."
+    ],
+    "encourage": [
+      "Any pace is the right pace.",
+      "Small rocks are worth a look.",
+      "The trail stays quiet right here.",
+      "A new path waits just over there.",
+      "Bring a friend if you like company.",
+      "Shoulders drop when we climb.",
+      "The grass is soft enough to sit."
     ]
   }
 }

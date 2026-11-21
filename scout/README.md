@@ -173,7 +173,8 @@ python3 scout/gary_lines.py                 # web/src/gary_lines.json: a line an
 - **The line pack.** `gary_lines.py` asks for one line and two facts for each
   of the 90 things, and pools of everyday lines. Read the file before you
   commit it: the first run had five facts that were wrong or doubtful, fixed
-  by hand. The page's hand-written lines still win where they exist.
+  by hand. These are Gary's lines on the page; a few hand-written ones in
+  `web/src/voice.js` are only a fallback for an empty pool.
 
 Default model `gemini-3.5-flash-lite` (under a second a call; `gemini-flash-latest`
 timed out). Set `GEMINI_MODEL` to change it. A refused key, a missing model or
