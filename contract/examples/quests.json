@@ -11,7 +11,9 @@
       "herd": false,
       "source": "seed",
       "source_url": null,
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.0096,
+      "lng": -81.2737
     },
     {
       "id": "q-demo-backpack",
@@ -24,7 +26,9 @@
       "herd": true,
       "source": "seed",
       "source_url": null,
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.0096,
+      "lng": -81.2737
     },
     {
       "id": "q-harris-bench",
@@ -37,7 +41,9 @@
       "herd": false,
       "source": "seed",
       "source_url": null,
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.9862,
+      "lng": -81.2563
     }
   ]
 }

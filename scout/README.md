@@ -99,7 +99,13 @@ venue as the name.
    the agent's browser live.
 3. Finds the list of places in the reply, whatever shape the agent chose.
 4. Turns each place into a quest (below) and checks it.
-5. Writes the run to `runs.jsonl`, saves the quests to `cached_quests.json`,
+5. Looks up where each place is on OpenStreetMap (Nominatim: the agent's
+   street address if it gave one, else the name, inside a box round London;
+   one request a second). The quest gets `lat`/`lng`, and the web page can
+   tell when you are really there. A place it cannot find keeps its quest,
+   with no position. `--no-geocode` (or `GARY_NO_GEOCODE=1`) skips this;
+   `--cached` looks up any saved quest that has no position yet, once.
+6. Writes the run to `runs.jsonl`, saves the quests to `cached_quests.json`,
    and posts them to `POST /api/quests`.
 
 ## From a place to a quest

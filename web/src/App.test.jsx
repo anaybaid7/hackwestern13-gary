@@ -94,7 +94,7 @@ describe('what changed between two states', () => {
     const quest = whatChanged(step(2), step(3)) // the bicycle at Springbank Park
     expect(quest.find.label).toBe('bicycle')
     expect(quest.cleared).toEqual(['Springbank Park'])
-    expect(quest.messages).toEqual(['New find: bicycle. +20 XP.', 'The fog lifted over Springbank Park.'])
+    expect(quest.messages).toEqual(['New find: bicycle. +30 XP.', 'The fog lifted over Springbank Park.'])
 
     const herd = whatChanged(step(4), step(5)) // the dog, with a friend: the kid becomes a scrambler
     expect(herd.stageUp).toBe(true)
@@ -124,7 +124,7 @@ describe('the page', () => {
   test('draws the state, then celebrates what arrives', async () => {
     const service = fakeService(step(4))
     const { container } = render(<Shell service={service} pollMs={20} askCheckIn={false} />)
-    expect(await screen.findByText('30 XP · 30 to Scrambler')).toBeTruthy()
+    expect(await screen.findByText('40 XP · 20 to Scrambler')).toBeTruthy()
     expect(screen.getByText('Live')).toBeTruthy()
     expect(container.querySelector('.toast')).toBeNull()
 
@@ -136,7 +136,7 @@ describe('the page', () => {
     expect(within(reward).getByText('★ Gary grew: Scrambler')).toBeTruthy()
     expect(within(reward).getByText('▲ Herd up to 3rd in the cup')).toBeTruthy()
     expect(container.querySelector('.toast')).toBeNull() // the reward says it all
-    expect(screen.getByText('70 XP · 80 to Ibex')).toBeTruthy()
+    expect(screen.getByText('80 XP · 70 to Ibex')).toBeTruthy()
     expect(container.querySelector('.burst')).toBeTruthy()
     expect(container.querySelector('.gary.grew')).toBeTruthy()
     expect(container.querySelector('.nav-journal .nav-dot')).toBeTruthy() // something new in the journal
@@ -258,7 +258,7 @@ describe('the page', () => {
     await screen.findByText('Live')
     service.fail = true
     expect(await screen.findByText('Offline. Showing the last state')).toBeTruthy()
-    expect(screen.getByText('30 XP · 30 to Scrambler')).toBeTruthy()
+    expect(screen.getByText('40 XP · 20 to Scrambler')).toBeTruthy()
     service.fail = false
     expect(await screen.findByText('Live')).toBeTruthy()
   })
@@ -291,7 +291,7 @@ describe('mock mode: the same screens with no backend (issue #24)', () => {
     expect(await screen.findByText(/step 3 of 10/)).toBeTruthy()
     for (let i = 0; i < 7; i += 1) fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     expect(await screen.findByText(/step 10 of 10: Welcome back/)).toBeTruthy()
-    expect(await screen.findByText('125 XP · 25 to Ibex')).toBeTruthy()
+    expect(await screen.findByText('135 XP · 15 to Ibex')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Start again' }))
     expect(await screen.findByText(/step 1 of 10/)).toBeTruthy()
   })
@@ -308,5 +308,35 @@ describe('mock mode: the same screens with no backend (issue #24)', () => {
     fireEvent.click(await screen.findByRole('button', { name: '3: Okay' }))
     expect(await screen.findByRole('heading', { name: 'Noted' })).toBeTruthy()
     expect(screen.getByText('Demo story data')).toBeTruthy()
+  })
+})
+
+describe('Been there: the page knows you are at the quest, and says only that', () => {
+  afterEach(() => {
+    delete navigator.geolocation
+  })
+  const at = (latitude, longitude, accuracy = 20) => {
+    navigator.geolocation = {
+      watchPosition: (ok) => (ok({ coords: { latitude, longitude, accuracy } }), 1),
+      clearWatch: () => {},
+    }
+  }
+
+  test('at the place: the card says so, and the backend hears the quest id once, never a position', async () => {
+    at(43.0097, -81.2736) // a few metres from the Hack Western spot
+    const service = { ...fakeService(step(0)), postVisit: vi.fn(async () => ({ ok: true })) }
+    render(<Shell service={service} pollMs={20} askCheckIn={false} />)
+    expect(await screen.findByText(/You're here\. Sniff it now/)).toBeTruthy()
+    await new Promise((r) => setTimeout(r, 80)) // a few polls later, still once
+    expect(service.postVisit).toHaveBeenCalledTimes(1)
+    expect(service.postVisit).toHaveBeenCalledWith('q-demo-bottle')
+  })
+
+  test('far away: how far, and nothing is sent', async () => {
+    at(42.9849, -81.2453) // downtown
+    const service = { ...fakeService(step(0)), postVisit: vi.fn(async () => ({ ok: true })) }
+    render(<Shell service={service} pollMs={20} askCheckIn={false} />)
+    expect(await screen.findByText(/km from you, as the crow flies/)).toBeTruthy()
+    expect(service.postVisit).not.toHaveBeenCalled()
   })
 })

@@ -358,6 +358,7 @@ class Backend:
 def run_scout(*args, env=None):
     clean = {k: v for k, v in os.environ.items() if k not in ("TINYFISH_API_KEY", "GEMINI_API_KEY", "SCOUT_KEY", "GARY_API")}
     clean["GARY_NO_ENV_FILE"] = "1"  # never read the developer's real credentials
+    clean["GARY_NO_GEOCODE"] = "1"   # no network: OpenStreetMap is not asked
     clean.update(env or {})
     return subprocess.run([sys.executable, os.path.join(SCOUT, "scout.py")] + list(args), capture_output=True,
                           text=True, env=clean, timeout=60)
@@ -482,7 +483,7 @@ def test_main_loads_local_key_and_backend_address_before_running():
         with open(os.path.join(work, ".env"), "w", encoding="utf-8") as f:
             f.write("TINYFISH_API_KEY=test-key\nGARY_API=" + backend.api + "\n")
         output = io.StringIO()
-        with patch.object(scout, "HERE", work), patch.dict(os.environ, {}, clear=True), redirect_stdout(output):
+        with patch.object(scout, "HERE", work), patch.dict(os.environ, {"GARY_NO_GEOCODE": "1"}, clear=True), redirect_stdout(output):
             scout.main(["--one", "--sources", paths["sources.json"], "--runs", paths["runs.jsonl"],
                         "--cache", paths["cached_quests.json"], "--tinyfish-url", tinyfish.url])
         assert len(tinyfish.calls) == 1 and tinyfish.calls[0]["key"] == "test-key"
@@ -719,6 +720,38 @@ def test_no_file_here_hides_a_python_module():
     for name in os.listdir(SCOUT):
         if name.endswith(".py"):
             assert name[:-3] not in getattr(sys, "stdlib_module_names", ()), name
+
+
+def test_geocode_reads_where_a_place_is_and_asks_by_its_address():
+    asked = []
+
+    def fetch(url):
+        asked.append(url)
+        return b'[{"lat": "42.98621", "lon": "-81.25634", "display_name": "Harris Park"}]'
+    assert scout.geocode("Harris Park", "355 Ridout St N", fetch=fetch) == (42.98621, -81.25634)
+    assert "355+Ridout+St+N%2C+London%2C+Ontario" in asked[0] and "bounded=1" in asked[0]
+    scout.geocode("Harris Park", fetch=fetch)
+    assert "Harris+Park%2C+London" in asked[1]
+
+
+def test_geocode_gives_none_when_it_cannot_say():
+    assert scout.geocode("Nowhere", fetch=lambda url: b"[]") is None
+    assert scout.geocode("Nowhere", fetch=lambda url: b"not json") is None
+
+    def down(url):
+        raise urllib.error.URLError("no network")
+    assert scout.geocode("Nowhere", fetch=down) is None
+
+
+def test_quests_carry_a_position_when_one_is_found_and_still_come_without():
+    spots = {"Harris Park": (42.9862, -81.2563)}
+    quests, _ = scout.build_quests([{"name": "Harris Park", "address": "355 Ridout St N"}, {"name": "Elsewhere"}],
+                                   PARKS, DAY, ALLOWED, limit=5, locate=lambda name, address: spots.get(name))
+    by_place = {q["place"]: q for q in quests}
+    assert (by_place["Harris Park"]["lat"], by_place["Harris Park"]["lng"]) == (42.9862, -81.2563)
+    assert "lat" not in by_place["Elsewhere"]
+    plain, _ = scout.build_quests([{"name": "Harris Park"}], PARKS, DAY, ALLOWED)
+    assert "lat" not in plain[0]
 
 
 if __name__ == "__main__":

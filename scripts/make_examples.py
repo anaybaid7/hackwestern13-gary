@@ -57,10 +57,12 @@ STORY = [
      "2026-11-21T15:01:00Z", ("POST", "/api/mood", {"phase": "before", "value": 3})),
     ("Pick a short quest", "Short or long is the only choice. Gary takes the next quest the scout found today.",
      "2026-11-21T15:02:00Z", ("POST", "/api/quest/choose", {"time": "short"})),
-    ("At Springbank Park: the Sniff Test", "One press. Gary's on-device model names a bicycle, the quest is done and the fog lifts.",
+    ("At Springbank Park: the Sniff Test", "The phone sees you are at the park and tells the backend only that. One press: "
+     "Gary's on-device model names a bicycle, the quest is done with a Been there bonus, and the fog lifts.",
      "2026-11-21T15:25:00Z",
-     ("POST", "/api/events", {"events": [sniff(1, "2026-11-21T15:25:00Z", "bicycle",
-                                               quest_id="q-2026-11-21-springbank-park-bicycle", score=0.91, latency_ms=38.0)]})),
+     [("POST", "/api/visit", {"quest_id": "q-2026-11-21-springbank-park-bicycle"}),
+      ("POST", "/api/events", {"events": [sniff(1, "2026-11-21T15:25:00Z", "bicycle",
+                                                quest_id="q-2026-11-21-springbank-park-bicycle", score=0.91, latency_ms=38.0)]})]),
     ("Something on the way", "A fire hydrant. No quest asked for it, so it goes in the field guide.",
      "2026-11-21T15:27:00Z",
      ("POST", "/api/events", {"events": [sniff(2, "2026-11-21T15:27:00Z", "fire hydrant", score=0.84, latency_ms=44.5)]})),
@@ -113,8 +115,10 @@ def build():
     steps = []
     for title, note, when, request in STORY:
         clock[0] = at(when)
-        if request:
-            call(*request)
+        calls = request if isinstance(request, list) else [request] if request else []
+        for one in calls:  # a step may make more than one call; the last is the one recorded
+            call(*one)
+        request = calls[-1] if calls else None
         steps.append({
             "title": title, "note": note, "now": when,
             "request": {"method": request[0], "path": request[1], "body": request[2]} if request else None,

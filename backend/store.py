@@ -7,6 +7,8 @@ is in use:
                    other pillars build against. A restart starts fresh.
     PostgresStore  Postgres on Tiger Data, used when DATABASE_URL is set.
                    A restart keeps Gary's state. Tables are in schema.sql.
+    SqliteStore    MemoryStore plus a SQLite file, used when GARY_DB is set and
+                   DATABASE_URL is not. For the Pi: a restart keeps Gary's state.
 
 An event here is already checked and tidied by app.py. Mood events go to their
 own private place in both stores; events() never returns them.
@@ -97,6 +99,54 @@ class MemoryStore:
 
     def close(self):
         pass
+
+
+class SqliteStore(MemoryStore):
+    """MemoryStore that also writes every event and quest to a SQLite file and
+    reads them back at start, so a restart keeps Gary's state. For the Pi,
+    where there is no Postgres driver: sqlite3 is in Python itself."""
+    kind = "sqlite"
+
+    def __init__(self, path, seed_path):
+        import sqlite3
+        self.path, self.seed_path = str(path), seed_path
+        self.db = sqlite3.connect(self.path, check_same_thread=False)  # app.py's lock serialises access
+        with self.db:
+            self.db.execute("CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, id TEXT UNIQUE, body TEXT NOT NULL)")
+            self.db.execute("CREATE TABLE IF NOT EXISTS quests (seq INTEGER PRIMARY KEY, id TEXT UNIQUE, body TEXT NOT NULL)")
+        self._events, self._ids, self._moods = [], set(), []
+        # replay in arrival order; mood rows go back to their private list
+        super().add([json.loads(b) for (b,) in self.db.execute("SELECT body FROM events ORDER BY seq")])
+        self._quests = [json.loads(b) for (b,) in self.db.execute("SELECT body FROM quests ORDER BY seq")]
+        if not self._quests:
+            for quest in load_seed(seed_path):
+                self.put_quest(quest)
+
+    def reset(self, keep_quests=False):
+        with self.db:
+            self.db.execute("DELETE FROM events")
+            if not (keep_quests and self._quests):
+                self.db.execute("DELETE FROM quests")
+        super().reset(keep_quests)
+
+    def add(self, events):
+        new = super().add(events)
+        with self.db:
+            self.db.executemany("INSERT OR IGNORE INTO events (id, body) VALUES (?, ?)",
+                                [(e["id"], json.dumps(e)) for e in new])
+        return new
+
+    def put_quest(self, quest):
+        super().put_quest(quest)
+        with self.db:  # an upsert keeps seq, so a replaced quest keeps its place
+            self.db.execute("INSERT INTO quests (id, body) VALUES (?, ?) "
+                            "ON CONFLICT (id) DO UPDATE SET body = excluded.body", (quest["id"], json.dumps(quest)))
+
+    def info(self):
+        return {"store": "sqlite"}
+
+    def close(self):
+        self.db.close()
 
 
 def _retry(method):
@@ -300,8 +350,11 @@ class PostgresStore:
 
 
 def make_store(seed_path):
-    """Postgres when DATABASE_URL is set, memory otherwise."""
+    """Postgres when DATABASE_URL is set, else SQLite when GARY_DB is, else memory."""
     url = os.environ.get("DATABASE_URL", "").strip()
     if url:
         return PostgresStore(url, seed_path)
+    db = os.environ.get("GARY_DB", "").strip()
+    if db:
+        return SqliteStore(db, seed_path)
     return MemoryStore(seed_path)

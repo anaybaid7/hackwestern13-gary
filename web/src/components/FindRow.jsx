@@ -12,6 +12,7 @@ export default function FindRow({ entry, fresh = false }) {
           {entry.new && <span className="mark mark-new">new</span>}
           {entry.friend && <span className="mark mark-herd">Herd</span>}
           {entry.quest_id && <span className="mark mark-quest">quest</span>}
+          {entry.been_there && <span className="mark mark-there">📍 Been there</span>}
         </p>
         <p className="find-small">
           {clock(entry.ts)}

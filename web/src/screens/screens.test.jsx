@@ -12,7 +12,7 @@ import MapScreen from './MapScreen.jsx'
 import Settings from './Settings.jsx'
 import You, { suggestPhase } from './You.jsx'
 import CheckIn from '../components/CheckIn.jsx'
-import { LONDON, away, layout, metresBetween, placeKey } from '../places.js'
+import { LONDON, away, isNear, layout, metresBetween, placeKey, realSpot } from '../places.js'
 
 afterEach(cleanup)
 
@@ -55,7 +55,7 @@ describe('Gary (issue #25)', () => {
     cleanup()
     render(<Home state={step(7)} flash={NO_FLASH} now={at(story.steps[7].now)} />)
     expect(screen.getByAltText('Gary the goat, Scrambler, napping')).toBeTruthy()
-    expect(screen.getByText('70 XP · 80 to Ibex')).toBeTruthy()
+    expect(screen.getByText('80 XP · 70 to Ibex')).toBeTruthy()
   })
 
   test('the top of the mountain and an empty quest list do not break the page', () => {
@@ -281,6 +281,23 @@ describe('Map (issue #26)', () => {
 })
 
 describe('Where places sit on the map', () => {
+  test('a real spot comes from the quest, then the known places, and never a made-up one', () => {
+    expect(realSpot({ place: 'Nowhere Park', lat: 42.9, lng: -81.2 })).toEqual([42.9, -81.2])
+    expect(realSpot({ place: 'Harris Park' })).toEqual([42.9862, -81.2563])
+    expect(realSpot({ place: 'Nowhere Park' })).toBeNull()
+    expect(realSpot(null)).toBeNull()
+    expect(layout(['Nowhere Park'], { 'Nowhere Park': [42.9, -81.2] }).get('Nowhere Park')).toEqual([42.9, -81.2])
+  })
+
+  test('"at the place" allows for a rough fix, but not an endless one', () => {
+    const park = [42.9862, -81.2563]
+    expect(isNear([42.9866, -81.2563], 10, park)).toBe(true) // about 45 m
+    expect(isNear([42.9892, -81.2563], 10, park)).toBe(false) // about 330 m, a sharp fix
+    expect(isNear([42.9892, -81.2563], 400, park)).toBe(true) // the same, from rough Wi-Fi
+    expect(isNear([42.9952, -81.2563], 5000, park)).toBe(false) // a kilometre off: too rough to say
+    expect(isNear(null, 10, park)).toBe(false)
+  })
+
   test('known places by name, spelled any way, the same spot every time', () => {
     const spots = layout(['Harris Park', 'Hack Western, your table', 'Hack Western, the next table'])
     expect(spots.get('Harris Park')).toEqual([42.9862, -81.2563])

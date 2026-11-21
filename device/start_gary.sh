@@ -1,20 +1,22 @@
 #!/bin/sh
 # start_gary.sh - run Gary as a field device: no keyboard, no screen.
 #
-# Starts three programs in the background. They keep running after you log
-# out, and Gary is started again if he ever stops.
+# Starts the programs below in the background. They keep running after you
+# log out, and Gary is started again if he ever stops.
 #
 #   Gary        the camera, the model and the Sniff Test
 #   sync.py     uploads the journal, fetches quests (only if GARY_API is set)
 #   gary_io.py  the button and the buzzer
+#   backend     the API and the web page, on this device (only if GARY_BACKEND
+#               is set). Gary's state is kept in gary.db, so a reboot keeps it
 #
 #   sh start_gary.sh            start whatever is not running yet
 #   sh start_gary.sh --fresh    stop, set the old journal aside, start: a clean run
 #   sh start_gary.sh status     what is running, and Gary's last lines
-#   sh start_gary.sh stop       stop all three (the same as: sh stop_gary.sh)
+#   sh start_gary.sh stop       stop them all (the same as: sh stop_gary.sh)
 #
 # Settings: gary.env beside this script (copy gary.env.example and edit it).
-# Logs: logs/gary.log, logs/sync.log, logs/io.log.
+# Logs: logs/gary.log, logs/sync.log, logs/io.log, logs/backend.log.
 #
 # Works with the QNX build (qnx/build/gary) and, when that is absent, with the
 # Python version. Plain POSIX sh, so it runs under QNX's shell.
@@ -51,6 +53,7 @@ done
 LOOP_PID="${prefix}loop.pid"
 SYNC_PID="${prefix}sync.pid"
 IO_PID="${prefix}io.pid"
+BACKEND_PID="${prefix}backend.pid"
 
 alive() { [ -s "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
 
@@ -69,6 +72,7 @@ stop_all() {
   stop_one "$LOOP_PID" "Gary"
   stop_one "$IO_PID" "button and buzzer"
   stop_one "$SYNC_PID" "sync"
+  stop_one "$BACKEND_PID" "backend"
   if [ "$was_looping" = yes ]; then
     # Give Gary a moment to finish: he writes latency.csv and removes gary.pid.
     n=0
@@ -104,6 +108,12 @@ status() {
     echo "sync: off (GARY_API is not set in gary.env). Sniffs are kept in journal.jsonl"
   else
     echo "sync: not running"
+  fi
+  if alive "$BACKEND_PID"; then
+    echo "backend: up, on port ${GARY_BACKEND_PORT:-8800}"
+  elif [ -n "${GARY_BACKEND:-}" ]; then
+    echo "backend: not running. Last line of logs/backend.log:"
+    tail -n 1 logs/backend.log 2>/dev/null | sed 's/^/    /'
   fi
   if [ -f journal.jsonl ]; then
     echo "journal: $(wc -l < journal.jsonl | tr -d ' ') lines"
@@ -181,6 +191,30 @@ else
   ) &
   echo $! > "$IO_PID"
   echo "button and buzzer: starting (button GPIO$GARY_BUTTON_PIN, buzzer GPIO$GARY_BUZZER_PIN)"
+fi
+
+# The backend on this device: GARY_BACKEND is the folder that holds app.py.
+if [ -z "${GARY_BACKEND:-}" ]; then
+  :
+elif alive "$BACKEND_PID"; then
+  echo "backend: already running"
+else
+  py="$GARY_PYTHON"
+  [ -x venv/bin/python3 ] && py="venv/bin/python3"   # where uvicorn and fastapi are installed
+  (
+    trap '' HUP
+    GARY_DB="${GARY_DB:-$DIR/gary.db}"
+    export GARY_DB
+    if [ -n "${GARY_LIVE:-}" ]; then  # the live view at /live/
+      GARY_LIVE_DIR="$DIR/$(dirname "$GARY_LIVE")"
+      mkdir -p "$GARY_LIVE_DIR" && cp qnx/live.html "$GARY_LIVE_DIR/index.html"
+      export GARY_LIVE_DIR
+    fi
+    exec $py -m uvicorn app:app --app-dir "$GARY_BACKEND" --host 0.0.0.0 \
+      --port "${GARY_BACKEND_PORT:-8800}" < /dev/null >> logs/backend.log 2>&1
+  ) &
+  echo $! > "$BACKEND_PID"
+  echo "backend: starting, on port ${GARY_BACKEND_PORT:-8800}"
 fi
 
 if [ -z "${GARY_API:-}" ]; then

@@ -11,27 +11,27 @@
     "kind": "trails",
     "url": "https://www.londontourism.ca/best-of-london/hiking",
     "time": "long",
-    "goal": "This page lists hiking trails and natural areas in and around London, Ontario, each as a headline with a photo. List up to 6 trails or natural areas named on it. For each give its name and, in a few words, what the page says or shows about it. Return JSON in the form {\"places\": [{\"name\": ..., \"about\": ...}]}."
+    "goal": "This page lists hiking trails and natural areas in and around London, Ontario, each as a headline with a photo. List up to 6 trails or natural areas named on it. For each give its name and, in a few words, what the page says or shows about it. If the page gives a street address for a place, include it. Return JSON in the form {\"places\": [{\"name\": ..., \"address\": ..., \"about\": ...}]}."
   },
   {
     "name": "Upper Thames River Conservation Authority: London's natural areas",
     "kind": "trails",
     "url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
     "time": "long",
-    "goal": "This page lists the Environmentally Significant Areas (ESAs) in London, Ontario that are open to the public, each with a brochure or map. List up to 6 of them by name. For each, say in one sentence what the page offers for it and note any closure the page mentions. Return JSON in the form {\"places\": [{\"name\": ..., \"about\": ...}]}."
+    "goal": "This page lists the Environmentally Significant Areas (ESAs) in London, Ontario that are open to the public, each with a brochure or map. List up to 6 of them by name. For each, say in one sentence what the page offers for it and note any closure the page mentions. If the page gives a street address for a place, include it. Return JSON in the form {\"places\": [{\"name\": ..., \"address\": ..., \"about\": ...}]}."
   },
   {
     "name": "City of London: events",
     "kind": "events",
     "url": "https://london.ca/events",
     "time": "short",
-    "goal": "This page is the City of London, Ontario events calendar. Find up to 5 upcoming public events that people can attend in person, such as festivals, guided walks, markets or lightings. Skip council and committee meetings. For each, give the name of the venue or park where it takes place, and the event's title and date. If no venue is named for an event, skip it. Return JSON in the form {\"places\": [{\"name\": <venue or park>, \"about\": <event title and date>}]}."
+    "goal": "This page is the City of London, Ontario events calendar. Find up to 5 upcoming public events that people can attend in person, such as festivals, guided walks, markets or lightings. Skip council and committee meetings. For each, give the name of the venue or park where it takes place, and the event's title and date. If no venue is named for an event, skip it. If the page gives the venue's street address, include it. Return JSON in the form {\"places\": [{\"name\": <venue or park>, \"address\": <street address or null>, \"about\": <event title and date>}]}."
   },
   {
     "name": "Tourism London: events this week",
     "kind": "events",
     "url": "https://www.londontourism.ca/events",
     "time": "short",
-    "goal": "This page lists events in London, Ontario. Look at the events happening this week. Find up to 5 that take place outdoors or in a public venue such as a park, a market or a square. For each, give the name of the venue, and the event's title and date. Return JSON in the form {\"places\": [{\"name\": <venue>, \"about\": <event title and date>}]}."
+    "goal": "This page lists events in London, Ontario. Look at the events happening this week. Find up to 5 that take place outdoors or in a public venue such as a park, a market or a square. For each, give the name of the venue, and the event's title and date. If the page gives the venue's street address, include it. Return JSON in the form {\"places\": [{\"name\": <venue>, \"address\": <street address or null>, \"about\": <event title and date>}]}."
   }
 ]

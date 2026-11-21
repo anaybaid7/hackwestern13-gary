@@ -9,8 +9,9 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
+import { useWhereAmI } from '../whereAmI.js'
 import { clock, dayName, dayKey } from '../format.js'
-import { LONDON, away, layout } from '../places.js'
+import { LONDON, away, layout, realSpots } from '../places.js'
 
 const CLEAR_METRES = 350
 const START_ZOOM = 14
@@ -158,30 +159,13 @@ function trailOf(map, spots) {
     .map((stop) => stop.at)
 }
 
-/** Follows the browser's location while the map is open. */
-function useWhereAmI() {
-  const [me, setMe] = useState({ state: 'off', at: null, accuracy: null })
-  useEffect(() => {
-    const geo = navigator.geolocation
-    if (!geo) return undefined
-    setMe((m) => ({ ...m, state: 'asking' }))
-    const id = geo.watchPosition(
-      (pos) => setMe({ state: 'on', at: [pos.coords.latitude, pos.coords.longitude], accuracy: pos.coords.accuracy }),
-      () => setMe({ state: 'denied', at: null, accuracy: null }),
-      { enableHighAccuracy: true, maximumAge: 10000 },
-    )
-    return () => geo.clearWatch(id)
-  }, [])
-  return me
-}
-
 export default function MapScreen({ map, flash, quest = null, focusPlace = null }) {
   const [picked, setPicked] = useState(focusPlace)
   const [streets, setStreets] = useState('loading') // 'loading' | 'on' | 'off': whether street tiles arrive
   const box = useRef(null)
   const leaflet = useRef(null)
   const me = useWhereAmI()
-  const spots = layout(map.map((tile) => tile.place))
+  const spots = layout(map.map((tile) => tile.place), realSpots(map))
   const cleared = map.filter((tile) => tile.cleared)
   const chosen = map.find((tile) => tile.place === picked) ?? null
   const questPlace = quest?.place
