@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Gary the goat, an ibex, napping">
+<title>Gary the goat, an ibex, napping</title>
+<g fill="none" stroke="#123c31" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+<path d="M36 240 Q38 178 120 172 Q202 178 204 240 Z" fill="#fdfcf8"/>
+<path d="M70 186 Q120 208 170 186 L164 208 Q120 226 76 208 Z" fill="#b8306f"/>
+<path d="M164 200 l20 12 l-22 8 z" fill="#b8306f"/>
+<g transform="rotate(-7 120 170)">
+<path d="M97 74 C 76 50, 76 22, 104 10" stroke-width="15"/>
+<path d="M97 74 C 76 50, 76 22, 104 10" stroke="#d9c79a" stroke-width="8"/>
+<path d="M143 74 C 164 50, 164 22, 136 10" stroke-width="15"/>
+<path d="M143 74 C 164 50, 164 22, 136 10" stroke="#d9c79a" stroke-width="8"/>
+<path d="M83 46 l11 -5" stroke-width="3"/>
+<path d="M84 30 l10 3" stroke-width="3"/>
+<path d="M157 46 l-11 -5" stroke-width="3"/>
+<path d="M156 30 l-10 3" stroke-width="3"/>
+<path d="M82 94 Q50 82 30 100 Q52 116 84 106 Z" fill="#fdfcf8"/>
+<path d="M158 94 Q190 82 210 100 Q188 116 156 106 Z" fill="#fdfcf8"/>
+<path d="M70 98 Q54 94 44 100 Q56 106 70 103 Z" fill="#efc4d3" stroke="none"/>
+<path d="M170 98 Q186 94 196 100 Q184 106 170 103 Z" fill="#efc4d3" stroke="none"/>
+<path d="M108 168 q12 34 24 0 z" fill="#fdfcf8"/>
+<path d="M76 80 Q120 54 164 80 Q174 124 152 160 Q120 184 88 160 Q66 124 76 80 Z" fill="#fdfcf8"/>
+<ellipse cx="120" cy="151" rx="27" ry="20" fill="#e7e2d6" stroke="none"/>
+<path d="M86 110 q11 9 22 0" stroke-width="5"/>
+<path d="M132 110 q11 9 22 0" stroke-width="5"/>
+<path d="M110 143 h20 l-10 10 z" fill="#123c31" stroke-width="3"/>
+<path d="M120 154 v6 M120 160 q-8 6 -15 1 M120 160 q8 6 15 1" stroke-width="4"/>
+</g>
+</g>
+<g fill="#123c31" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700">
+<text x="176" y="74" font-size="30">z</text><text x="198" y="50" font-size="22">z</text><text x="214" y="32" font-size="16">z</text>
+</g>
+</svg>

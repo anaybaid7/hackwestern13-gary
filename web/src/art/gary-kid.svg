@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="Gary the goat, a kid">
+<title>Gary the goat, a kid</title>
+<g fill="none" stroke="#123c31" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+<path d="M36 240 Q38 178 120 172 Q202 178 204 240 Z" fill="#fdfcf8"/>
+<g>
+<path d="M101 74 q-3 -13 3 -19" stroke-width="15"/>
+<path d="M101 74 q-3 -13 3 -19" stroke="#d9c79a" stroke-width="8"/>
+<path d="M139 74 q3 -13 -3 -19" stroke-width="15"/>
+<path d="M139 74 q3 -13 -3 -19" stroke="#d9c79a" stroke-width="8"/>
+<path d="M82 94 Q50 82 30 100 Q52 116 84 106 Z" fill="#fdfcf8"/>
+<path d="M158 94 Q190 82 210 100 Q188 116 156 106 Z" fill="#fdfcf8"/>
+<path d="M70 98 Q54 94 44 100 Q56 106 70 103 Z" fill="#efc4d3" stroke="none"/>
+<path d="M170 98 Q186 94 196 100 Q184 106 170 103 Z" fill="#efc4d3" stroke="none"/>
+<path d="M76 80 Q120 54 164 80 Q174 124 152 160 Q120 184 88 160 Q66 124 76 80 Z" fill="#fdfcf8"/>
+<ellipse cx="120" cy="151" rx="27" ry="20" fill="#e7e2d6" stroke="none"/>
+<path d="M112 66 q4 -12 8 0 q4 -12 8 0" stroke-width="4"/>
+<ellipse cx="97" cy="108" rx="11" ry="12" fill="#ffc93c" stroke-width="4"/>
+<rect x="89" y="105" width="16" height="6" rx="3" fill="#123c31" stroke="none"/>
+<ellipse cx="143" cy="108" rx="11" ry="12" fill="#ffc93c" stroke-width="4"/>
+<rect x="135" y="105" width="16" height="6" rx="3" fill="#123c31" stroke="none"/>
+<path d="M110 143 h20 l-10 10 z" fill="#123c31" stroke-width="3"/>
+<path d="M120 154 v6 M120 160 q-8 6 -15 1 M120 160 q8 6 15 1" stroke-width="4"/>
+</g>
+</g>
+</svg>
