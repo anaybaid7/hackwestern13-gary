@@ -8,8 +8,9 @@ Tasks live in the issue tracker, grouped by milestone. This page is the map.
 Press the button. Gary's on-device model names what the webcam sees (the **Sniff
 Test**). The find lands in his **discovery journal**, a patch of the
 **fog-of-war map** clears, and he earns XP and grows. A friend in the frame
-makes it **Herd Mode**. Quests come from a **TinyFish** agent reading live local
-sites. Missing a day costs nothing: Gary naps.
+makes it **Herd Mode**, and herds compete in a weekly **Herd Cup**. Quests come
+from a **TinyFish** agent reading live local sites. Missing a day costs nothing:
+Gary naps.
 
 Two parts must be real, because their tracks judge real use:
 
@@ -85,17 +86,39 @@ the Sniff Test confirm a quest. A `herd` quest completes only with a friend in f
 {"gary": {"stage": "kid", "xp": 35, "next_stage_xp": 60, "napping": false, "welcome_back": false},
  "quest": {"id": "q-12", "title": "...", "time": "short", "target": "bench", "xp": 20, "herd": false},
  "journal": [{"id": "...", "ts": "...", "label": "bench", "friend": true, "new": true, "quest_id": "q-12", "xp": 40}],
- "map": {"size": 25, "cleared": [3, 7, 12]},
- "herd": {"badges": ["first-herd"], "shared": 2}}
+ "guide": {"total": 80, "found": ["bench", "dog"]},
+ "map": [{"place": "Harris Park", "quest_id": "q-12", "cleared": true},
+         {"place": "Gibbons Park", "quest_id": "q-13", "cleared": false}],
+ "herd": {"badges": ["first-herd"], "shared": 2,
+          "cup": {"week": "2026-W47", "rank": 2,
+                  "table": [{"herd": "Cliff Hangers", "score": 9},
+                            {"herd": "Your herd", "score": 7, "you": true}]}}}
 ```
 
 **Private**: `POST /api/mood` and `GET /api/wellness`. Mood never appears in
 `/api/state` or in anything a friend could see.
 
-Starting rules, owned by B in one file: new discovery 10 XP, repeat 2 XP, quest
-20 XP (short) or 40 XP (long), friend in frame doubles that sniff, welcome-back
-bonus 15 XP. Stages at 0, 60, 150, 300 XP. Map is 5 × 5: a new discovery clears
-one tile, a quest clears two. No penalties anywhere. Every stage is reachable solo.
+**Labels**: `contract/labels.json` lists the 80 things Gary can recognise, each
+marked outdoor or indoor. The device, the rules and the field guide all read it.
+
+Starting rules, owned by B in one file. XP follows the health goal, so the big
+rewards need a quest, the outdoors or a friend:
+
+- a quest done: 20 XP (short) or 40 XP (long)
+- the first find of an outdoor thing: 10 XP; of an indoor thing: 2 XP
+- a thing Gary has seen before: 1 XP
+- a friend in frame doubles that sniff; the welcome-back bonus is 15 XP
+- stages at 0, 60, 150 and 300 XP
+
+Three things to collect, none of them a bare number:
+
+- **Field guide.** The journal shows all 80 things, found or still locked.
+- **Map.** Each tile is a real place the scout found. Its fog lifts when a quest
+  there is done.
+- **Herd Cup.** Each week herds are ranked by what they did together. It resets
+  every Monday. Individuals are never ranked and last place is never shown.
+
+No penalties anywhere. Every stage is reachable solo.
 
 ## Phases
 
