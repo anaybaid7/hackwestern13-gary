@@ -66,24 +66,55 @@ export function voiceFor(changes, prev, next) {
   return clips.every((clip) => VOICE[clip]) ? clips : null
 }
 
-/** Play spoken clips one after another. Like playClip, never an error. */
-export function playVoice(names) {
-  const urls = names.map((name) => VOICE[name]).filter(Boolean)
-  if (urls.length === 0 || typeof Audio === 'undefined') return false
+// One audio player for every clip. Safari plays sound only from a player that
+// was started by a tap, so the first tap anywhere on the page starts this one
+// (unlockSound), and every clip after that reuses it.
+let player = null
+const SILENT = 'data:audio/wav;base64,UklGRrQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YZABAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA' // 50 ms of silence
+
+function shared() {
+  if (typeof Audio === 'undefined') return null
+  if (!(player instanceof Audio)) player = new Audio()
+  return player
+}
+
+function start(audio) {
+  try {
+    const playing = audio.play()
+    if (playing && playing.catch) playing.catch(() => {})
+    return true
+  } catch {
+    return false // sound is never an error
+  }
+}
+
+/** Call from a tap or key press: lets the page play Gary's clips from then on. */
+export function unlockSound() {
+  const audio = shared()
+  if (!audio || audio.unlocked) return
+  audio.unlocked = true
+  audio.src = SILENT
+  start(audio)
+}
+
+/** Play clips (urls) one after another on the shared player. */
+function playUrls(urls) {
+  const audio = shared()
+  if (!audio || urls.length === 0) return false
   let i = 0
-  const next = () => {
-    if (i >= urls.length) return
-    try {
-      const audio = new Audio(urls[i++])
-      audio.addEventListener?.('ended', next)
-      const playing = audio.play()
-      if (playing && playing.catch) playing.catch(() => {})
-    } catch {
-      // sound is never an error
+  audio.onended = () => {
+    if (i < urls.length) {
+      audio.src = urls[i++]
+      start(audio)
     }
   }
-  next()
-  return true
+  audio.src = urls[i++]
+  return start(audio)
+}
+
+/** Play spoken clips one after another. Like playClip, never an error. */
+export function playVoice(names) {
+  return playUrls(names.map((name) => VOICE[name]).filter(Boolean))
 }
 
 /**
@@ -92,12 +123,5 @@ export function playVoice(names) {
  */
 export function playClip(name) {
   const url = CLIPS[name]
-  if (!url || typeof Audio === 'undefined') return false
-  try {
-    const playing = new Audio(url).play()
-    if (playing && playing.catch) playing.catch(() => {})
-    return true
-  } catch {
-    return false
-  }
+  return url ? playUrls([url]) : false
 }

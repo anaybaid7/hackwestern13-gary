@@ -73,7 +73,7 @@ describe("Gary's sounds on the page", () => {
         this.url = url
       }
       play() {
-        played.push(this.url)
+        played.push(this.src ?? this.url)
         return Promise.reject(new Error('not allowed yet')) // a browser that has not been tapped: no crash
       }
     })

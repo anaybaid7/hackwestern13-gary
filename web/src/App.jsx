@@ -12,7 +12,7 @@ import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
-import { pickClip, playClip, playVoice, readSound, voiceFor } from './sound.js'
+import { pickClip, playClip, playVoice, readSound, unlockSound, voiceFor } from './sound.js'
 import { away, isNear, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
@@ -136,6 +136,17 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     () => service.getState().then(take, (err) => setError(String(err.message || err))),
     [service, take],
   )
+
+  // the first tap or key press lets the browser play Gary's voice (Safari needs it)
+  useEffect(() => {
+    const unlock = () => unlockSound()
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+    }
+  }, [])
 
   useEffect(() => {
     refresh()
