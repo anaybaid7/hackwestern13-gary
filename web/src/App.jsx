@@ -12,7 +12,8 @@ import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
-import { pickClip, playClip, readSound } from './sound.js'
+import { effectsFor, playSfx, unlockSfx } from './sfx.js'
+import { pickClip, playClip, playVoice, readSound, unlockSound, voiceFor } from './sound.js'
 import { away, isNear, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
@@ -21,6 +22,7 @@ import { STAGE_NAMES } from './words.js'
 
 const POLL_MS = 2000
 const FLASH_MS = 6000
+const SAY_AFTER_MS = 450 // Gary speaks once the chime has rung
 const NO_FLASH = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
 const STATUS = {
   live: 'Live',
@@ -45,7 +47,11 @@ export default function App({ service: given }) {
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
 export function whatChanged(prev, next) {
   if (!prev) return null
-  const out = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
+  const out = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, miss: false, messages: [] }
+  if (next.last_miss && next.last_miss.id !== prev.last_miss?.id) {
+    out.miss = true
+    out.messages.push('Gary could not name that one. Try a little closer.')
+  }
   const top = next.journal[0]
   if (top && top.id !== prev.journal[0]?.id && next.gary.xp > prev.gary.xp) {
     out.find = top
@@ -109,13 +115,20 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
   }, [near, questId, service])
 
   const take = useCallback((next) => {
-    const changes = whatChanged(last.current, next)
+    const prev = last.current
+    const changes = whatChanged(prev, next)
     last.current = next
     setState(next)
     setError(null)
     if (changes) {
-      const clip = pickClip(changes)
-      if (clip && readSound()) playClip(clip)
+      if (readSound()) {
+        // the effect first (a chime, a fanfare, the fog), then Gary says it
+        const effects = playSfx(effectsFor(changes))
+        const voice = voiceFor(changes, prev, next)
+        const clip = voice || effects ? null : pickClip(changes) // no voice and no effects: the old chime
+        if (voice) setTimeout(() => playVoice(voice), effects ? SAY_AFTER_MS : 0)
+        else if (clip) playClip(clip)
+      }
       if (changes.quest) setReward({ ...changes, gary: next.gary })
       setFlash(changes)
       clearTimeout(flashTimer.current)
@@ -127,6 +140,24 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     () => service.getState().then(take, (err) => setError(String(err.message || err))),
     [service, take],
   )
+
+  // the first tap or key press lets the browser play Gary's voice (Safari needs it)
+  useEffect(() => {
+    const unlock = () => {
+      unlockSound()
+      unlockSfx()
+    }
+    // and a soft tick on every button
+    const tick = (event) => event.target.closest?.('button') && readSound() && playSfx(['tap'])
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    window.addEventListener('click', tick)
+    return () => {
+      window.removeEventListener('pointerdown', unlock)
+      window.removeEventListener('keydown', unlock)
+      window.removeEventListener('click', tick)
+    }
+  }, [])
 
   useEffect(() => {
     refresh()

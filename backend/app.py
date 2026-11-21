@@ -27,6 +27,7 @@ file (or in the repo root):
 """
 import datetime as dt
 import hmac
+import mimetypes
 import os
 import re
 import threading
@@ -41,6 +42,10 @@ from fastapi.staticfiles import StaticFiles
 
 import rules
 from store import make_store
+
+# Python 3.14 calls a .wav "audio/vnd.wave", which browsers may refuse to play:
+# Gary's voice clips are served as audio/wav.
+mimetypes.add_type("audio/wav", ".wav")
 
 # QNX reports no limit for SC_IOV_MAX (-1), and Python 3.14's asyncio then fails
 # on every reply too big for one write: the page's script arrived cut short.

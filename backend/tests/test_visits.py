@@ -81,3 +81,9 @@ def test_tidbits_are_kept_as_plain_lines_three_at_most(client):
     by_id = {q["id"]: q for q in client.get("/api/quests").json()["quests"]}
     assert by_id["q-t"]["tidbits"] == ["A rare peat bog.", "Line break", "three"]
     assert by_id["q-n"]["tidbits"] == []
+
+
+def test_the_latest_miss_is_in_the_state_so_the_page_can_say_move_closer(client):
+    assert state_of(client)["last_miss"] is None
+    post(client, {"id": "m-1", "ts": "2026-11-21T05:20:00Z", "type": "miss", "friend": False})
+    assert state_of(client)["last_miss"] == {"id": "m-1", "ts": "2026-11-21T05:20:00Z"}

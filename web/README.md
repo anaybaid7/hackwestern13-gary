@@ -85,6 +85,7 @@ the handheld; on a phone it fills the screen.
 | `src/sprites.js` | Gary's 32 x 32 sprite as text: one drawing, a few edits per stage, and the napping pose |
 | `src/places.js` | Where each place is, as latitude and longitude. Unknown places get a steady spot near downtown |
 | `src/pixel.js` | Turns text drawings into SVG, and the five colours |
+| `src/sound.js` | Gary's sounds in the browser: his spoken ElevenLabs clips (`device/sounds/say_*.wav`) by the device's rule, the chimes if a clip is missing. Off in Settings |
 | `src/voice.js` | Gary's lines, a fact for each find, a quest's trail tidbit, and the one-sentence recap |
 | `src/gary_lines.json` | A line and two facts for each thing, and pools of everyday lines: written once by Gemini (`scout/gary_lines.py`), read and corrected by a person |
 | `src/things.js` | A picture for each of the 79 things |

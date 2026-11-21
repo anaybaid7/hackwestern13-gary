@@ -312,7 +312,11 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   The Pi needs no key and no network to play them. The lines are in
   `make_voice.py`; `voice_clips()` (in both versions of Gary) picks which ones
   to play. To change a line, edit it there and run `python3 make_voice.py
-  --force --only say_<clip>`. If any clip a sniff needs is missing, Gary plays
+  --force --only say_<clip>`. Intonation: the default model, `eleven_v3`, reads
+  a cue in front of each line (`[excited] Yes! You found the water bottle!`,
+  `[thoughtful] Hmm...`); the cues are `CUES` and `PREFIX_CUES` in
+  `make_voice.py`. After making them all again, set `VOICE_RATE` in
+  `web/src/sound.js` back to 1. If any clip a sniff needs is missing, Gary plays
   the chimes (`hello`, `new`, `again`, `quest`, `herd`, `nothing`, `done`)
   instead.
 - **Strictness:** the default threshold is 0.35. `--threshold 0.6` asks for more confidence. `--need 4` asks for
