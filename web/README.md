@@ -20,7 +20,7 @@ VITE_API_URL=http://localhost:8000 npm run dev    # against the real backend
 Add `?mock` to the page address for the demo story, on any device. With
 `npm run dev` only, `?api=http://host:8000` points the page at a backend
 somewhere else. The built page ignores `?api`, so that a link can never send
-someone's private check-ins to another server.
+someone's check-ins to another server.
 
 ## Mock mode and live mode (issue #24)
 
@@ -67,45 +67,53 @@ They run in the `America/Toronto` timezone wherever the machine is.
 
 ## Where things are
 
+The look is **Pocket Pixel**: a little handheld with a lime LCD, ink outlines,
+hard shadows, Silkscreen and Space Mono. On a wide screen the page sits inside
+the handheld; on a phone it fills the screen.
+
 | File | What it holds |
 | --- | --- |
-| `src/App.jsx` | The frame: asks for the state, spots what is new, the five screens |
+| `src/App.jsx` | The frame: asks for the state, spots what is new, the handheld, the five screens, the check-in pop-up |
 | `src/services/` | `index.js` (the switch), `live.js`, `mock.js`, `sample_wellness.js` (a made-up week, always labelled as demo) |
-| `src/screens/Home.jsx` | Gary, his line, the recap of the day, the quest card, the latest finds |
-| `src/screens/MapScreen.jsx` | The 5 × 5 map. Fog shows nothing; a cleared tile shows its place and, on a tap, what was found there |
-| `src/screens/Guide.jsx` | The field guide (all 79 things) and the journal |
-| `src/screens/Herd.jsx` | The friend-in-frame confirmation, the co-op quest, badges, the Herd Cup |
-| `src/screens/You.jsx` | Private: the before and after check-in and the wellness view |
-| `src/components/` | `Gary.jsx`, `Climb.jsx` (the mountain), `QuestCard.jsx`, `FindRow.jsx`, `ThingIcon.jsx`, `Tabs.jsx`, `StoryBar.jsx` |
+| `src/screens/Home.jsx` | Gary on his LCD, his line, the XP bar, today's quest, the recap |
+| `src/screens/MapScreen.jsx` | OpenStreetMap (Leaflet) under fog. Cleared places glow through; each place is a pin; your location is a dot (never sent anywhere) |
+| `src/screens/Guide.jsx` | The journal: finds, and the field guide (all 79 things), in two tabs |
+| `src/screens/Herd.jsx` | The Herd Cup (a podium and the table, herds only), Herd Mode, the co-op quest, badges |
+| `src/screens/Settings.jsx` | The check-in pop-up switch, the private wellness view (`You.jsx`), the connection, Gary's promises |
+| `src/components/` | `Gary.jsx`, `Climb.jsx` (the XP bar), `QuestCard.jsx`, `QuestDetail.jsx`, `QuestComplete.jsx`, `CheckIn.jsx`, `Nav.jsx` (with the pixel icons), `FindRow.jsx`, `ThingIcon.jsx`, `StoryBar.jsx` |
+| `src/sprites.js` | Gary's 32 x 32 sprite as text: one drawing, a few edits per stage, and the napping pose |
+| `src/places.js` | Where each place is, as latitude and longitude. Unknown places get a steady spot near downtown |
+| `src/pixel.js` | Turns text drawings into SVG, and the five colours |
 | `src/voice.js` | Gary's lines and the one-sentence recap |
 | `src/things.js` | A picture for each of the 79 things |
 | `src/words.js` | Names for stage and badge ids |
-| `src/art/` | Gary's eight images |
 | `src/styles.css` | Every style, with the colours and faces at the top |
 
 ## What to change, and where
 
-- **Gary's art.** Replace the files in `src/art/`, keeping the names:
-  `gary-kid.svg`, `gary-scrambler.svg`, `gary-ibex.svg`, `gary-summit-elder.svg`,
-  and the same four ending in `-nap.svg`. The page only swaps images.
+- **Gary's art.** `src/sprites.js`. Each character in `BASE` is one pixel;
+  the patches add horns, the scarf and the beard per stage.
+- **A place on the map.** Add its name and `[lat, lng]` to `KNOWN` in `src/places.js`.
+- **The fog.** `FOG_COLOUR` and `CLEAR_METRES` at the top of `src/screens/MapScreen.jsx`.
 - **Gary's voice.** `src/voice.js`. A line tied to a thing goes in `BY_THING`.
   Keep him dry and kind: no nagging, no guilt, nothing about missed days.
 - **A picture for a thing.** `src/things.js`. A thing with no picture shows
   its initials.
 - **Colours and type.** The variables at the top of `src/styles.css`. The faces
-  are Barlow and Barlow Condensed, bundled with the page so it looks the same
+  are Silkscreen and Space Mono, bundled with the page so it looks the same
   with no network.
 
 ## Rules this page keeps
 
 - It never computes XP, stages, ranks or which tile clears. It draws them.
-- Mood appears only on the "You" screen, from `GET /api/wellness`. Each
-  check-in can be skipped, and skipping sends nothing.
-- The "You" screen says only what is true about who can see it. If the server
-  has a passphrase (`GARY_PRIVATE_KEY`), the screen asks for it once per
-  device, shows nothing until it is right, and then says "Private". If the
-  server has none, the screen says it is not locked. The passphrase is sent
-  only with the two private calls, never with Gary's shared ones.
+- Mood appears only in Settings and in the check-in pop-up. Each check-in
+  can be skipped, and skipping sends nothing. The pop-up can be turned off.
+- The page says "Private" about the check-ins only when they are behind a
+  passphrase. If the server sets `GARY_PRIVATE_KEY`, the wellness view in
+  Settings asks for it once per device and shows nothing until it is right,
+  and a visitor without it is never shown the check-in pop-up. If the server
+  sets none, the view says "Not locked". The passphrase is sent only with the
+  two private calls (`services/live.js`), never with Gary's shared ones.
 - Seeded data is labelled where it is shown: the rival herds, the demo story,
   the sample week.
 - A quest is credited to the scout ("Found by the scout on london.ca") only

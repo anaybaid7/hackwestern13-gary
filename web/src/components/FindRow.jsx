@@ -1,6 +1,5 @@
-// One find in the journal: what, when, Gary's line, and the marks.
+// One find in the journal: what, the marks, when and where.
 import { clock } from '../format.js'
-import { lineFor } from '../voice.js'
 import ThingIcon from './ThingIcon.jsx'
 
 export default function FindRow({ entry, fresh = false }) {
@@ -14,11 +13,10 @@ export default function FindRow({ entry, fresh = false }) {
           {entry.friend && <span className="mark mark-herd">Herd</span>}
           {entry.quest_id && <span className="mark mark-quest">quest</span>}
         </p>
-        <p className="find-line">{lineFor(entry)}</p>
         <p className="find-small">
           {clock(entry.ts)}
-          {entry.place ? ` at ${entry.place}` : ''}
-          {entry.latency_ms != null && `, named on the device in ${Math.round(entry.latency_ms)} ms`}
+          {entry.place ? ` · ${entry.place}` : ''}
+          {entry.latency_ms != null && <span title="Time the device took to name it"> · {Math.round(entry.latency_ms)} ms</span>}
         </p>
       </div>
       <span className="find-xp">+{entry.xp} XP</span>

@@ -17,7 +17,7 @@ is not true by Sunday morning, change the sentence it guards (they are marked
 | `[D]` | Data is on Tiger Data | `python3 backend/check_db.py` prints "events is a hypertable on ts: yes" and "time_bucket query ...: ok" | #16 |
 | `[E]` | It is deployed on Vultr | The Vultr address serves the page | #22 |
 | `[F]` | The button and buzzer | They work on the Pi's pins | #10, #11 |
-| `[G]` | The private page is behind a passphrase | On the demo server the You tab says "Private. This page opens only with your passphrase" (`GARY_PRIVATE_KEY` is set) | #22 |
+| `[G]` | The wellness view is behind a passphrase | On the demo server the wellness view in Settings wears the "Private" chip, not "Not locked" (`GARY_PRIVATE_KEY` is set) | #22 |
 
 Fill in, wherever the text has square brackets: the video link, the repo link,
 the TinyFish post link, the Vultr address, the QNX version (`uname -r` on the
@@ -144,7 +144,7 @@ Real:
 Demo data, and labelled as such on the page:
 
 - The rival herds in the Herd Cup. Your herd's score is real; theirs are seeded.
-- The "sample week" on the wellness page, and everything in mock mode.
+- The "sample week" in the wellness view, and everything in mock mode.
 - The two table quests used on stage ("find a water bottle at your table").
 
 Limits we know about:
@@ -153,8 +153,8 @@ Limits we know about:
 - Gary has no GPS. The Sniff Test proves the thing, not the place: a quest's
   place is taken on trust.
 - There is one Gary and there are no accounts. Mood never appears in anything
-  shared, and `[G]` the private page is behind one passphrase, set on the
-  server.
+  shared, and `[G]` the wellness view in Settings is behind one passphrase,
+  set on the server.
 - "Minutes outdoors" is an estimate from sniffs, and the page says so.
 
 ## Tracks

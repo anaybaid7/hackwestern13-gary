@@ -8,13 +8,13 @@ discover new places and bring a friend. Built at Hack Western 13.
 Devpost: [link] · Demo video: [link] · TinyFish post: [link]
 
 <p>
-  <img src="docs/img/gary.png" width="23%" alt="Gary as a Scrambler, his line about a dog, his climb, and the quest sign">
-  <img src="docs/img/map.png" width="23%" alt="The map: two real places uncovered, the rest in fog">
-  <img src="docs/img/guide.png" width="23%" alt="The field guide: 3 of 79 things found, the rest as grey shapes">
-  <img src="docs/img/herd.png" width="23%" alt="The herd page: a quest for two and the badges earned together">
+  <img src="docs/img/home.png" width="23%" alt="Home: Gary as a Scrambler on a lime screen, his line about a dog, his XP bar, and today's quest">
+  <img src="docs/img/map.png" width="23%" alt="Map: London's streets under fog, with pins for quest places and a clearing over Gibbons Park">
+  <img src="docs/img/journal.png" width="23%" alt="Journal: today's three finds, each with its marks, place, time and XP">
+  <img src="docs/img/cup.png" width="23%" alt="Cup: the Herd Cup podium and table, with your herd in third place">
 </p>
 
-The web page in its demo story mode. The goat is stand-in art.
+The web page in its demo story mode.
 
 ## What it does
 
@@ -89,12 +89,12 @@ Everything, checked: `sh scripts/check_all.sh`.
   all computed by the backend from the device's events. Quests marked "Found
   by the scout" come from a live TinyFish run; `scout/EVIDENCE.md` lists the runs.
 - **Demo data, and labelled on the page:** the rival herds in the Herd Cup, the
-  sample week on the private page, the demo story, and the built-in table
+  sample week in the wellness view, the demo story, and the built-in table
   quests.
 - **Limits:** Gary recognises 79 everyday things. He has no GPS, so the Sniff
   Test proves the thing and the quest's place is taken on trust. There is one
-  Gary and there are no accounts: the private page opens with one passphrase,
-  set on the server.
+  Gary and there are no accounts: the wellness view in Settings opens with one
+  passphrase, set on the server.
 
 ## What has run where
 
@@ -120,5 +120,6 @@ Update this table as each row is done.
 
 - Object detector, label list and test photos: [google-coral/test_data](https://github.com/google-coral/test_data) (Apache-2.0).
 - Camera wrapper and build recipe on QNX: [qnx/QNX-AI-workshop](https://github.com/qnx/QNX-AI-workshop) (Apache-2.0).
-- Typeface: Barlow and Barlow Condensed (SIL Open Font License), through Fontsource.
+- Typefaces: Silkscreen and Space Mono (SIL Open Font License), through Fontsource.
+- Map: [Leaflet](https://leafletjs.com) (BSD 2-Clause), with street tiles and data from [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
 - [How the team used AI coding tools.]

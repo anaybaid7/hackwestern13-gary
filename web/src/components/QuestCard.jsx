@@ -1,68 +1,92 @@
-// The quest on the card, drawn as a trail sign, with the short or long
-// choice under it (issue #28).
-import { host, plural, webAddress } from '../format.js'
+// Today's quest card, with Short and Long under it (issue #28). Tap the card
+// or either button for the quest's details; start it from there. A long quest
+// is a trail walk: the scout takes those from trail and natural-area pages.
+// Where a quest came from is one chip: "Scout" only for a live agent run,
+// "Sample" or "Starter" otherwise.
+import { useState } from 'react'
+import { host, webAddress } from '../format.js'
+import QuestDetail from './QuestDetail.jsx'
 
-export default function QuestCard({ quest, choice, options = {}, open = 0, onChoose, busy = false }) {
+const MINUTES = { short: 15, long: 40 }
+
+export default function QuestCard({ quest, choice, options = {}, onChoose, onShowMap, busy = false }) {
+  const [open, setOpen] = useState(null) // the quest whose details are showing
+
+  async function start(time) {
+    await onChoose?.(time)
+    setOpen(null)
+  }
+
   return (
     <section className="quest" aria-labelledby="quest-title">
       {quest ? (
-        <>
-          <div className={`sign${quest.herd ? ' sign-herd' : ''}`}>
-            <p className="sign-top">{choice ? `Your ${choice} quest` : "Today's quest"}</p>
-            <h3 id="quest-title">{quest.title}</h3>
-            <p className="sign-facts">
-              At {quest.place}. Sniff {aThing(quest.target)}
-              {quest.minutes ? `, about ${quest.minutes} minutes` : ''}. Worth {quest.xp} XP.
-            </p>
-            {quest.herd && <p className="sign-herd-note">Needs a friend in the frame.</p>}
-            {quest.note && <p className="sign-note">{quest.note}</p>}
-          </div>
-          <p className="source">
-            {quest.source === 'tinyfish' && webAddress(quest.source_url) ? (
-              <>
-                Found by the scout on <a href={quest.source_url}>{host(quest.source_url)}</a>.
-              </>
-            ) : quest.source === 'tinyfish' ? (
-              'Found by the scout.'
-            ) : quest.source === 'sample' ? (
-              'A sample quest, written by hand. The scout did not find this one.'
-            ) : (
-              'A starter quest. The scout did not find this one.'
-            )}
+        <div className={`sign${quest.herd ? ' sign-herd' : ''}`}>
+          <p className="sign-top">{choice ? `Your ${choice} quest` : "Today's quest"}</p>
+          <h3 id="quest-title">
+            <button type="button" className="sign-open" onClick={() => setOpen(quest)}>
+              {quest.title}
+            </button>
+          </h3>
+          <p className="sign-facts">📍 {quest.place}</p>
+          <p className="chips">
+            <span className="chip chip-xp">+{quest.xp} XP</span>
+            {quest.time === 'long' && <span className="chip chip-trail">Trail</span>}
+            <span className="chip chip-herd">{quest.herd ? 'Needs a friend' : 'Herd x2'}</span>
+            <Source quest={quest} />
           </p>
-        </>
+        </div>
       ) : (
         <div className="sign sign-done">
-          <h3 id="quest-title">Every quest is done</h3>
-          <p className="sign-facts">The scout brings more tomorrow. Gary will sniff anything in the meantime.</p>
+          <h3 id="quest-title">All quests done</h3>
+          <p className="sign-facts">More tomorrow.</p>
         </div>
       )}
 
-      <div className="choice" role="group" aria-label="Pick a quest by how long you have">
+      <div className="choice" role="group" aria-label="Short or long quests">
         {['short', 'long'].map((time) => (
           <button
             key={time}
             type="button"
             className="choice-button"
             aria-pressed={choice === time}
-            disabled={busy || !options?.[time]}
-            onClick={() => onChoose?.(time)}
+            disabled={!options?.[time]}
+            onClick={() => setOpen(options[time])}
           >
             <span className="choice-name">{time === 'short' ? 'Short' : 'Long'}</span>
             <span className="choice-detail">
-              {options?.[time] ? `about ${options[time].minutes ?? (time === 'short' ? 15 : 40)} minutes` : 'none open'}
+              {options?.[time] ? `${options[time].minutes ?? MINUTES[time]} min${time === 'long' ? ' trail' : ''}` : 'none open'}
             </span>
           </button>
         ))}
       </div>
-      <p className="hint">
-        {choice ? 'Press the same button again for a different quest.' : 'Pick how long you have.'}{' '}
-        {open > 0 && `${plural(open, 'quest')} open.`}
-      </p>
+
+      {open && (
+        <QuestDetail
+          quest={open}
+          active={Boolean(quest && open.id === quest.id && choice === open.time)}
+          busy={busy}
+          onStart={() => start(open.time)}
+          onAnother={() => start(open.time)}
+          onShowMap={() => {
+            setOpen(null)
+            onShowMap?.(open.place)
+          }}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </section>
   )
 }
 
-function aThing(target) {
-  return `${/^[aeiou]/.test(target) ? 'an' : 'a'} ${target}`
+function Source({ quest }) {
+  if (quest.source === 'tinyfish') {
+    return webAddress(quest.source_url) ? (
+      <a className="chip chip-source" href={quest.source_url} title={`Found by the scout on ${host(quest.source_url)}`}>
+        Scout · {host(quest.source_url)}
+      </a>
+    ) : (
+      <span className="chip chip-source">Scout</span>
+    )
+  }
+  return <span className="chip chip-plain">{quest.source === 'sample' ? 'Sample' : 'Starter'}</span>
 }

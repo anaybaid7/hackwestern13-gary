@@ -1,5 +1,10 @@
 # Runbook: from now to the submission
 
+> **Partly out of date since the Pocket Pixel redesign (pull request #48).**
+> Where this page names a tab or a tap ("the You tab"), it means the old
+> layout: the private view is now in Settings. The order of the work, the
+> commands and the fallbacks still hold. To be updated once the page is final.
+
 Issues #38 (freeze and rehearsal), #39 (fallbacks) and #40 (submit).
 Hacking ends **Sun 22 Nov, 9:00 am**.
 

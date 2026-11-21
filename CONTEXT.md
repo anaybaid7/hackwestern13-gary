@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 9:20 am, with the Phase 6 pull request (#47).
+Last updated: Sat 21 Nov 2026, 9:43 am, when the Phase 6 pull request (#47) was merged with the Pocket Pixel redesign (#48).
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
 21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
@@ -60,8 +60,8 @@ running on QNX on the Pi, and the scout working on live sites.
 | #22 | Deploy on Vultr | **Code done, needs the account** | `sh backend/deploy/deploy.sh root@<ip>`. Rehearsed in a container, never run on Vultr |
 | #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
 | **Phase 4** | **Front end (C)** | | |
-| #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface are in, and every screen works in both. The prototype's own code was never in this repo, so the screens were built fresh. The team decides: keep these, or port the prototype onto them |
-| #25 | Gary: stages, naps, welcome back, his voice | **Done** | The eight images in `web/src/art/` are stand-ins an artist can replace |
+| #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
+| #25 | Gary: stages, naps, welcome back, his voice | **Done** | Gary is a 32 x 32 pixel sprite in `web/src/sprites.js`: one drawing plus a few edits per stage |
 | #26 | Fog-of-war map view | **Done** | |
 | #27 | Discovery journal and field guide | **Done** | |
 | #28 | Quest card, short or long | **Done** | |
@@ -73,7 +73,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #33 | Scout evidence for the judges | **Code done, needs the key** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. Empty until the first live run |
 | #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
 | #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Seven claims in it are marked `[A]` to `[G]`: each is true only when its issue is closed |
-| #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. The video needs the real device |
+| #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. Its tabs and taps describe the page before the Pocket Pixel redesign and are to be rewritten once the page is final. The video needs the real device |
 | #37 | Stretch: Gemini writes Gary's lines | **Code done, needs a key** | `python3 scout/scout.py --voice`. Never run against Gemini |
 | **Phase 6** | **Integration and demo** | | |
 | #38 | Feature freeze and full rehearsal | **Tools done, needs the team** | `python3 scripts/demo.py check` says what would go wrong in the demo. `replay` rehearses it with no device. The rehearsal itself needs the device and four people |
@@ -380,7 +380,8 @@ removal needs all four owners to agree, in an issue.
 - `start_gary.sh` has not run under QNX's shell, and the power-on line in
   `/usr/etc/post_startup.sh` is untested.
 - `docs/qnx-numbers.md` has no numbers in it yet.
-- The web page has not been opened on a real phone.
+- The web page has not been opened on a real phone: location on the map, pinch zoom and the fog's zoom animation are checked only in tests and headless Chrome.
+- The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work.
 
 - The hypertable step and the `time_bucket` query have never run: there was
   no TimescaleDB here. `python3 backend/check_db.py` proves them on Tiger Data.
@@ -415,6 +416,8 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 3:20 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
 | 21 Nov, 4:00 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
 | 21 Nov, 9:13 am | The private side can be locked with one passphrase (`GARY_PRIVATE_KEY`), and the page says "private" only when it is. The built page ignores `?api=`, so a link cannot send check-ins to another server. Tests never read `backend/.env`. `scripts/demo.py check` is the gate before a rehearsal or the demo |
+| 21 Nov, 9:30 am | The page is restyled as Pocket Pixel. The map is OpenStreetMap (Leaflet) under fog; place positions are hand-placed in `web/src/places.js` (presentation only, not a contract change; optional `lat`/`lng` on quests is the upgrade). The browser's location is shown on the map and never sent anywhere. The leaderboard is the Herd Cup only. A long quest is shown as a trail walk. After a quest, a reward screen, then an optional "after" check-in |
+| 21 Nov, 9:43 am | Phase 6 merged with the Pocket Pixel redesign. The passphrase form sits in the wellness view in Settings; the view wears "Private" only behind a passphrase and "Not locked" otherwise; a visitor without the passphrase is never shown the check-in pop-up. `docs/DEMO.md`, `docs/RUNBOOK.md` and the hints in `scripts/demo.py` still name the old tabs: left as they are until the page is final. Two layout rules that the new stylesheet had lost are back, in their own block: the spacing inside the wellness view (`.you`) and the small line under "Your herd" in the Cup table (`.cup-detail`). The highlight on the "Your herd" row and the rank-up animation (`.cup-row.moved`) are also gone from the stylesheet and were left for the web owner to decide |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

@@ -1,5 +1,10 @@
 # The three-minute demo
 
+> **Out of date since the Pocket Pixel redesign (pull request #48).** The tabs,
+> taps and "the screen shows" below describe the old page layout. The words,
+> the timings and the numbers still hold. To be rewritten once the page is
+> final.
+
 Issue #36. Eight beats, who does what, what to press, and what to do if a beat
 fails. Rehearse it twice on the real device before the freeze (issue #38).
 
