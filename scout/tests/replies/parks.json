@@ -1,0 +1,14 @@
+{
+  "_note": "Hand-written test data in the shape the agent is asked to return. NOT the output of a TinyFish run. It includes a closed park and a duplicate on purpose.",
+  "kind": "parks",
+  "result": {
+    "places": [
+      {"name": "Harris Park", "address": "531 Ridout St N", "about": "Riverside park downtown, open lawns and a paved path."},
+      {"name": "Gibbons Park", "address": "2A Grosvenor St", "about": "Park on the Thames with a playground and tennis courts."},
+      {"name": "Thames Park", "address": "15 Ridout St S", "about": "Pool and tennis courts. Closed for the season."},
+      {"name": "harris  park", "address": "531 Ridout St N", "about": "Listed twice on the page."},
+      {"name": "Springbank Park", "address": "1085 Commissioners Rd W", "about": "Large riverside park with gardens and picnic areas."},
+      {"name": "Greenway Off-Leash Dog Park", "address": "Greenside Ave", "about": "Fenced off-leash area for dogs."}
+    ]
+  }
+}

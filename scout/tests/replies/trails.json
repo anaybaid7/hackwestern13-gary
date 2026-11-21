@@ -1,0 +1,5 @@
+{
+  "_note": "Hand-written test data in the shape the agent is asked to return. NOT the output of a TinyFish run. The names are London's real natural areas; the descriptions are made up for the tests.",
+  "kind": "trails",
+  "result": "{\"places\": [{\"name\": \"Kains Woods ESA\", \"about\": \"Brochure available. Wooded trail along the river.\"}, {\"name\": \"Sifton Bog ESA\", \"about\": \"Brochure available. Boardwalk to the bog.\"}, {\"name\": \"Meadowlily Woods (ESA)\", \"about\": \"Brochure available. The east trail is closed by a washed out bridge.\"}, {\"name\": \"Westminster Ponds/Pond Mills ESA\", \"about\": \"Brochure available. Ponds and forest trails.\"}, {\"name\": \"Byron Valley ESA\", \"about\": \"Map only. Access through private land on the south side; no public access there.\"}]}"
+}
