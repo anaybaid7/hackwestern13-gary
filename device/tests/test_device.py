@@ -614,6 +614,44 @@ def test_a_quest_that_can_be_finished_wins_over_a_herd_quest_that_cannot():
     assert pick({"herd-bench", "solo-bench", "dog"}, {"bench": 0.9, "dog": 0.9}, True) == (None, None)
 
 
+def test_gary_says_found_not_it_or_move_closer():
+    gd = gary_device()
+    say = gd.voice_clips
+    # label, quest, completed, new, friend, any_open, all_done
+    assert say("bottle", "q", "q", True, False, False, False) == ["say_found_bottle"]
+    assert say("bird", None, None, True, False, True, False) == ["say_not_it", "say_bird"], "a quest is open"
+    assert say("bird", None, None, True, False, False, False) == ["say_bird", "say_new"], "no quest: a first find"
+    assert say("bird", None, None, False, False, False, False) == ["say_bird"]
+    assert say("bench", "q", None, False, False, True, False) == ["say_bench", "say_need_friend"], "a herd quest"
+    assert say("trash can", "q", "q", False, True, False, True) == ["say_found_trash_can", "say_herd", "say_done"]
+
+
+def test_every_clip_gary_can_ask_for_is_made_by_make_voice():
+    import wave
+    mv = load("make_voice")
+    labels = mv.read_labels()
+    made = mv.lines(labels)
+    assert "person" not in labels, "a friend is never named"
+    assert made["say_found_bottle"] == "You found the water bottle!"
+    assert made["say_apple"] == "That's an apple." and made["say_scissors"] == "Those are scissors."
+    assert made["say_nothing"].endswith("Can you move closer?")
+    for label in labels:
+        for prefix in ("say_found_", "say_"):
+            assert prefix + label.replace(" ", "_") in made, label
+    for fixed in ("say_hello", "say_nothing", "say_not_it", "say_new", "say_need_friend", "say_herd", "say_done"):
+        assert fixed in made
+    # A clip is written whole, as 16-bit mono WAV, from the PCM ElevenLabs sends.
+    folder = tempfile.mkdtemp()
+    try:
+        path = os.path.join(folder, "say_bird.wav")
+        mv.write_wav(path, b"\x00\x01" * 800)
+        with wave.open(path) as w:
+            assert (w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()) == (1, 2, mv.RATE, 800)
+        assert os.listdir(folder) == ["say_bird.wav"], "no temporary file is left behind"
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def test_yolo_output_becomes_one_box_per_thing():
     gd = gary_device()
     np = gd.np

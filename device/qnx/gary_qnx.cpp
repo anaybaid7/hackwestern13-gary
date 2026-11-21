@@ -641,6 +641,31 @@ static std::string clip_name(std::string label) {
   return label;
 }
 
+// What Gary says after a sniff, as clip names (made by make_voice.py). The
+// caller plays these only if every clip exists, and the chimes otherwise.
+// gary_device.py: voice_clips() is the same rule.
+static std::vector<std::string> voice_clips(const std::string& label, bool quest, bool completed,
+                                            bool is_new, bool friend_here, bool any_open,
+                                            bool all_done) {
+  const std::string name = clip_name(label);
+  std::vector<std::string> clips;
+  if (completed) {
+    clips.push_back("say_found_" + name);
+  } else if (quest) {  // the right thing, but a herd quest
+    clips.push_back("say_" + name);
+    clips.push_back("say_need_friend");
+  } else if (any_open) {
+    clips.push_back("say_not_it");
+    clips.push_back("say_" + name);
+  } else {
+    clips.push_back("say_" + name);
+    if (is_new) clips.push_back("say_new");
+  }
+  if (friend_here) clips.push_back("say_herd");
+  if (all_done) clips.push_back("say_done");
+  return clips;
+}
+
 // ---------------------------------------------------------------------------
 // Shared state between threads
 // ---------------------------------------------------------------------------
@@ -976,7 +1001,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  speaker.play({"hello"});
+  speaker.play({speaker.has("say_hello") ? "say_hello" : "hello"});
 
   std::map<std::string, float> confirmed;  // what Gary is sure he sees right now
   // Per-frame timings: frame-to-decision ms, model ms. Only the most recent
@@ -1023,7 +1048,7 @@ int main(int argc, char** argv) {
       ++misses;
       printf("\nSNIFF: nothing Gary can name%s.  [%.1f ms]\n",
              friend_here ? " (he does see a friend)" : "", ms);
-      speaker.play({"nothing"});
+      speaker.play({speaker.has("say_nothing") ? "say_nothing" : "nothing"});
       fflush(stdout);
       return;
     }
@@ -1082,13 +1107,21 @@ int main(int argc, char** argv) {
       line += " That quest needs a friend in frame.";
     }
     if (speaker.has(clip_name(label))) clips.push_back(clip_name(label));  // a spoken label
-    if (completed && std::all_of(quests.begin(), quests.end(),
-                                 [&](const Quest& x) { return journal.done(x.id); })) {
+    const bool all_done = completed && std::all_of(quests.begin(), quests.end(),
+                                                   [&](const Quest& x) { return journal.done(x.id); });
+    if (all_done) {
       line += " All of today's quests are done.";
       clips.push_back("done");
     }
     printf("%s  [%.1f ms]\n", line.c_str(), ms);
-    speaker.play(clips);
+    const bool any_open = std::any_of(quests.begin(), quests.end(), [&](const Quest& x) {
+      return !journal.done(x.id) && x.label != opt.friend_label;
+    });
+    const auto voiced = voice_clips(label, quest != nullptr, completed != nullptr, is_new,
+                                    friend_here, any_open, all_done);
+    const bool voiced_ready = std::all_of(voiced.begin(), voiced.end(),
+                                          [&](const std::string& c) { return speaker.has(c); });
+    speaker.play(voiced_ready ? voiced : clips);
     fflush(stdout);
   };
 
