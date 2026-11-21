@@ -42,7 +42,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #5 | `sync.py`, `fake_sniff.py` | **Done** | |
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
-| #8 | Scout: one live TinyFish run | **Partly** | Code done, and tested against a stand-in for TinyFish. The live run needs `TINYFISH_API_KEY` |
+| #8 | Scout: one live TinyFish run | **Done** | Live runs in `scout/runs.jsonl`, each with its TinyFish run id; quests reach `GET /api/quests` |
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
@@ -69,9 +69,9 @@ running on QNX on the Pi, and the scout working on live sites.
 | #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
 | #30 | Wellness view, private mood check-in | **Done** | |
 | **Phase 5** | **Scout and story (D)** | | |
-| #31 | Scout on three or more live London sites | **Code done, needs the key** | Five pages in `scout/sources.json`: parks, two for trails, two for events. One command: `python3 scout/scout.py` |
+| #31 | Scout on three or more live London sites | **Done** | 21 Nov: 5 live runs on 5 sites (london.ca parks and events, Tourism London trails and events, Upper Thames conservation areas), 12 quests accepted by the backend |
 | #32 | Scout checks | **Done** | Gary can name the target, one quest per place, nothing closed or risky, a note on where to stand. The tests need no key |
-| #33 | Scout evidence for the judges | **Code done, needs the key** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. Empty until the first live run |
+| #33 | Scout evidence for the judges | **Done** | `scout/EVIDENCE.md`, written by `python3 scout/scout.py --report` from `scout/runs.jsonl` |
 | #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
 | #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Seven claims in it are marked `[A]` to `[G]`: each is true only when its issue is closed |
 | #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. Its tabs and taps describe the page before the Pocket Pixel redesign and are to be rewritten once the page is final. The video needs the real device |

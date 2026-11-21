@@ -158,7 +158,14 @@ class PostgresStore:
                 self.conn.close()
             except Exception:
                 pass
-        self.conn = self.pg.connect(self.url, autocommit=True, connect_timeout=10)
+        # A connection the network drops without a word would otherwise make a
+        # query wait forever, holding the lock every request needs. Keepalives
+        # and tcp_user_timeout notice a dead link in about 15 s, statement_timeout
+        # caps one query at 10 s; both raise OperationalError, so _retry reconnects.
+        self.conn = self.pg.connect(
+            self.url, autocommit=True, connect_timeout=10, keepalives=1, keepalives_idle=10,
+            keepalives_interval=5, keepalives_count=3, tcp_user_timeout=15000,
+            options="-c statement_timeout=10000")
 
     def _try(self, sql):
         """Run one statement that is allowed to fail. True if it worked."""
