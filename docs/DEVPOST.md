@@ -7,7 +7,7 @@ paste" first: several sentences are only true once an open issue is closed.
 
 Each line below is a claim the page makes. Tick it only when it is true. If one
 is not true by Sunday morning, change the sentence it guards (they are marked
-`[A]` to `[F]` in the text) to say what is real.
+`[A]` to `[G]` in the text) to say what is real.
 
 | | Claim | True when | Issue |
 | --- | --- | --- | --- |
@@ -17,6 +17,7 @@ is not true by Sunday morning, change the sentence it guards (they are marked
 | `[D]` | Data is on Tiger Data | `python3 backend/check_db.py` prints "events is a hypertable on ts: yes" and "time_bucket query ...: ok" | #16 |
 | `[E]` | It is deployed on Vultr | The Vultr address serves the page | #22 |
 | `[F]` | The button and buzzer | They work on the Pi's pins | #10, #11 |
+| `[G]` | The wellness view is behind a passphrase | On the demo server the wellness view in Settings wears the "Private" chip, not "Not locked" (`GARY_PRIVATE_KEY` is set) | #22 |
 
 Fill in, wherever the text has square brackets: the video link, the repo link,
 the TinyFish post link, the Vultr address, the QNX version (`uname -r` on the
@@ -84,8 +85,9 @@ Gary is a small device with a camera and one button.
    quests complete, and your herd climbs the weekly Herd Cup. Herds compete.
    People are never ranked.
 6. **A private check-in.** Before and after an outing you can tap how you
-   feel, 1 to 5. Only you see it. The page reports what you said ("You reported
-   feeling better after 2 of 3 outings") and never claims the walk caused it.
+   feel, 1 to 5. `[G]` It sits behind a passphrase and never appears in
+   Gary's world or the herd. The page reports what you said ("You reported feeling
+   better after 2 of 3 outings") and never claims the walk caused it.
 
 Gary never punishes. There are no streaks to lose. After a quiet spell he naps,
 and the first sniff back earns a small welcome-back bonus.
@@ -142,7 +144,7 @@ Real:
 Demo data, and labelled as such on the page:
 
 - The rival herds in the Herd Cup. Your herd's score is real; theirs are seeded.
-- The "sample week" on the wellness page, and everything in mock mode.
+- The "sample week" in the wellness view, and everything in mock mode.
 - The two table quests used on stage ("find a water bottle at your table").
 
 Limits we know about:
@@ -150,8 +152,9 @@ Limits we know about:
 - Gary recognises 79 things. A bench, a dog and a bicycle, yes. A mushroom, no.
 - Gary has no GPS. The Sniff Test proves the thing, not the place: a quest's
   place is taken on trust.
-- There is one Gary and no login. Mood never appears in anything shared, but
-  the wellness page is not behind a password.
+- There is one Gary and there are no accounts. Mood never appears in anything
+  shared, and `[G]` the wellness view in Settings is behind one passphrase,
+  set on the server.
 - "Minutes outdoors" is an estimate from sniffs, and the page says so.
 
 ## Tracks
@@ -160,7 +163,8 @@ Limits we know about:
 to keep up: getting outdoors, and doing it with other people. The design
 follows the evidence above: rewards go to quests, outdoor finds and finds with
 a friend, never to raw counts, and nothing is ever taken away. The mood
-check-in is private, optional, and worded so it never diagnoses.
+check-in is kept out of everything shared, optional, and worded so it never
+diagnoses.
 
 **Most Adventurous.** The theme is "Discover the unknown". Gary's map starts
 as fog and clears one real place at a time. `[C]` The quests are real corners
@@ -208,7 +212,7 @@ over it.
 
 - A bigger vocabulary, so Gary can name a mushroom.
 - Real herds, so the Herd Cup has real rivals.
-- A login, so the private page is private by more than convention.
+- Accounts, so that each person has their own Gary and their own private page.
 
 ## Built with
 

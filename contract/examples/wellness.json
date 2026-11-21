@@ -36,5 +36,6 @@
   "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
   "finds": 1,
   "shared": 1,
-  "solo": 0
+  "solo": 0,
+  "locked": false
 }

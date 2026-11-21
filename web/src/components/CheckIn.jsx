@@ -1,6 +1,11 @@
-// The private check-in that greets you on the home screen, once per visit.
+// The check-in that greets you on the home screen, once per visit.
 // Skipping sends nothing. Turn it off in Settings. Mood never leaves the
 // private side: it goes to POST /api/mood and nowhere else.
+//
+// When the server locks the private side with a passphrase and this device
+// does not have it, the sheet does not appear at all: a visitor is never
+// asked how they feel on someone else's Gary. The owner opens the private
+// side once, in Settings. The sheet says "Private" only when it is locked.
 import { useEffect, useState } from 'react'
 import { isToday } from '../format.js'
 import { MOOD_WORDS } from '../words.js'
@@ -32,15 +37,24 @@ export function writeAsk(on) {
 }
 
 export default function CheckIn({ service, onClose, phase: fixed = null }) {
-  const [phase, setPhase] = useState(fixed)
+  const [phase, setPhase] = useState(null) // null until the private side has answered
+  const [locked, setLocked] = useState(false) // behind a passphrase, which this device has
   const [sent, setSent] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     let alive = true
-    if (!fixed) service.getWellness().then(
-      (w) => alive && setPhase(suggestPhase(w.checkins, service.now())),
-      () => alive && setPhase('before'),
+    service.getWellness().then(
+      (w) => {
+        if (!alive) return
+        setLocked(Boolean(w.locked))
+        setPhase(fixed ?? suggestPhase(w.checkins, service.now()))
+      },
+      (err) => {
+        if (!alive) return
+        if (err.locked) onClose() // locked, and no passphrase here: do not ask
+        else setPhase(fixed ?? 'before')
+      },
     )
     const onKey = (event) => event.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -63,7 +77,7 @@ export default function CheckIn({ service, onClose, phase: fixed = null }) {
   return (
     <div className="modal-backdrop">
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="checkin-modal-title">
-        <p className="modal-top">Private · skip anytime</p>
+        <p className="modal-top">{locked ? 'Private · skip anytime' : 'Skip anytime'}</p>
         {sent ? (
           <>
             <h2 id="checkin-modal-title">Noted</h2>

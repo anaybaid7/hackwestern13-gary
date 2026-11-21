@@ -50,7 +50,7 @@ export default function Settings({ service, stamp, status }) {
           <li>No photos kept. Only names of things.</li>
           <li>Friends are never identified.</li>
           <li>Herds are ranked. People never are.</li>
-          <li>Check-ins stay private.</li>
+          <li>Check-ins never show in Gary's world or the herd.</li>
         </ul>
       </section>
     </div>

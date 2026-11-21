@@ -1,6 +1,12 @@
 // The private side (issue #30): the wellness view, and a button for a
-// check-in. Private: it comes from GET /api/wellness, which is never part of
-// Gary's shared state. Every check-in can be skipped.
+// check-in. It comes from GET /api/wellness, which is never part of Gary's
+// shared state. Every check-in can be skipped.
+//
+// The view says only what is true about who can see it. When the server sets
+// a passphrase (GARY_PRIVATE_KEY) the view is locked: it asks for the
+// passphrase once per device, shows nothing until it is right, and only then
+// wears the "Private" chip. With no passphrase on the server, anyone who has
+// the page's address can open this view, and it says so.
 import { useCallback, useEffect, useState } from 'react'
 import CheckIn, { suggestPhase } from '../components/CheckIn.jsx'
 import { dayName } from '../format.js'
@@ -14,21 +20,76 @@ export default function You({ service, stamp }) {
   const [error, setError] = useState(null)
   const [checking, setChecking] = useState(false)
   const [sample, setSample] = useState(false)
+  const [locked, setLocked] = useState(false) // the server wants a passphrase this device does not have
+  const [passphrase, setPassphrase] = useState('')
+  const [wrong, setWrong] = useState(false)
 
   const load = useCallback(
     () =>
       service.getWellness().then(
         (next) => {
           setWellness(next)
+          setLocked(false)
           setError(null)
         },
-        (err) => setError(String(err.message || err)),
+        (err) => {
+          if (err.locked) {
+            setLocked(true)
+            setWellness(null)
+            setError(null)
+          } else {
+            setError(String(err.message || err))
+          }
+        },
       ),
     [service],
   )
   useEffect(() => {
     load()
   }, [load, stamp])
+
+  async function open(event) {
+    event.preventDefault()
+    try {
+      const next = await service.unlock(passphrase)
+      setWellness(next)
+      setLocked(false)
+      setWrong(false)
+      setPassphrase('')
+    } catch (err) {
+      if (err.locked) setWrong(true)
+      else setError(String(err.message || err))
+    }
+  }
+
+  function lockAgain() {
+    service.forgetKey()
+    setWellness(null)
+    setSample(false)
+    setLocked(true)
+  }
+
+  if (locked) {
+    return (
+      <div className="you">
+        <div className="you-head">
+          <h3 className="section-title">Wellness</h3>
+          <span className="chip chip-herd">🔒 Locked</span>
+        </div>
+        <form className="unlock" onSubmit={open}>
+          <p>Check-ins and this view are private. They open with a passphrase.</p>
+          <label htmlFor="passphrase">Passphrase</label>
+          <input id="passphrase" type="password" autoComplete="current-password" value={passphrase}
+                 onChange={(event) => setPassphrase(event.target.value)} />
+          <button type="submit" className="button primary" disabled={!passphrase}>
+            Open
+          </button>
+          {wrong && <p role="alert">That passphrase did not open it.</p>}
+          {error && <p role="alert">Could not reach the backend ({error}).</p>}
+        </form>
+      </div>
+    )
+  }
 
   const shown = sample ? SAMPLE_WELLNESS : wellness
   const thin = wellness && wellness.pairs.length < 2 && !wellness.demo
@@ -38,8 +99,18 @@ export default function You({ service, stamp }) {
     <div className="you">
       <div className="you-head">
         <h3 className="section-title">Wellness</h3>
-        <span className="chip chip-herd">🔒 Private</span>
+        {wellness?.locked ? (
+          <span className="chip chip-herd">🔒 Private</span>
+        ) : wellness && !wellness.demo ? (
+          <span className="chip chip-open">Not locked</span>
+        ) : null /* the demo story says "Demo story data" just below, and nothing about locks */}
       </div>
+      {wellness && !wellness.locked && !wellness.demo && (
+        <p className="small">
+          Kept out of Gary's world and the herd. But this view has no lock yet: anyone who has this page's address can
+          open it. Setting GARY_PRIVATE_KEY on the server locks it.
+        </p>
+      )}
 
       {error && <p className="empty">Could not load ({error}).</p>}
       {!shown && !error && <p className="empty">Loading.</p>}
@@ -90,6 +161,11 @@ export default function You({ service, stamp }) {
         {(thin || sample) && (
           <button type="button" className="link" onClick={() => setSample(!sample)}>
             {sample ? 'My own view' : 'Sample week'}
+          </button>
+        )}
+        {wellness?.locked && (
+          <button type="button" className="link" onClick={lockAgain}>
+            Lock on this device
           </button>
         )}
       </div>

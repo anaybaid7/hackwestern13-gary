@@ -53,6 +53,20 @@ else
   skip "end-to-end check (pip install -r backend/requirements.txt -r device/requirements.txt)"
 fi
 
+step "Demo tools: the check, the reset and the replay of docs/DEMO.md"
+if "$PY" -c "import fastapi, uvicorn" 2>/dev/null; then
+  "$PY" scripts/tests/test_demo.py || fail "demo tool tests"
+else
+  skip "demo tool tests (pip install -r backend/requirements.txt)"
+fi
+
+step "No keys or passwords in git"
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  "$PY" scripts/tests/test_check_secrets.py || fail "secrets check"
+else
+  skip "secrets check (this folder is not a git checkout)"
+fi
+
 echo
 if [ -n "$skipped" ]; then printf 'Skipped:%b\n' "$skipped"; fi
 if [ -n "$failed" ]; then
