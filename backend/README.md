@@ -95,11 +95,23 @@ The wellness view's outdoor minutes per day are one `time_bucket` query
 (`OUTDOOR_TIME_BUCKET` in `store.py`): each 10-minute block with an outdoor
 find counts as 10 minutes.
 
-**Tested on plain PostgreSQL 16, not on Tiger Data.** The hypertable step and
-the `time_bucket` query could not be run here. On a database without
-TimescaleDB the code falls back to an ordinary table and plain SQL, and says so
-in `/api/health` (`"hypertable": false`). `check_db.py` is the proof on the
-real service.
+**Verified on live Tiger Data on 21 Nov 2026**, using PostgreSQL 18.7 and
+TimescaleDB 2.32.1 on a shared development service. `check_db.py` confirmed
+the events hypertable and the `time_bucket` query. A temporary event posted
+through Gary's API survived a fresh backend process, and uploading it again
+counted once. The temporary event was removed after the check.
+
+The connection is saved in ignored `backend/.env` on the setup machine.
+Other teammates must configure their own local file; Git does not share it.
+On the Windows setup machine, use the installed virtual environment:
+
+```powershell
+.\backend\venv\Scripts\python.exe backend/check_db.py
+.\backend\venv\Scripts\python.exe -m uvicorn app:app --app-dir backend --reload --port 8000
+```
+
+On a database without TimescaleDB the code falls back to an ordinary table
+and plain SQL, and says so in `/api/health` (`"hypertable": false`).
 
 ## Deploy on Vultr (issue #22)
 
