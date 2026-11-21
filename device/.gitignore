@@ -1,0 +1,11 @@
+# Files Gary writes while he runs
+finds.jsonl
+journal.jsonl
+latency.csv
+gary.pid
+*.bak
+
+# Local builds and environments
+qnx/build/
+venv/
+__pycache__/
