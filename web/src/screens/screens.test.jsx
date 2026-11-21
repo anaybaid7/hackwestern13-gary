@@ -93,6 +93,8 @@ describe('Quest card (issue #28)', () => {
     expect(link.getAttribute('href')).toBe('https://london.ca/parks-london')
     expect(screen.getByText(/Found by the scout on/)).toBeTruthy()
     expect(screen.getByText(/6 quests open/)).toBeTruthy()
+    // the scout's line about where to stand
+    expect(screen.getByText('Any safe, accessible spot in the park counts. Stay on public paths.')).toBeTruthy()
   })
 
   test('two buttons, short and long, ask for a quest of that length', () => {
@@ -125,6 +127,28 @@ describe('Quest card (issue #28)', () => {
     render(<QuestCard quest={example.quest} choice={null} options={example.quest_options} open={2} />)
     expect(screen.getByText('A starter quest. The scout did not find this one.')).toBeTruthy()
     expect(screen.queryByText(/Found by the scout/)).toBeNull()
+  })
+
+  test('only a quest from a live agent run is credited to the scout, whatever address it carries', () => {
+    // scout.py --from-file: hand-written places, with the page a person took them from
+    const sample = { ...scoutQuest, source: 'sample' }
+    const { unmount } = render(<QuestCard quest={sample} choice={null} options={{}} open={1} />)
+    expect(screen.getByText('A sample quest, written by hand. The scout did not find this one.')).toBeTruthy()
+    expect(screen.queryByText(/Found by the scout/)).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
+    unmount()
+    // a quest someone posted by hand with an address
+    const byHand = render(<QuestCard quest={{ ...scoutQuest, source: 'manual' }} choice={null} options={{}} open={1} />)
+    expect(screen.getByText('A starter quest. The scout did not find this one.')).toBeTruthy()
+    expect(screen.queryByText(/Found by the scout/)).toBeNull()
+    byHand.unmount()
+    // the scout's quest with something that is not a web address: no link is made of it
+    for (const source_url of ['javascript:alert(1)', 'data:text/html,hello', null, 'london.ca']) {
+      const view = render(<QuestCard quest={{ ...scoutQuest, source_url }} choice={null} options={{}} open={1} />)
+      expect(screen.getByText('Found by the scout.')).toBeTruthy()
+      expect(screen.queryByRole('link')).toBeNull()
+      view.unmount()
+    }
   })
 })
 
@@ -186,11 +210,11 @@ describe('Field guide and journal (issue #27)', () => {
   })
 
   test("today's finds, newest first, with marks and the device's time; older ones under Earlier", () => {
-    const journal = step(9).journal // Sunday's bench, then Saturday's three
+    const journal = step(9).journal // Sunday's bird, then Saturday's three
     const { container } = render(<Guide guide={step(9).guide} journal={journal} now={at(story.steps[9].now)} flash={NO_FLASH} />)
     const lists = container.querySelectorAll('ul.finds')
     expect(lists.length).toBe(2)
-    expect([...lists[0].querySelectorAll('.find-label')].map((el) => el.textContent)).toEqual(['bench'])
+    expect([...lists[0].querySelectorAll('.find-label')].map((el) => el.textContent)).toEqual(['bird'])
     expect([...lists[1].querySelectorAll('.find-label')].map((el) => el.textContent)).toEqual(['dog', 'fire hydrant', 'bicycle'])
     expect(screen.getByRole('heading', { name: 'Earlier' })).toBeTruthy()
     expect(within(lists[1]).getByText('Herd')).toBeTruthy()

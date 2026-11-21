@@ -71,12 +71,12 @@ STORY = [
      "2026-11-21T16:05:00Z", ("POST", "/api/mood", {"phase": "after", "value": 4})),
     ("Sunday morning", "A night has passed. Gary is napping again. Nothing was taken away.",
      "2026-11-22T14:00:00Z", None),
-    ("Pick a long quest", "A longer walk today.",
+    ("Pick a long quest", "A longer walk today. The scout has not been out yet this morning, so Gary offers the trail it found yesterday.",
      "2026-11-22T14:10:00Z", ("POST", "/api/quest/choose", {"time": "long"})),
-    ("Welcome back", "A bench by the river at Harris Park. The first sniff after a nap earns a small welcome-back bonus.",
+    ("Welcome back", "A bird in Kains Woods. The first sniff after a nap earns a small welcome-back bonus.",
      "2026-11-22T14:40:00Z",
-     ("POST", "/api/events", {"events": [sniff(4, "2026-11-22T14:40:00Z", "bench",
-                                               quest_id="q-harris-bench", score=0.93, latency_ms=41.0)]})),
+     ("POST", "/api/events", {"events": [sniff(4, "2026-11-22T14:40:00Z", "bird",
+                                               quest_id="q-2026-11-21-kains-woods-bird", score=0.88, latency_ms=41.0)]})),
 ]
 
 

@@ -150,6 +150,9 @@ change the constant at the top and run the tests.
 - **Which quest a sniff finishes.** Any open quest whose target is the thing
   found; a herd quest also needs a friend. If several fit: the one chosen on
   the web page, then the one the device named, then the oldest.
+- **Short or long.** A press offers, in this order: the scout's quests dated
+  today, anything else added today, the scout's older quests (newest first),
+  then the built-in quests. Pressing again moves to the next one.
 - **Map.** One tile per real place, newest 25. A tile clears when a quest
   there is done, and remembers what was found.
 - **Herd Cup.** This week's quests finished with a friend, plus places
@@ -158,6 +161,16 @@ change the constant at the top and run the tests.
   People are never ranked.
 - **Wellness.** Private. Before and after check-ins are paired within one
   outing. The summary reports what the person said and never claims a cause.
+
+**What a posted quest must be.** A quest's words can come from a web page,
+through the scout, and they end up in a link on the page and in the device's
+quest file. So `app.py` cleans every quest as it arrives (`check_quest`): the
+id, title, place and note become one plain line each and are cut to a set
+length; `source_url` is kept only if it is an `http` or `https` address; `xp`
+must be between 1 and 100; and the target must be an outdoor thing Gary can
+name. A quest is marked `source: "tinyfish"` only by the scout's live runs,
+and the page says "Found by the scout" for those alone. Set `SCOUT_KEY` on the
+server so that nobody else can post quests.
 
 One limit to be honest about: **Gary has no GPS.** The Sniff Test proves the
 thing, not the place. A quest's place is taken on trust.

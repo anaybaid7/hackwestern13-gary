@@ -59,8 +59,18 @@ test('the recap is one sentence about today', () => {
   const now = new Date('2026-11-21T15:41:00Z')
   expect(recap([], now)).toBe('No finds yet today. Gary is in no hurry.')
   const state = story.steps[5].state // bicycle at Springbank Park, a fire hydrant, then a dog with a friend at Gibbons Park
+  // only the dog was found with a friend, so the sentence must not say all three were
   expect(recap(state.journal, now)).toBe(
-    'Today you and a friend found a bicycle, a fire hydrant and a dog at Springbank Park and Gibbons Park.',
+    'Today you found a bicycle, a fire hydrant and a dog, one of them with a friend, at Springbank Park and Gibbons Park.',
+  )
+  const both = state.journal.map((e) => (e.label === 'bicycle' ? { ...e, friend: true } : e))
+  expect(recap(both, now)).toMatch(/^Today you found .*, some of them with a friend, at /)
+  expect(recap(state.journal.map((e) => ({ ...e, friend: true })), now)).toMatch(/^Today you and a friend found /)
+  expect(recap(state.journal.map((e) => ({ ...e, friend: true, place: null })).slice(0, 1), now)).toBe(
+    'Today you and a friend found a dog.',
+  )
+  expect(recap(state.journal.map((e) => ({ ...e, place: null })), now)).toBe(
+    'Today you found a bicycle, a fire hydrant and a dog, one of them with a friend.',
   )
   // yesterday's finds are not today's
   expect(recap(state.journal, new Date('2026-11-22T16:00:00Z'))).toBe('No finds yet today. Gary is in no hurry.')

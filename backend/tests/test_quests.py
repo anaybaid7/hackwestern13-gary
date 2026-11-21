@@ -35,6 +35,26 @@ def test_choosing_takes_todays_scout_quests_first(client):
     assert out["state"]["quest_options"]["short"]["id"] == "q-today-1"
 
 
+def test_when_the_scout_has_not_run_today_its_older_quests_still_come_first(client, clock):
+    scout_posts(client,
+                quest("q-thu", "bird", "Kains Woods", day="2026-11-19"),
+                quest("q-sat", "bench", "Gibbons Park"),                 # dated the 21st, like the built-in quests
+                quest("q-undated", "dog", "Springbank Park", day=None))  # no day: dated the day it was posted
+    clock.set("2026-11-22T14:00:00Z")                                    # Sunday morning: nothing is dated today
+    assert state_of(client)["quest_options"]["short"]["id"] == "q-sat"
+    seen = [choose(client, "short")["quest"]["id"] for _ in range(6)]
+    # the scout's quests, newest first, then the built-in ones, then round again
+    assert seen == ["q-sat", "q-undated", "q-thu", "q-demo-bottle", "q-demo-backpack", "q-sat"], seen
+
+
+def test_built_in_quests_come_last_also_on_the_day_they_are_dated(client):
+    # The built-in quests carry a date too (the 21st, which is "today" here).
+    # A quest someone added today still comes before them, on any day.
+    scout_posts(client, quest("q-by-hand", "bench", "Gibbons Park", source="sample"))
+    seen = [choose(client, "short")["quest"]["id"] for _ in range(4)]
+    assert seen == ["q-by-hand", "q-demo-bottle", "q-demo-backpack", "q-by-hand"], seen
+
+
 def test_asking_again_moves_to_the_next_quest_and_wraps(client):
     scout_posts(client, quest("q-a", "bench", "Gibbons Park"), quest("q-b", "dog", "Springbank Park"))
     seen = [choose(client, "short")["quest"]["id"] for _ in range(5)]

@@ -73,14 +73,15 @@ only. It never decides XP.
 | Field | Meaning |
 | --- | --- |
 | `id` | Unique. Posting a known id replaces that quest, in place |
-| `title` | What Gary says: "Find a bench by the river at Harris Park" |
-| `place` | A real place. Each place is one map tile. Capitals and spacing do not matter |
+| `title` | What Gary says: "Find a bench by the river at Harris Park". One line, at most 140 characters |
+| `place` | A real place. Each place is one map tile. Capitals and spacing do not matter. At most 80 characters |
 | `time`, `minutes` | `short` or `long`, and a rough length |
 | `target` | The thing to find. **Must be a name in `labels.json`**, or the backend refuses the quest |
-| `xp` | 20 for short, 40 for long |
+| `xp` | 20 for short, 40 for long. The backend refuses anything outside 1 to 100 |
 | `herd` | `true` means it only completes with a friend in frame |
-| `source`, `source_url` | `tinyfish` and the page the agent read, or `seed` |
-| `day` | `2026-11-21`, the local day. "Today's" quests are the ones dated today |
+| `note` | Optional. One line from the scout about where to stand: "Stay on the marked trail. Any safe, accessible spot counts." |
+| `source`, `source_url` | `tinyfish` and the page the agent read: only these are shown as "Found by the scout". `seed` for the built-in quests. `sample` for hand-written places posted with `scout.py --from-file`. `source_url` must be an `http` or `https` address, or the backend drops it |
+| `day` | `2026-11-21`, the local day. "Today's" quests are the ones dated today. Short or long offers today's scout quests first, then anything else added today, then the scout's older quests (newest first), then the built-in ones |
 | `active` | Only in `GET /api/quests`: this is the quest on the card |
 
 ## State (backend → web)

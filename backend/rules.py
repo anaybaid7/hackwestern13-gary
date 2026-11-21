@@ -120,18 +120,37 @@ def pick_quest(event, quests, done, active_id=None):
 
 
 def candidates(quests, done, time, now, tz=dt.timezone.utc):
-    """Open quests of one length ("short" or "long"), best first: today's
-    scout quests, then anything else dated today, then the rest. Within each
-    group the stored order holds, so the answer is the same on every screen."""
+    """Open quests of one length ("short" or "long"), best first:
+
+      1. the scout's quests dated today
+      2. anything else dated today, except the built-in quests
+      3. the scout's older quests, newest first
+      4. the rest: the built-in ("seed") quests and older hand-made ones
+
+    A real place the scout found yesterday still beats a built-in quest, and
+    the built-in quests come last on every day, also on the day they are dated.
+    Within a group the stored order holds, so the answer is the same on every
+    screen."""
     today = local_day(now, tz)
 
-    def group(q):
-        if q.get("day") == today:
-            return 0 if q.get("source") == "tinyfish" else 1
-        return 2
+    def rank(q):
+        source = q.get("source")
+        if q.get("day") == today and source != "seed":
+            return (0 if source == "tinyfish" else 1, 0)
+        if source == "tinyfish":
+            return (2, -_day_number(q.get("day")))
+        return (3, 0)
 
     pool = [q for q in quests if q["id"] not in done and q.get("time") == time]
-    return sorted(pool, key=group)  # sorted() keeps the stored order inside a group
+    return sorted(pool, key=rank)  # sorted() keeps the stored order between equals
+
+
+def _day_number(day):
+    """"2026-11-21" -> a number that grows by one a day. 0 for anything else."""
+    try:
+        return dt.date.fromisoformat(str(day)).toordinal()
+    except ValueError:
+        return 0
 
 
 def choose(quests, done, time, now, tz=dt.timezone.utc, current_id=None):
