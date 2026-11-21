@@ -105,8 +105,10 @@ venue as the name.
 ## From a place to a quest
 
 - **The thing to find** comes from the words about the place (`TARGET_RULES`):
-  a dog park asks for a dog, a paved path for a bicycle, woods for a bird,
-  gardens for a bench. With no clue it picks from bench, bird, dog and bicycle.
+  a dog park asks for a dog, a paved path for a bicycle, woods for a tree, a
+  squirrel, a pine cone or a leaf, a pond or bog for a duck or a goose, gardens
+  for a bench. With no clue it picks from bench, tree,
+  squirrel, bird, dog and bicycle.
   The same place always gets the same thing. The rules only ask for things
   that are there in any season, so a quest can always be finished.
 - **Short or long** comes from the page: parks and events are short (about 15
@@ -122,7 +124,7 @@ printed with the reason, and recorded in `runs.jsonl`.
 
 | Check | How |
 | --- | --- |
-| Gary can name the thing | The target must be an outdoor name in `contract/labels.json` **and** in the device's own `device/models/coco_labels.txt` |
+| Gary can name the thing | The target must be an outdoor name in `contract/labels.json` **and** in the device's own `device/models/gary_labels.txt` |
 | One quest per place | Across all pages in a run. "Kains Woods ESA" and "Kains Woods" are one place |
 | Not closed, private or risky | `RISKS` in `scout.py`: closed, by permit only, no public access, construction, flooded, a quarry, a rail yard, a cancelled or sold-out event and so on |
 | It says where to stand | Every quest carries a `note`: "Stay on the marked trail. Any safe, accessible spot counts." For an event: "...outside included. No ticket needed." The web page shows it on the quest card |

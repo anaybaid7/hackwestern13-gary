@@ -611,6 +611,30 @@ def test_a_quest_that_can_be_finished_wins_over_a_herd_quest_that_cannot():
     assert pick({"herd-bench", "solo-bench", "dog"}, {"bench": 0.9, "dog": 0.9}, True) == (None, None)
 
 
+def test_yolo_output_becomes_one_box_per_thing():
+    gd = gary_device()
+    np = gd.np
+    labels = ["person", "bottle", "tree"]
+    # anchors: the same bottle twice (overlapping), a person beside it, a tree too faint
+    boxes = [[0.5, 0.5, 0.2, 0.4], [0.51, 0.5, 0.2, 0.4], [0.2, 0.5, 0.3, 0.8], [0.8, 0.2, 0.1, 0.1]]
+    scores = [[0, 0.9, 0], [0, 0.8, 0], [0.7, 0, 0], [0, 0, 0.3]]
+    out = np.array([b + s for b, s in zip(boxes, scores)], dtype=np.float32).T  # [4+K, A], as the model gives it
+    for given in (out, out.T):
+        got = gd.decode_yolo(given, labels, 0.5)
+        assert [f[0] for f in got] == ["bottle", "person"], got
+        x0, y0, x1, y1 = got[0][2]
+        assert abs(x0 - 0.4) < 1e-5 and abs(y1 - 0.7) < 1e-5, "cx, cy, w, h becomes corners"
+
+
+def test_every_thing_the_model_knows_is_in_the_contract():
+    with open(os.path.join(DEVICE, "models", "gary_labels.txt"), encoding="utf-8") as f:
+        model = [line.strip() for line in f if line.strip()]
+    with open(os.path.join(DEVICE, "..", "contract", "labels.json"), encoding="utf-8") as f:
+        doc = json.load(f)
+    assert model[0] == doc["friend"] == "person"
+    assert set(model[1:]) == {item["name"] for item in doc["labels"]}, "models/make_world.py and contract/labels.json disagree"
+
+
 def test_the_journal_survives_a_power_cut_mid_write():
     gd = gary_device()
     folder = tempfile.mkdtemp(prefix="gary-journal-")

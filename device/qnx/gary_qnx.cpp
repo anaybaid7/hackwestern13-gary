@@ -76,6 +76,7 @@
 #include "tensorflow/lite/model_builder.h"
 
 #include "rpi_cam.hpp"
+#include "yolo.hpp"  // Detection, decode_yolo
 
 #ifndef EOK
 #define EOK 0
@@ -90,15 +91,12 @@ static double ms_between(Clock::time_point a, Clock::time_point b) {
 }
 
 // ---------------------------------------------------------------------------
-// Detector: SSD-style TFLite model with the standard four outputs
-//   0 boxes [1,N,4] (ymin,xmin,ymax,xmax in 0..1)   1 classes [1,N]
-//   2 scores [1,N]                                    3 count [1]
+// Detector: a TFLite model of either kind
+//   SSD, four outputs: 0 boxes [1,N,4] (ymin,xmin,ymax,xmax in 0..1)
+//                      1 classes [1,N]   2 scores [1,N]   3 count [1]
+//   YOLO (models/make_world.py), one output [1, 4+K, A]; see yolo.hpp
+// Input [1,H,W,3] or [1,3,H,W], uint8 or float32.
 // ---------------------------------------------------------------------------
-struct Detection {
-  std::string label;
-  float score = 0.f;
-  float x0 = 0.f, y0 = 0.f, x1 = 0.f, y1 = 0.f;
-};
 
 class Detector {
  public:
@@ -131,12 +129,13 @@ class Detector {
     }
 
     const TfLiteTensor* in = interp_->input_tensor(0);
-    if (!in || !in->dims || in->dims->size != 4 || in->dims->data[3] != 3) {
-      fprintf(stderr, "error: model input is not [1,H,W,3]\n");
+    if (!in || !in->dims || in->dims->size != 4 || (in->dims->data[3] != 3 && in->dims->data[1] != 3)) {
+      fprintf(stderr, "error: model input is not [1,H,W,3] or [1,3,H,W]\n");
       return false;
     }
-    in_h = in->dims->data[1];
-    in_w = in->dims->data[2];
+    nchw_ = in->dims->data[3] != 3;
+    in_h = in->dims->data[nchw_ ? 2 : 1];
+    in_w = in->dims->data[nchw_ ? 3 : 2];
     if (in->type == kTfLiteFloat32) {
       float_input_ = true;
     } else if (in->type == kTfLiteUInt8) {
@@ -146,19 +145,31 @@ class Detector {
       return false;
     }
 
-    if (interp_->outputs().size() < 4) {
-      fprintf(stderr, "error: model does not have the 4 detection outputs\n");
+    if (interp_->outputs().size() == 1) {
+      const TfLiteTensor* o = interp_->output_tensor(0);
+      const int rows = static_cast<int>(labels_.size()) + 4;
+      if (!o || !o->dims || o->dims->size != 3 || o->type != kTfLiteFloat32 ||
+          (o->dims->data[1] != rows && o->dims->data[2] != rows)) {
+        fprintf(stderr, "error: the YOLO output does not match %s (%zu names, so %d rows)\n",
+                labels_path.c_str(), labels_.size(), rows);
+        return false;
+      }
+      yolo_ = true;
+      anchors_first_ = o->dims->data[1] != rows;
+      capacity_ = anchors_first_ ? o->dims->data[1] : o->dims->data[2];
+    } else if (interp_->outputs().size() < 4) {
+      fprintf(stderr, "error: model has neither 1 (YOLO) nor 4 (SSD) detection outputs\n");
       return false;
     }
-    const TfLiteTensor* boxes = interp_->output_tensor(0);
-    const TfLiteTensor* scores = interp_->output_tensor(2);
+    const TfLiteTensor* boxes = yolo_ ? nullptr : interp_->output_tensor(0);
+    const TfLiteTensor* scores = yolo_ ? nullptr : interp_->output_tensor(2);
     const bool boxes_ok = boxes && boxes->dims && boxes->dims->size == 3 && boxes->dims->data[2] == 4;
     const bool scores_ok = scores && scores->dims && scores->dims->size == 2;
-    if (!boxes_ok || !scores_ok) {
+    if (!yolo_ && (!boxes_ok || !scores_ok)) {
       fprintf(stderr, "error: model outputs are not in the order boxes, classes, scores, count\n");
       return false;
     }
-    capacity_ = scores->dims->data[1];
+    if (!yolo_) capacity_ = scores->dims->data[1];
     if (capacity_ <= 0) return false;
 
     // One throwaway run, so the first real frame is not slowed by lazy setup.
@@ -192,12 +203,22 @@ class Detector {
     else
       cv::resize(bgr, small, cv::Size(in_w, in_h), 0, 0, cv::INTER_LINEAR);
 
-    if (float_input_) {
+    if (float_input_ && nchw_) {
+      // [1,3,H,W]: one plane per colour, written straight into the tensor
+      float* dst = interp_->typed_input_tensor<float>(0);
+      cv::Mat rgb, scaled;
+      cv::cvtColor(small, rgb, cv::COLOR_BGR2RGB);
+      rgb.convertTo(scaled, CV_32F, yolo_ ? 1.0 / 255.0 : 1.0 / 127.5, yolo_ ? 0.0 : -1.0);
+      const size_t plane = static_cast<size_t>(in_w) * in_h;
+      std::vector<cv::Mat> planes = {cv::Mat(in_h, in_w, CV_32F, dst), cv::Mat(in_h, in_w, CV_32F, dst + plane),
+                                     cv::Mat(in_h, in_w, CV_32F, dst + 2 * plane)};
+      cv::split(scaled, planes);
+    } else if (float_input_) {
       float* dst = interp_->typed_input_tensor<float>(0);
       cv::Mat rgb;
       cv::cvtColor(small, rgb, cv::COLOR_BGR2RGB);
       cv::Mat in_mat(in_h, in_w, CV_32FC3, dst);
-      rgb.convertTo(in_mat, CV_32F, 1.0 / 127.5, -1.0);
+      rgb.convertTo(in_mat, CV_32F, yolo_ ? 1.0 / 255.0 : 1.0 / 127.5, yolo_ ? 0.0 : -1.0);
       if (in_mat.data != reinterpret_cast<uchar*>(dst))
         std::memcpy(dst, in_mat.data, static_cast<size_t>(in_w) * in_h * 3 * sizeof(float));
     } else {
@@ -210,6 +231,13 @@ class Detector {
 
     if (interp_->Invoke() != kTfLiteOk) return out;
 
+    if (yolo_) {
+      const float* raw = interp_->typed_output_tensor<float>(0);
+      if (!raw) return out;
+      for (auto& d : decode_yolo(raw, capacity_, anchors_first_, labels_, min_score))
+        if (!d.label.empty() && d.label != "n/a") out.push_back(std::move(d));
+      return out;
+    }
     const float* boxes = interp_->typed_output_tensor<float>(0);
     const float* classes = interp_->typed_output_tensor<float>(1);
     const float* scores = interp_->typed_output_tensor<float>(2);
@@ -244,7 +272,10 @@ class Detector {
   std::unique_ptr<tflite::Interpreter> interp_;
   std::vector<std::string> labels_;
   bool float_input_ = false;
-  int capacity_ = 0;
+  bool nchw_ = false;           // input [1,3,H,W] rather than [1,H,W,3]
+  bool yolo_ = false;           // one YOLO output rather than SSD's four
+  bool anchors_first_ = false;  // YOLO output [1,A,4+K] rather than [1,4+K,A]
+  int capacity_ = 0;            // SSD: boxes per run. YOLO: anchors
 };
 
 // ---------------------------------------------------------------------------
@@ -723,8 +754,8 @@ static double percentile(std::vector<double> v, double pct) {
 
 struct Options {
   int unit = 5;  // USB camera on a Raspberry Pi 5 (CAM/DISP 0 is 3, CAM/DISP 1 is 4)
-  std::string model = "models/ssd_mobilenet_v2_coco_quant_postprocess.tflite";
-  std::string labels = "models/coco_labels.txt";
+  std::string model = "models/gary_world.tflite";  // old one: models/ssd_mobilenet_v2_coco_quant_postprocess.tflite
+  std::string labels = "models/gary_labels.txt";   //          models/coco_labels.txt
   std::string quests;  // empty = quests.tsv, or quests.seed.tsv until sync.py has run
   std::string log = "journal.jsonl";
   std::string device = "gary-01";

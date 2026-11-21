@@ -23,8 +23,9 @@ While it runs
         kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 
 Files it reads
-    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite   the detector
-    models/coco_labels.txt                                 class id -> name
+    models/gary_world.tflite     the detector: YOLO-World with our own list (models/make_world.py)
+    models/gary_labels.txt       class id -> name
+    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite + coco_labels.txt   the old one, still works
     quests.tsv                                             id, target, xp, text, [herd]
                                                            (written by sync.py; until it exists,
                                                            the seed quests in quests.seed.tsv)
@@ -87,9 +88,32 @@ def _interpreter_class():
         sys.exit("No TFLite runtime found. Run: pip install ai-edge-litert")
 
 
+def decode_yolo(out, labels, min_score, iou=0.5):
+    """YOLO output [4+K, A] (or [A, 4+K]): cx, cy, w, h in 0..1, then one score
+    per class. Returns [(label, score, (x0, y0, x1, y1))], overlaps merged."""
+    if out.shape[0] != len(labels) + 4:
+        out = out.T
+    scores = out[4:]
+    cls = scores.argmax(0)
+    best = scores[cls, np.arange(scores.shape[1])]
+    keep = np.flatnonzero(best >= min_score)
+    if keep.size == 0:
+        return []
+    cx, cy, w, h = out[:4, keep]
+    boxes = np.stack([cx - w / 2, cy - h / 2, w, h], 1)
+    found = []
+    for c in np.unique(cls[keep]):  # merge overlaps within one kind of thing only
+        mine = np.flatnonzero(cls[keep] == c)
+        for j in np.array(cv2.dnn.NMSBoxes(boxes[mine].tolist(), best[keep][mine].tolist(), min_score, iou)).flatten():
+            x, y, bw, bh = boxes[mine[j]]
+            found.append((labels[c], float(best[keep][mine[j]]), (float(x), float(y), float(x + bw), float(y + bh))))
+    return sorted(found, key=lambda f: -f[1])
+
+
 class Detector:
-    """SSD-style TFLite detector with the standard 4 outputs:
-    boxes [1,N,4], classes [1,N], scores [1,N], count [1]."""
+    """A TFLite detector of either kind:
+    SSD, with the standard 4 outputs: boxes [1,N,4], classes [1,N], scores [1,N], count [1]
+    YOLO (models/make_world.py), with one output [1, 4+K, A], input NHWC or NCHW."""
 
     def __init__(self, model_path, labels_path, threads=3):
         Interpreter = _interpreter_class()
@@ -97,27 +121,43 @@ class Detector:
         self.interp.allocate_tensors()
         inp = self.interp.get_input_details()[0]
         self.in_index = inp["index"]
-        _, self.in_h, self.in_w, _ = [int(v) for v in inp["shape"]]
+        shape = [int(v) for v in inp["shape"]]
+        self.nchw = shape[1] == 3
+        self.in_h, self.in_w = shape[2:4] if self.nchw else shape[1:3]
         self.in_float = inp["dtype"] == np.float32
         outs = self.interp.get_output_details()
-        if len(outs) < 4:
-            sys.exit("Model does not have the 4 detection outputs this code expects.")
-        self.out_boxes, self.out_classes, self.out_scores, self.out_count = [
-            o["index"] for o in outs[:4]
-        ]
         with open(labels_path, "r", encoding="utf-8") as f:
             self.labels = [line.strip() for line in f]
+        self.yolo = len(outs) == 1
+        if self.yolo:
+            self.out = outs[0]["index"]
+            if len(self.labels) + 4 not in [int(v) for v in outs[0]["shape"]]:
+                sys.exit("The labels file does not match the model: %d names for output %s."
+                         % (len(self.labels), list(outs[0]["shape"])))
+        elif len(outs) < 4:
+            sys.exit("Model does not have the 4 detection outputs this code expects.")
+        else:
+            self.out_boxes, self.out_classes, self.out_scores, self.out_count = [
+                o["index"] for o in outs[:4]
+            ]
 
     def detect(self, frame_bgr, min_score=0.3):
         """Return [(label, score, (x0, y0, x1, y1))] with box values in 0..1."""
         img = cv2.resize(frame_bgr, (self.in_w, self.in_h))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if self.in_float:
-            tensor = (img.astype(np.float32) - 127.5) / 127.5
-        else:
+        if not self.in_float:
             tensor = img
-        self.interp.set_tensor(self.in_index, tensor[np.newaxis, ...])
+        elif self.yolo:
+            tensor = img.astype(np.float32) / 255.0
+        else:
+            tensor = (img.astype(np.float32) - 127.5) / 127.5
+        if self.nchw:
+            tensor = tensor.transpose(2, 0, 1)
+        self.interp.set_tensor(self.in_index, np.ascontiguousarray(tensor[np.newaxis, ...]))
         self.interp.invoke()
+        if self.yolo:
+            return [f for f in decode_yolo(self.interp.get_tensor(self.out)[0], self.labels, min_score)
+                    if f[0] not in ("n/a", "")]
         boxes = self.interp.get_tensor(self.out_boxes)[0]
         classes = self.interp.get_tensor(self.out_classes)[0]
         scores = self.interp.get_tensor(self.out_scores)[0]
@@ -450,8 +490,8 @@ def main():
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--image", help="run on one image file instead of the camera")
     ap.add_argument("--save-debug", help="with --image: save an annotated copy here")
-    ap.add_argument("--model", default=os.path.join(HERE, "models", "ssd_mobilenet_v2_coco_quant_postprocess.tflite"))
-    ap.add_argument("--labels", default=os.path.join(HERE, "models", "coco_labels.txt"))
+    ap.add_argument("--model", default=os.path.join(HERE, "models", "gary_world.tflite"))
+    ap.add_argument("--labels", default=os.path.join(HERE, "models", "gary_labels.txt"))
     ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
     ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
     ap.add_argument("--device", default="gary-01", help="name written into every journal line")

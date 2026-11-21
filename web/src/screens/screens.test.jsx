@@ -254,24 +254,24 @@ describe('Where places sit on the map', () => {
 })
 
 describe('Field guide and journal (issue #27)', () => {
-  test('all 79 things: found ones named and in colour, the rest locked silhouettes', () => {
+  test('all 104 things: found ones named and in colour, the rest locked silhouettes', () => {
     const { container } = render(<Guide guide={example.guide} journal={example.journal} now={at(example.journal[0].ts)} flash={NO_FLASH} />)
     expect(container.querySelectorAll('.specimen').length).toBe(0) // the finds tab comes first
     fireEvent.click(screen.getByRole('button', { name: 'Field guide' }))
-    expect(screen.getByText('1 of 79 found')).toBeTruthy()
-    expect(container.querySelectorAll('.specimen').length).toBe(79)
+    expect(screen.getByText('1 of 104 found')).toBeTruthy()
+    expect(container.querySelectorAll('.specimen').length).toBe(104)
     expect(container.querySelectorAll('.specimen.got').length).toBe(1)
-    expect(container.querySelectorAll('.specimen.locked').length).toBe(78)
+    expect(container.querySelectorAll('.specimen.locked').length).toBe(103)
     expect(container.querySelector('.specimen.got').textContent).toContain('bench')
-    expect(container.querySelectorAll('.specimen.locked .thing-icon.locked').length).toBe(78)
+    expect(container.querySelectorAll('.specimen.locked .thing-icon.locked').length).toBe(103)
     expect(container.querySelector('.specimen.locked').getAttribute('aria-label')).toBe('Not found yet')
-    expect(screen.getByText('1 of 33')).toBeTruthy() // outdoors
+    expect(screen.getByText('1 of 58')).toBeTruthy() // outdoors
     expect(screen.getByText('0 of 46')).toBeTruthy() // indoors
   })
 
   test('the counter comes from the state, not from counting on the page', () => {
-    render(<Guide guide={{ total: 79, found: step(9).guide.found }} journal={[]} now={at(story.steps[9].now)} flash={NO_FLASH} />)
-    expect(screen.getByText('4 of 79 found')).toBeTruthy()
+    render(<Guide guide={{ total: 104, found: step(9).guide.found }} journal={[]} now={at(story.steps[9].now)} flash={NO_FLASH} />)
+    expect(screen.getByText('4 of 104 found')).toBeTruthy()
   })
 
   test("today's finds, newest first, with marks and the device's time; older ones under Earlier", () => {

@@ -1,4 +1,4 @@
-// The 79 things Gary can recognise, each with a small picture for the field
+// The 104 things Gary can recognise, each with a small picture for the field
 // guide. The list itself comes from contract/labels.json; this file only adds
 // how to draw each one. A thing with no picture here gets its initials.
 import labels from '../../contract/labels.json'
@@ -22,6 +22,10 @@ const PICTURES = {
   'dining table': '🍽️', toilet: '🚽', tv: '📺', laptop: '💻', mouse: '🖱️', keyboard: '⌨️',
   'cell phone': '📱', toaster: '🍞', sink: '🚰', refrigerator: '🧊', book: '📖', clock: '🕰️',
   vase: '🏺', scissors: '✂️', 'teddy bear': '🧸', toothbrush: '🪥',
+  tree: '🌳', flower: '🌸', leaf: '🍂', mushroom: '🍄', rock: '🪨', 'pine cone': '🌲', squirrel: '🐿️',
+  chipmunk: '🐿️', duck: '🦆', goose: '🪿', rabbit: '🐇', deer: '🦌', butterfly: '🦋', bridge: '🌉',
+  'trail sign': '🪧', 'picnic table': '🧺', 'trash can': '🗑️', statue: '🗿', fountain: '⛲',
+  playground: '🛝', 'street lamp': '💡', mailbox: '📫', canoe: '🛶', kayak: '🛶', waterfall: '💧',
 }
 
 /** -> {kind: 'emoji' | 'svg' | 'letters', value} */

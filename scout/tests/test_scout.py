@@ -122,7 +122,7 @@ def test_targets_and_lengths_follow_the_place():
     by_place = {q["place"]: q for q in quests}
     assert by_place["Harris Park"]["target"] == "bicycle"       # "paved path"
     assert by_place["Springbank Park"]["target"] == "bench"     # "gardens and picnic areas"
-    assert by_place["Kains Woods"]["target"] == "bird"          # "wooded"
+    assert by_place["Kains Woods"]["target"] == "pine cone"     # "wooded": a trail gets a thing of the woods
     assert by_place["Kains Woods"]["time"] == "long" and by_place["Harris Park"]["time"] == "short"
     # the source's own page link is kept, so the web page can say where the scout found it
     assert by_place["Harris Park"]["source_url"] == "https://london.ca/parks-london"
@@ -135,9 +135,10 @@ def test_each_kind_of_source_makes_quests():
     assert [q["place"] for q in parks] == ["Harris Park", "Gibbons Park", "Springbank Park", "Greenway Off-Leash Dog Park"]
     assert [q["target"] for q in parks] == ["bicycle", "bench", "bench", "dog"]
     # tennis courts do not make a "sports ball" quest: in November nobody could finish it
-    assert "sports ball" not in {target for _words, target in scout.TARGET_RULES}
+    assert "sports ball" not in {t for _words, targets in scout.TARGET_RULES for t in targets}
     assert [q["place"] for q in trails] == ["Kains Woods", "Sifton Bog", "Westminster Ponds/Pond Mills"]
-    assert all(q["time"] == "long" and q["xp"] == 40 and q["target"] == "bird" for q in trails)
+    assert all(q["time"] == "long" and q["xp"] == 40 for q in trails)
+    assert [q["target"] for q in trails] == ["pine cone", "goose", "goose"], "woods and water, not a bench"
     assert [q["place"] for q in events] == ["Victoria Park", "Covent Garden Market", "Harris Park"]
     assert all(q["time"] == "short" and q["source_url"] == EVENTS["url"] for q in events)
 
@@ -165,21 +166,21 @@ def test_the_same_place_always_gets_the_same_quest():
 
 # --- the checks (issue #32) ---------------------------------------------------------
 def test_every_target_is_one_garys_model_can_name():
-    with open(os.path.join(ROOT, "device", "models", "coco_labels.txt"), "r", encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "device", "models", "gary_labels.txt"), "r", encoding="utf-8") as f:
         on_device = {line.strip() for line in f}
     assert ALLOWED and ALLOWED <= on_device, "every allowed target is in the device's own label file"
     assert "person" not in ALLOWED, "a person is the friend, never a target"
-    for words, target in scout.TARGET_RULES:
-        assert target in ALLOWED, target
+    for words, targets in scout.TARGET_RULES:
+        assert all(t in ALLOWED for t in targets), targets
     assert all(t in ALLOWED for t in scout.FALLBACK_TARGETS)
     # a place gets no quest at all if nothing recognisable is allowed
     quests, dropped = scout.build_quests([{"name": "Harris Park"}], PARKS, DAY, allowed=set())
     assert quests == [] and "recognise" in dropped[0]["why"]
     # and a quest that somehow carries a bad target is stopped at the last check
-    bad = {"id": "q-x", "title": "Find a mushroom at Harris Park", "place": "Harris Park", "target": "mushroom",
+    bad = {"id": "q-x", "title": "Find moss at Harris Park", "place": "Harris Park", "target": "moss",
            "note": scout.DEFAULT_NOTE}
     good, refused = scout.check_quests([bad], ALLOWED)
-    assert good == [] and "mushroom" in refused[0][1]
+    assert good == [] and "moss" in refused[0][1]
 
 
 def test_one_quest_per_place_even_across_sources():
