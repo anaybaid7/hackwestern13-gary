@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""e2e.py - the Phase 1 exit test, with no hardware.
+
+Runs the whole chain on this machine and checks the result:
+
+    scout (saved reply) --> backend <-- sync.py <-- device (laptop version, test photos)
+
+    pip install -r backend/requirements.txt -r device/requirements.txt
+    python3 scripts/e2e.py
+
+It starts its own backend on a free port and cleans up after itself. Nothing
+it does touches your journal, your quests or a running backend.
+"""
+import json
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PY = sys.executable
+
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def call(api, path, body=None):
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(api + path, data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as reply:
+        return json.loads(reply.read().decode("utf-8"))
+
+
+def run(cmd, cwd=ROOT):
+    out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit("FAILED: %s\n%s\n%s" % (" ".join(cmd), out.stdout[-2000:], out.stderr[-2000:]))
+    return out.stdout
+
+
+def check(what, ok, detail=""):
+    print("  %s  %s%s" % ("ok  " if ok else "FAIL", what, ("  (%s)" % detail) if detail else ""))
+    if not ok:
+        raise SystemExit("\nEnd-to-end check FAILED at: " + what)
+
+
+def main():
+    port = free_port()
+    api = "http://127.0.0.1:%d" % port
+    work = tempfile.mkdtemp(prefix="gary-e2e-")
+    journal, quests = os.path.join(work, "journal.jsonl"), os.path.join(work, "quests.tsv")
+    device = os.path.join(ROOT, "device")
+    env = dict(os.environ)
+    for key in ("SCOUT_KEY", "GARY_SEED", "GARY_NAP_SECONDS"):
+        env.pop(key, None)  # a known, clean backend
+    backend = subprocess.Popen([PY, "-m", "uvicorn", "app:app", "--port", str(port), "--log-level", "warning"],
+                               cwd=os.path.join(ROOT, "backend"), env=env)
+    try:
+        print("1. Backend")
+        for _ in range(60):
+            try:
+                health = call(api, "/api/health")
+                break
+            except OSError:
+                time.sleep(0.25)
+        else:
+            raise SystemExit("the backend did not start")
+        check("starts with the seed quests", health["quests"] == 3)
+        check("Gary starts as a napping kid", call(api, "/api/state")["gary"]["napping"] is True)
+
+        print("2. Scout (from the saved reply; a live run needs TINYFISH_API_KEY)")
+        out = run([PY, os.path.join("scout", "scout.py"), "--from-file",
+                   os.path.join("scout", "sample_result.json"), "--api", api])
+        check("the backend accepts the scout's quests", "accepted 3 quests" in out, out.strip().splitlines()[-1])
+        call(api, "/api/quests", {"id": "q-e2e-dog", "title": "Find a dog at Gibbons Park", "place": "Gibbons Park",
+                                  "time": "short", "target": "dog", "xp": 20})
+
+        print("3. Sync brings the quests to the device")
+        run([PY, "sync.py", "--dir", work, "--api", api, "--once"], cwd=device)
+        with open(quests, encoding="utf-8") as f:
+            text = f.read()
+        check("quests.tsv holds seed and scout quests", "q-demo-bottle" in text and "q-e2e-dog\tdog" in text)
+
+        print("4. Device: two Sniff Tests on test photos (the laptop version of Gary)")
+        base = [PY, "gary_device.py", "--mute", "--log", journal, "--quests", quests, "--image"]
+        first = run(base + [os.path.join("test", "pets.jpg")], cwd=device)
+        check("a dog completes the dog quest", "SNIFF: dog" in first and "Quest complete: Find a dog at Gibbons Park" in first)
+        second = run(base + [os.path.join("test", "kite_and_cold.jpg")], cwd=device)
+        check("a kite with people in frame is a Herd Mode find", "SNIFF: kite" in second and "Herd Mode" in second)
+        with open(journal, encoding="utf-8") as f:
+            lines = [json.loads(line) for line in f]
+        check("the journal has two events and no XP in it", len(lines) == 2 and all("xp" not in e for e in lines))
+
+        print("5. Sync uploads the journal")
+        out = run([PY, "sync.py", "--dir", work, "--api", api, "--once"], cwd=device)
+        check("two events uploaded", "uploaded 2 events" in out)
+        state = call(api, "/api/state")
+        labels = [entry["label"] for entry in state["journal"]]
+        check("the backend's journal shows both finds", labels == ["kite", "dog"], str(labels))
+        check("XP rose: quest 20 + outdoor find with a friend 20", state["gary"]["xp"] == 40, "xp %d" % state["gary"]["xp"])
+        cleared = [tile["place"] for tile in state["map"] if tile["cleared"]]
+        check("the map tile for Gibbons Park cleared", cleared == ["Gibbons Park"], str(cleared))
+        check("the field guide lists both", state["guide"]["found"] == ["dog", "kite"])
+        check("the herd counted the shared find", state["herd"]["shared"] == 1 and "first-herd" in state["herd"]["badges"])
+        check("Gary woke up", state["gary"]["napping"] is False)
+
+        print("6. Nothing is counted twice")
+        os.remove(os.path.join(work, "sync.state"))  # as if the device forgot how far it got
+        run([PY, "sync.py", "--dir", work, "--api", api, "--once"], cwd=device)
+        check("re-sending the whole journal changes nothing", call(api, "/api/state")["gary"]["xp"] == 40)
+
+        print("7. Web page")
+        if os.path.isdir(os.path.join(ROOT, "web", "dist")):
+            with urllib.request.urlopen(api + "/", timeout=10) as reply:
+                page = reply.read().decode("utf-8")
+            check("the backend serves the built page", '<div id="root">' in page)
+        else:
+            print("  skip  web/dist is not built (cd web && npm install && npm run build)")
+        print("\nEnd-to-end check PASSED. Phase 1's loop works on this machine.")
+    finally:
+        backend.terminate()
+        try:
+            backend.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            backend.kill()
+        for name in os.listdir(work):
+            os.remove(os.path.join(work, name))
+        os.rmdir(work)
+        for name in ("latency.csv", "gary.pid"):
+            try:
+                os.remove(os.path.join(device, name))
+            except OSError:
+                pass
+
+
+if __name__ == "__main__":
+    main()
