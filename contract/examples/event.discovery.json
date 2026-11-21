@@ -1,0 +1,12 @@
+{
+  "id": "gary-01-1795238400000-1",
+  "ts": "2026-11-21T05:20:00Z",
+  "type": "discovery",
+  "device": "gary-01",
+  "label": "bench",
+  "score": 0.93,
+  "friend": true,
+  "new": true,
+  "quest_id": "q-harris-bench",
+  "latency_ms": 41.0
+}

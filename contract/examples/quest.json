@@ -1,0 +1,13 @@
+{
+  "id": "q-harris-bench",
+  "title": "Find a bench by the river at Harris Park",
+  "place": "Harris Park",
+  "time": "long",
+  "minutes": 40,
+  "target": "bench",
+  "xp": 40,
+  "herd": false,
+  "source": "seed",
+  "source_url": null,
+  "day": "2026-11-21"
+}
