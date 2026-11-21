@@ -378,8 +378,6 @@ removal needs all four owners to agree, in an issue.
 **Not verified**
 
 - The C++ program has never been built or run on QNX (#4).
-- No successful live TinyFish run (#8). The stand-in follows TinyFish's
-  documents; the real service may differ.
 - The Gemini step (`--voice`) has never called Gemini.
 - The demo has not been rehearsed on the device or timed out loud.
 - `docs/DEVPOST.md` makes seven claims that are not true yet. They are marked.
