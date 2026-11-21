@@ -23,9 +23,10 @@ While it runs
         kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 
 Files it reads
-    models/gary_detector.tflite     the detector: YOLOv8s on Open Images (models/make_model.py)
-    models/gary_labels.txt       class id -> name
-    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite + coco_labels.txt   the old one, still works
+    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite + coco_labels.txt
+                                 the main detector: 80 everyday things and people
+    models/gary_detector.tflite + gary_nature_labels.txt
+                                 the extra detector, for nature (models/make_model.py)
     quests.tsv                                             id, target, xp, text, [herd]
                                                            (written by sync.py; until it exists,
                                                            the seed quests in quests.seed.tsv)
@@ -108,6 +109,22 @@ def decode_yolo(out, labels, min_score, iou=0.5):
             x, y, bw, bh = boxes[mine[j]]
             found.append((labels[c], float(best[keep][mine[j]]), (float(x), float(y), float(x + bw), float(y + bh))))
     return sorted(found, key=lambda f: -f[1])
+
+
+def overlap(a, b):
+    """Intersection over union of two (x0, y0, x1, y1) boxes."""
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    if w <= 0 or h <= 0:
+        return 0.0
+    both = w * h
+    return both / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - both)
+
+
+def merge(main, extra, iou=0.5):
+    """Both detectors' finds. Where they box the same thing, the extra (nature)
+    model's name wins: SSD calls a squirrel a cat."""
+    return [m for m in main if not any(overlap(m[2], e[2]) > iou for e in extra)] + extra
 
 
 class Detector:
@@ -490,8 +507,13 @@ def main():
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--image", help="run on one image file instead of the camera")
     ap.add_argument("--save-debug", help="with --image: save an annotated copy here")
-    ap.add_argument("--model", default=os.path.join(HERE, "models", "gary_detector.tflite"))
-    ap.add_argument("--labels", default=os.path.join(HERE, "models", "gary_labels.txt"))
+    # Two models on every frame: SSD for everyday things and people, and an Open
+    # Images YOLO for nature (squirrel, tree, duck), which SSD cannot name.
+    ap.add_argument("--model", default=os.path.join(HERE, "models", "ssd_mobilenet_v2_coco_quant_postprocess.tflite"))
+    ap.add_argument("--labels", default=os.path.join(HERE, "models", "coco_labels.txt"))
+    ap.add_argument("--extra-model", default=os.path.join(HERE, "models", "gary_detector.tflite"),
+                    help='a second detector run on the same frames, or "none"')
+    ap.add_argument("--extra-labels", default=os.path.join(HERE, "models", "gary_nature_labels.txt"))
     ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
     ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
     ap.add_argument("--device", default="gary-01", help="name written into every journal line")
@@ -509,6 +531,7 @@ def main():
     args = ap.parse_args()
 
     detector = Detector(args.model, args.labels, args.threads)
+    extra = None if args.extra_model == "none" else Detector(args.extra_model, args.extra_labels, args.threads)
     quests = load_quests(quests_file(args.quests))
     if args.reset and os.path.exists(args.log):
         os.rename(args.log, args.log + "." + time.strftime("%Y%m%d-%H%M%S") + ".bak")
@@ -517,7 +540,7 @@ def main():
     speaker = Speaker(args.sounds, args.audio_cmd, args.mute)
     stable = Stability(args.window, args.need)
 
-    known = set(detector.labels)
+    known = set(detector.labels) | (set(extra.labels) if extra else set())
     for q in quests:
         if q.label not in known:
             print("WARNING: quest %s wants '%s', which this model cannot see." % (q.id, q.label))
@@ -665,6 +688,8 @@ def main():
 
             t0 = time.monotonic()
             detections = detector.detect(frame, min_score=min(0.3, args.threshold))
+            if extra:
+                detections = merge(detections, extra.detect(frame, min_score=min(0.3, args.threshold)))
             infer_ms = (time.monotonic() - t0) * 1000.0
 
             best = {}

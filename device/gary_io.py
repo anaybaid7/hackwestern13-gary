@@ -62,22 +62,25 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # A pattern is a list of (seconds, tone). Tone 0 is silence. The Grove buzzer
 # is an on/off part, so any other tone simply means "on" and the patterns
 # differ by rhythm. With --tones the tone is also played as a pitch (PWM).
+# Right answers are quick and bright; a wrong one is slow and long, so the two
+# cannot be mixed up from across a park, even on a one-pitch buzzer.
 PATTERNS = {
-    "again": [(0.08, 880)],
-    "new": [(0.08, 880), (0.08, 0), (0.08, 880)],
-    "quest": [(0.07, 660), (0.07, 0), (0.12, 880), (0.07, 0), (0.20, 1320)],
+    "again": [(0.06, 880), (0.06, 0), (0.06, 1320)],                  # "bip-bip": got it, seen before
+    "new": [(0.05, 880), (0.04, 0), (0.05, 1100), (0.04, 0), (0.15, 1320)],  # "bi-bi-beep": new!
+    "quest": [(0.05, 660), (0.03, 0), (0.05, 880), (0.03, 0), (0.05, 1100), (0.03, 0),
+              (0.05, 1320), (0.12, 0), (0.50, 1760)],                 # rapid run up, then a long held note
     "herd": [(0.12, 0), (0.03, 1760), (0.05, 0), (0.03, 1760)],  # added after another pattern
-    "miss": [(0.45, 220)],
+    "miss": [(0.40, 330), (0.15, 0), (0.90, 196)],                    # "wah... wahhh": nothing there
     "tap": [(0.03, 1760)],
-    "not_ready": [(0.30, 220), (0.15, 0), (0.30, 220)],
+    "not_ready": [(0.20, 220), (0.20, 0), (0.20, 220), (0.20, 0), (0.20, 220)],
 }
 # The five that issue #11 asks to see working, in the order --demo plays them.
 DEMO = [
-    ("seen before: one short beep", {"type": "discovery", "new": False}),
-    ("new discovery: two short beeps", {"type": "discovery", "new": True}),
-    ("quest complete: three beeps, each longer", {"type": "discovery", "new": True, "quest_id": "q"}),
+    ("seen before: bip-bip", {"type": "discovery", "new": False}),
+    ("new discovery: bi-bi-beep", {"type": "discovery", "new": True}),
+    ("quest complete: a fast run of beeps, then a long note", {"type": "discovery", "new": True, "quest_id": "q"}),
     ("a friend in frame: the same, then a double chirp", {"type": "discovery", "new": True, "friend": True}),
-    ("nothing Gary can name: one long buzz", {"type": "miss"}),
+    ("nothing Gary can name: wah... wahhh (slow and long)", {"type": "miss"}),
 ]
 
 

@@ -124,7 +124,7 @@ printed with the reason, and recorded in `runs.jsonl`.
 
 | Check | How |
 | --- | --- |
-| Gary can name the thing | The target must be an outdoor name in `contract/labels.json` **and** in the device's own `device/models/gary_labels.txt` |
+| Gary can name the thing | The target must be an outdoor name in `contract/labels.json` **and** in one of the device's label files (`device/models/coco_labels.txt`, `gary_nature_labels.txt`) |
 | One quest per place | Across all pages in a run. "Kains Woods ESA" and "Kains Woods" are one place |
 | Not closed, private or risky | `RISKS` in `scout.py`: closed, by permit only, no public access, construction, flooded, a quarry, a rail yard, a cancelled or sold-out event and so on |
 | It says where to stand | Every quest carries a `note`: "Stay on the marked trail. Any safe, accessible spot counts." For an event: "...outside included. No ticket needed." The web page shows it on the quest card |

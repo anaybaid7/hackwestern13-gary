@@ -134,12 +134,15 @@ def test_the_five_patterns_differ_by_rhythm():
     quest = gary_io.pattern_for({"type": "discovery", "new": True, "quest_id": "q-1"})
     herd = gary_io.pattern_for({"type": "discovery", "new": True, "friend": True})
     miss = gary_io.pattern_for({"type": "miss"})
-    assert len(on_off(again)) == 1                     # one beep
-    assert len(on_off(new)) == 2                       # two beeps
+    assert len(on_off(again)) == 2                     # bip-bip
+    assert len(on_off(new)) == 3                       # bi-bi-beep
     beeps = on_off(quest)
-    assert len(beeps) == 3 and beeps == sorted(beeps) and beeps[0] < beeps[2]   # three, rising
+    assert len(beeps) == 5 and beeps[-1] >= 5 * beeps[0]   # a fast run, then a long note
     assert on_off(herd) == on_off(new) + [30, 30]      # the extra chirp
-    assert len(on_off(miss)) == 1 and on_off(miss)[0] >= 4 * on_off(again)[0]  # one long buzz
+    # right answers are quick, a wrong one slow: every miss beep is longer than any quick beep
+    quick = [b for p in (again, new) for b in on_off(p)] + on_off(quest)[:-1]
+    assert len(on_off(miss)) == 2 and min(on_off(miss)) > 2 * max(quick)
+    assert sum(on_off(miss)) >= 4 * sum(on_off(again))  # and long
     assert len({tuple(on_off(p)) for p in (again, new, quest, herd, miss)}) == 5
     # a quest with a friend: quest first, then the chirp
     both = gary_io.pattern_for({"type": "discovery", "quest_id": "q", "friend": True})
@@ -153,13 +156,13 @@ def test_the_beeper_keeps_time_and_ends_silent():
     played = []
     beeper = gary_io.Beeper(lambda tone: played.append((round(now[0], 3), tone)))
     now = [0.0]
-    beeper.play(gary_io.PATTERNS["new"])        # 80 on, 80 off, 80 on
+    beeper.play(gary_io.PATTERNS["new"])        # 50 on, 40 off, 50 on, 40 off, 150 on
     while beeper.busy():
         beeper.tick(now[0])
         now[0] += 0.005
-    assert [tone for _, tone in played] == [880, 0, 880, 0], played
+    assert [tone for _, tone in played] == [880, 0, 1100, 0, 1320, 0], played
     starts = [t for t, _ in played]
-    assert abs(starts[1] - 0.08) < 0.011 and abs(starts[2] - 0.16) < 0.016 and abs(starts[3] - 0.24) < 0.021
+    assert all(abs(s - want) < 0.011 + 0.005 * i for i, (s, want) in enumerate(zip(starts, [0, 0.05, 0.09, 0.14, 0.18, 0.33])))
 
     # two patterns in a row are separated by a silence; a flood is dropped, not queued for a minute
     played.clear()
@@ -329,8 +332,8 @@ def test_one_push_is_one_journal_line_and_one_pattern():
         assert len(lines) == 2, "two pushes, two sniffs, got %d: %r" % (len(lines), said)
         assert io.presses == 2
         assert sum(1 for s in said if s == "button: Sniff Test") == 2
-        # the first find is new (two beeps), the second is seen before (one): three "on" in all
-        assert sum(1 for tone in pins.sounds if tone) == 3, pins.sounds
+        # the first find is new (three beeps), the second is seen before (two): five "on" in all
+        assert sum(1 for tone in pins.sounds if tone) == 5, pins.sounds
         assert pins.sounds[-1] == 0, "ends silent"
         assert any("new discovery: bottle" in s for s in said) and any("seen before: bottle" in s for s in said)
     finally:
@@ -346,7 +349,7 @@ def test_a_push_with_no_gary_says_so_and_harms_nothing():
         io = gary_io.Io(pins, folder, said.append)
         run_io(io, pins, 1.4, pushes=[(0.1, 0.3)])
         assert any("Gary is not running" in s for s in said), said
-        assert sum(1 for tone in pins.sounds if tone) == 2, "two long buzzes: %r" % pins.sounds
+        assert sum(1 for tone in pins.sounds if tone) == 3, "three slow buzzes: %r" % pins.sounds
         assert not os.path.exists(os.path.join(folder, "journal.jsonl"))
     finally:
         shutil.rmtree(folder)
@@ -626,14 +629,23 @@ def test_yolo_output_becomes_one_box_per_thing():
         assert abs(x0 - 0.4) < 1e-5 and abs(y1 - 0.7) < 1e-5, "cx, cy, w, h becomes corners"
 
 
+def test_the_nature_name_wins_where_both_models_see_the_same_thing():
+    gd = gary_device()
+    ssd = [("cat", 0.98, (0.1, 0.1, 0.5, 0.5)), ("bottle", 0.9, (0.6, 0.6, 0.9, 0.9))]
+    nature = [("squirrel", 0.7, (0.12, 0.1, 0.5, 0.52))]
+    assert [f[0] for f in gd.merge(ssd, nature)] == ["bottle", "squirrel"]
+
+
 def test_every_thing_the_model_knows_is_in_the_contract():
-    with open(os.path.join(DEVICE, "models", "gary_labels.txt"), encoding="utf-8") as f:
-        model = [line.strip() for line in f if line.strip()]
+    model = set()
+    for name in ("coco_labels.txt", "gary_nature_labels.txt"):  # Gary's two detectors
+        with open(os.path.join(DEVICE, "models", name), encoding="utf-8") as f:
+            model |= {line.strip() for line in f if line.strip()}
     with open(os.path.join(DEVICE, "..", "contract", "labels.json"), encoding="utf-8") as f:
         doc = json.load(f)
     assert doc["friend"] == "person" and "person" in model
-    named = set(model) - {"n/a", "person"}
-    assert named == {item["name"] for item in doc["labels"]}, "models/make_model.py and contract/labels.json disagree"
+    named = model - {"n/a", "person"}
+    assert named == {item["name"] for item in doc["labels"]}, "the device's label files and contract/labels.json disagree"
 
 
 def test_the_journal_survives_a_power_cut_mid_write():
