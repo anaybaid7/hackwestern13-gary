@@ -6,7 +6,7 @@ back with real places. This script turns each place into a quest that Gary can
 confirm with a Sniff Test, checks it, and sends the quests to the backend.
 Standard library only.
 
-    export TINYFISH_API_KEY=...            # free student credits: tinyfish.ai/students
+    # Put TINYFISH_API_KEY=... in scout/.env, or export it in your shell.
     python3 scout/scout.py --one --dry-run # one live run on the first source; print, send nothing
     python3 scout/scout.py                 # the day's quests: every source, then POST to the backend
     python3 scout/scout.py --source events # only the sources whose name contains "events"
@@ -39,6 +39,31 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TINYFISH_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
+
+
+def load_settings(path=None, environ=None):
+    """Read scout/.env without replacing shell settings or executing its contents."""
+    environ = os.environ if environ is None else environ
+    if environ.get("GARY_NO_ENV_FILE"):
+        return
+    path = os.path.join(HERE, ".env") if path is None else path
+    try:
+        with open(path, encoding="utf-8-sig") as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        return
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        environ.setdefault(key, value)
+
 
 # What to look for at a place. The first rule whose words appear in the place's
 # name or description wins. Every target must be an outdoor name in
@@ -435,6 +460,7 @@ def evidence_markdown(runs):
 
 # --------------------------------------------------------------------------
 def main(argv=None):
+    load_settings()
     ap = argparse.ArgumentParser(description="Gary's scout: live pages in, quests out")
     ap.add_argument("--dry-run", action="store_true", help="print the quests, send nothing")
     ap.add_argument("--one", action="store_true", help="run only the first source (a quick test of the key)")
@@ -497,7 +523,7 @@ def main(argv=None):
             sources = sources[:1]
         key = os.environ.get("TINYFISH_API_KEY")
         if not key:
-            sys.exit("Set TINYFISH_API_KEY first (free student credits: tinyfish.ai/students).\n"
+            sys.exit("Set TINYFISH_API_KEY in scout/.env or your shell first (free student credits: tinyfish.ai/students).\n"
                      "With no key: python3 scout/scout.py --cached   (the last good live run)\n"
                      "         or: python3 scout/scout.py --from-file scout/sample_result.json --dry-run")
         live, taken = True, set()

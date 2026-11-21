@@ -13,8 +13,21 @@ command below; if it fails, paste what it prints into issue #8.
 
 ## Run it
 
+Put your key in `scout/.env`, which Git ignores:
+
+```dotenv
+TINYFISH_API_KEY=your-key-here
 ```
-export TINYFISH_API_KEY=...                  # free student credits: tinyfish.ai/students
+
+The scout loads this file automatically, regardless of your working directory.
+Shell environment variables take precedence. Replace the value in this file
+when you rotate your key. `SCOUT_KEY`, `GARY_API`, and `GEMINI_API_KEY` can also
+go here. Tests set `GARY_NO_ENV_FILE=1` to avoid loading real credentials.
+On Windows, use `python` in place of `python3` below, and run
+`python -m pip install tzdata` once to provide the timezone database.
+
+```
+# Alternatively, export TINYFISH_API_KEY in your shell.
 
 python3 scout/scout.py --one --dry-run       # 1. one live run on the first page. Prints quests, sends nothing
 python3 scout/scout.py                       # 2. the day's quests: every page, then sent to the backend
@@ -36,8 +49,8 @@ refused key stops the run at once.
 
 If the server sets `SCOUT_KEY`, export the same value here and the scout sends it.
 
-Nothing to install: standard library only. Keep keys in your shell or a local
-`.env`. Never commit them.
+Nothing to install: standard library only. Keep keys in your shell or the local
+`scout/.env`. Never commit them.
 
 ## If TinyFish is slow, or there is no key
 

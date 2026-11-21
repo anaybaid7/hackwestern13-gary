@@ -15,7 +15,9 @@ import tempfile
 import threading
 import time
 import urllib.error
+from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCOUT = os.path.dirname(HERE)
@@ -53,6 +55,25 @@ def reply(name):
 def sample_places():
     with open(os.path.join(SCOUT, "sample_result.json"), "r", encoding="utf-8") as f:
         return scout.find_places(json.load(f))
+
+
+def test_local_settings_preserve_shell_values_and_read_quoted_values():
+    with tempfile.TemporaryDirectory(prefix="gary-scout-env-") as work:
+        path = os.path.join(work, ".env")
+        with open(path, "w", encoding="utf-8-sig") as f:
+            f.write("# Local settings\n\nTINYFISH_API_KEY=file-key\n"
+                    "SCOUT_KEY='value=with=equals'\nGARY_API=\"http://localhost:8001\"\n"
+                    "ignored line\ninvalid name=ignored\n")
+        settings = {"TINYFISH_API_KEY": "shell-key"}
+        scout.load_settings(path, settings)
+        assert settings == {"TINYFISH_API_KEY": "shell-key", "SCOUT_KEY": "value=with=equals",
+                            "GARY_API": "http://localhost:8001"}
+        disabled = {"GARY_NO_ENV_FILE": "1"}
+        scout.load_settings(path, disabled)
+        assert disabled == {"GARY_NO_ENV_FILE": "1"}
+        missing = {}
+        scout.load_settings(os.path.join(work, "missing.env"), missing)
+        assert missing == {}
 
 
 # --- the TinyFish stream --------------------------------------------------------
@@ -333,6 +354,7 @@ class Backend:
 
 def run_scout(*args, env=None):
     clean = {k: v for k, v in os.environ.items() if k not in ("TINYFISH_API_KEY", "GEMINI_API_KEY", "SCOUT_KEY", "GARY_API")}
+    clean["GARY_NO_ENV_FILE"] = "1"  # never read the developer's real credentials
     clean.update(env or {})
     return subprocess.run([sys.executable, os.path.join(SCOUT, "scout.py")] + list(args), capture_output=True,
                           text=True, env=clean, timeout=60)
@@ -448,6 +470,25 @@ def live_setup():
     with open(paths["sources.json"], "w", encoding="utf-8") as f:
         json.dump(LIVE_SOURCES, f)
     return work, paths
+
+
+def test_main_loads_local_key_and_backend_address_before_running():
+    work, paths = live_setup()
+    backend, tinyfish = Backend(), FakeTinyFish(live_script())
+    try:
+        with open(os.path.join(work, ".env"), "w", encoding="utf-8") as f:
+            f.write("TINYFISH_API_KEY=test-key\nGARY_API=" + backend.api + "\n")
+        output = io.StringIO()
+        with patch.object(scout, "HERE", work), patch.dict(os.environ, {}, clear=True), redirect_stdout(output):
+            scout.main(["--one", "--sources", paths["sources.json"], "--runs", paths["runs.jsonl"],
+                        "--cache", paths["cached_quests.json"], "--tinyfish-url", tinyfish.url])
+        assert len(tinyfish.calls) == 1 and tinyfish.calls[0]["key"] == "test-key"
+        assert len(backend.posted) == 1 and backend.posted[0]["quests"]
+        assert "test-key" not in output.getvalue()
+    finally:
+        backend.close()
+        tinyfish.close()
+        shutil.rmtree(work)
 
 
 def test_a_live_run_from_the_agent_to_the_backend_with_a_stand_in_for_tinyfish():
