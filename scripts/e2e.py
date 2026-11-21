@@ -97,9 +97,12 @@ def main():
             lines = [json.loads(line) for line in f]
         check("the journal has two events and no XP in it", len(lines) == 2 and all("xp" not in e for e in lines))
 
+        # A private mood check-in written on the device (the hook a knob would use).
+        run([PY, "gary_io.py", "--dir", work, "--mood", "before", "3"], cwd=device)
+
         print("5. Sync uploads the journal")
         out = run([PY, "sync.py", "--dir", work, "--api", api, "--once"], cwd=device)
-        check("two events uploaded", "uploaded 2 events" in out)
+        check("two sniffs and one mood check-in uploaded", "uploaded 3 events" in out)
         state = call(api, "/api/state")
         labels = [entry["label"] for entry in state["journal"]]
         check("the backend's journal shows both finds", labels == ["kite", "dog"], str(labels))
@@ -109,6 +112,9 @@ def main():
         check("the field guide lists both", state["guide"]["found"] == ["dog", "kite"])
         check("the herd counted the shared find", state["herd"]["shared"] == 1 and "first-herd" in state["herd"]["badges"])
         check("Gary woke up", state["gary"]["napping"] is False)
+        check("the mood check-in is private: in wellness, never in the state",
+              [c["value"] for c in call(api, "/api/wellness")["checkins"]] == [3]
+              and "mood" not in json.dumps(state).lower())
 
         print("6. Nothing is counted twice")
         os.remove(os.path.join(work, "sync.state"))  # as if the device forgot how far it got

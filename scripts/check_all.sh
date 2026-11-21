@@ -31,6 +31,9 @@ else
   skip "web tests (cd web && npm install)"
 fi
 
+step "Device scripts: button, buzzer, sync, start and stop"
+"$PY" device/tests/test_device.py || fail "device script tests"
+
 step "QNX program on this machine, with stand-ins"
 if command -v g++ >/dev/null 2>&1 && [ "$(uname -s)" = "Linux" ] \
    && [ -f /usr/include/opencv4/opencv2/imgcodecs.hpp ]; then

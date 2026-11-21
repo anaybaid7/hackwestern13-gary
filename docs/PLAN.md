@@ -28,7 +28,7 @@ Friends and mood history may stay seeded demo data, labelled as such.
  │   ▲ button (signal)        │ ───────► │ XP, stages, fog, herd  │ ───► │ map, journal,     │
  │   ▼ journal.jsonl          │ ◄─────── │ private mood store     │      │ quest, wellness   │
  │ sync.py   upload / fetch   │  quests  │ Tiger Data (Postgres)  │      └───────────────────┘
- │ io.py     button, buzzer   │          └───────────▲────────────┘
+ │ gary_io.py  button, buzzer │          └───────────▲────────────┘
  └───────────────────────────┘                       │ quests
                                           scout/  TinyFish agent on live sites
 ```
