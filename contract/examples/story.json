@@ -27,7 +27,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 43.0096,
+          "lng": -81.2737
         },
         "quest_choice": null,
         "quest_options": {
@@ -43,7 +45,10 @@
             "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -57,7 +62,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -72,42 +80,60 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": false
           },
           {
             "place": "Gibbons Park",
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -124,7 +150,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -207,7 +235,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 43.0096,
+          "lng": -81.2737
         },
         "quest_choice": null,
         "quest_options": {
@@ -223,7 +253,10 @@
             "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -237,7 +270,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -252,42 +288,60 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": false
           },
           {
             "place": "Gibbons Park",
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -304,7 +358,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -394,7 +450,10 @@
           "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 42.9655,
+          "lng": -81.3005,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -410,7 +469,10 @@
             "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -424,7 +486,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -439,42 +504,60 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": false
           },
           {
             "place": "Gibbons Park",
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -491,7 +574,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -550,7 +635,7 @@
     },
     {
       "title": "At Springbank Park: the Sniff Test",
-      "note": "One press. Gary's on-device model names a bicycle, the quest is done and the fog lifts.",
+      "note": "The phone sees you are at the park and tells the backend only that. One press: Gary's on-device model names a bicycle, the quest is done with a Been there bonus, and the fog lifts.",
       "now": "2026-11-21T15:25:00Z",
       "request": {
         "method": "POST",
@@ -576,7 +661,7 @@
         "gary": {
           "stage": "kid",
           "stage_index": 0,
-          "xp": 20,
+          "xp": 30,
           "stage_xp": 0,
           "next_stage_xp": 60,
           "napping": false,
@@ -594,7 +679,10 @@
           "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 42.9995,
+          "lng": -81.2585,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -610,7 +698,10 @@
             "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -624,7 +715,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 5,
@@ -638,8 +732,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -654,21 +749,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -682,21 +786,30 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -713,7 +826,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -803,7 +918,7 @@
         "gary": {
           "stage": "kid",
           "stage_index": 0,
-          "xp": 30,
+          "xp": 40,
           "stage_xp": 0,
           "next_stage_xp": 60,
           "napping": false,
@@ -821,7 +936,10 @@
           "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 42.9995,
+          "lng": -81.2585,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -837,7 +955,10 @@
             "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -851,7 +972,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 5,
@@ -866,7 +990,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -877,8 +1002,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -894,21 +1020,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -922,21 +1057,30 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -953,7 +1097,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -1043,7 +1189,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 70,
+          "xp": 80,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -1060,7 +1206,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 43.0096,
+          "lng": -81.2737
         },
         "quest_choice": "short",
         "quest_options": {
@@ -1075,7 +1223,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -1089,7 +1239,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1104,7 +1257,8 @@
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "latency_ms": 36.0,
             "xp": 40,
-            "place": "Gibbons Park"
+            "place": "Gibbons Park",
+            "been_there": false
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1116,7 +1270,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -1127,8 +1282,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -1145,21 +1301,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -1173,7 +1338,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
@@ -1187,14 +1355,20 @@
                 "friend": true,
                 "quest_id": "q-2026-11-21-gibbons-park-dog"
               }
-            ]
+            ],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -1214,7 +1388,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -1288,7 +1464,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 70,
+          "xp": 80,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -1305,7 +1481,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 43.0096,
+          "lng": -81.2737
         },
         "quest_choice": "short",
         "quest_options": {
@@ -1320,7 +1498,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -1334,7 +1514,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1349,7 +1532,8 @@
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "latency_ms": 36.0,
             "xp": 40,
-            "place": "Gibbons Park"
+            "place": "Gibbons Park",
+            "been_there": false
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1361,7 +1545,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -1372,8 +1557,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -1390,21 +1576,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -1418,7 +1613,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
@@ -1432,14 +1630,20 @@
                 "friend": true,
                 "quest_id": "q-2026-11-21-gibbons-park-dog"
               }
-            ]
+            ],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -1459,7 +1663,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -1542,7 +1748,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 70,
+          "xp": 80,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": true,
@@ -1559,7 +1765,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 43.0096,
+          "lng": -81.2737
         },
         "quest_choice": "short",
         "quest_options": {
@@ -1574,7 +1782,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -1588,7 +1798,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1603,7 +1816,8 @@
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "latency_ms": 36.0,
             "xp": 40,
-            "place": "Gibbons Park"
+            "place": "Gibbons Park",
+            "been_there": false
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1615,7 +1829,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -1626,8 +1841,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -1644,21 +1860,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -1672,7 +1897,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
@@ -1686,14 +1914,20 @@
                 "friend": true,
                 "quest_id": "q-2026-11-21-gibbons-park-dog"
               }
-            ]
+            ],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -1713,7 +1947,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -1802,7 +2038,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 70,
+          "xp": 80,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": true,
@@ -1820,7 +2056,10 @@
           "note": "Stay on the marked trail. Any safe, accessible spot counts.",
           "source": "tinyfish",
           "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 42.975,
+          "lng": -81.358,
+          "tidbits": []
         },
         "quest_choice": "long",
         "quest_options": {
@@ -1835,7 +2074,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -1849,7 +2090,10 @@
             "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.975,
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1864,7 +2108,8 @@
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "latency_ms": 36.0,
             "xp": 40,
-            "place": "Gibbons Park"
+            "place": "Gibbons Park",
+            "been_there": false
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1876,7 +2121,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -1887,8 +2133,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -1905,21 +2152,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -1933,7 +2189,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
@@ -1947,14 +2206,20 @@
                 "friend": true,
                 "quest_id": "q-2026-11-21-gibbons-park-dog"
               }
-            ]
+            ],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -1974,7 +2239,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",
@@ -2076,7 +2343,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 125,
+          "xp": 135,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -2093,7 +2360,9 @@
           "herd": false,
           "source": "seed",
           "source_url": null,
-          "day": "2026-11-21"
+          "day": "2026-11-21",
+          "lat": 42.9862,
+          "lng": -81.2563
         },
         "quest_choice": "long",
         "quest_options": {
@@ -2108,7 +2377,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "long": {
             "id": "q-harris-bench",
@@ -2121,7 +2392,9 @@
             "herd": false,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 42.9862,
+            "lng": -81.2563
           }
         },
         "quests_open": 3,
@@ -2136,7 +2409,8 @@
             "quest_id": "q-2026-11-21-kains-woods-bird",
             "latency_ms": 41.0,
             "xp": 55,
-            "place": "Kains Woods"
+            "place": "Kains Woods",
+            "been_there": false
           },
           {
             "id": "gary-01-1795275600000-3",
@@ -2148,7 +2422,8 @@
             "quest_id": "q-2026-11-21-gibbons-park-dog",
             "latency_ms": 36.0,
             "xp": 40,
-            "place": "Gibbons Park"
+            "place": "Gibbons Park",
+            "been_there": false
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -2160,7 +2435,8 @@
             "quest_id": null,
             "latency_ms": 44.5,
             "xp": 10,
-            "place": null
+            "place": null,
+            "been_there": false
           },
           {
             "id": "gary-01-1795274700000-1",
@@ -2171,8 +2447,9 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 20,
-            "place": "Springbank Park"
+            "xp": 30,
+            "place": "Springbank Park",
+            "been_there": true
           }
         ],
         "guide": {
@@ -2190,21 +2467,30 @@
             "quest_id": "q-demo-bottle",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Hack Western, the next table",
             "quest_id": "q-demo-backpack",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 43.0096,
+            "lng": -81.2737,
+            "visited": false
           },
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
             "cleared": false,
             "cleared_at": null,
-            "finds": []
+            "finds": [],
+            "lat": 42.9862,
+            "lng": -81.2563,
+            "visited": false
           },
           {
             "place": "Springbank Park",
@@ -2218,7 +2504,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-springbank-park-bicycle"
               }
-            ]
+            ],
+            "lat": 42.9655,
+            "lng": -81.3005,
+            "visited": true
           },
           {
             "place": "Gibbons Park",
@@ -2232,7 +2521,10 @@
                 "friend": true,
                 "quest_id": "q-2026-11-21-gibbons-park-dog"
               }
-            ]
+            ],
+            "lat": 42.9995,
+            "lng": -81.2585,
+            "visited": false
           },
           {
             "place": "Kains Woods",
@@ -2246,7 +2538,10 @@
                 "friend": false,
                 "quest_id": "q-2026-11-21-kains-woods-bird"
               }
-            ]
+            ],
+            "lat": 42.975,
+            "lng": -81.358,
+            "visited": false
           }
         ],
         "herd": {
@@ -2266,7 +2561,9 @@
             "herd": true,
             "source": "seed",
             "source_url": null,
-            "day": "2026-11-21"
+            "day": "2026-11-21",
+            "lat": 43.0096,
+            "lng": -81.2737
           },
           "cup": {
             "week": "2026-W47",

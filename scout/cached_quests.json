@@ -4,7 +4,7 @@
   "quests": [
     {
       "id": "q-2026-11-21-springbank-park",
-      "title": "Find a bicycle at Springbank Park",
+      "title": "See if you can spot a bicycle at Springbank Park today.",
       "place": "Springbank Park",
       "time": "short",
       "minutes": 15,
@@ -14,11 +14,16 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.96251,
+      "lng": -81.296615,
+      "tidbits": [
+        "Springbank Park offers wide paths for rolling along at an easy pace."
+      ]
     },
     {
       "id": "q-2026-11-21-gibbons-park",
-      "title": "Find a bicycle at Gibbons Park",
+      "title": "See if you can spot a bicycle over at Gibbons Park today.",
       "place": "Gibbons Park",
       "time": "short",
       "minutes": 15,
@@ -28,11 +33,18 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.001071,
+      "lng": -81.261599,
+      "tidbits": [
+        "The Thames River cuts right past this green space, so we might hear water before we see wheels.",
+        "Bicycles have been helping people roll down park paths for generations now.",
+        "If we keep our pace steady, finding that bike should be a nice quiet puzzle."
+      ]
     },
     {
       "id": "q-2026-11-21-victoria-park",
-      "title": "Find a bicycle at Victoria Park, with a friend",
+      "title": "Find a bicycle at Victoria Park, with a friend.",
       "place": "Victoria Park",
       "time": "short",
       "minutes": 15,
@@ -42,11 +54,18 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.988784,
+      "lng": -81.248514,
+      "tidbits": [
+        "Park paths usually follow the easiest slope, which suits four legs and two legs alike.",
+        "Bicycles were originally called velocipedes before people shortened the name.",
+        "A park is simply a patch of open green kept quiet amidst the noise of the city."
+      ]
     },
     {
       "id": "q-2026-11-21-longwoods-road-conservation-area",
-      "title": "Find a tree at Longwoods Road Conservation Area",
+      "title": "See if you can spot a tree at Longwoods Road Conservation Area.",
       "place": "Longwoods Road Conservation Area",
       "time": "long",
       "minutes": 40,
@@ -56,11 +75,15 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "tidbits": [
+        "Trees spend centuries standing still while the whole forest shifts around them.",
+        "That thick bark protects the inner wood from weather and hungry visitors alike."
+      ]
     },
     {
       "id": "q-2026-11-21-sifton-bog-trail",
-      "title": "Find a duck at Sifton Bog Trail",
+      "title": "See if a duck is lingering near Sifton Bog Trail today.",
       "place": "Sifton Bog Trail",
       "time": "long",
       "minutes": 40,
@@ -70,11 +93,18 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.968683,
+      "lng": -81.32008,
+      "tidbits": [
+        "A bog floor is made of thick peat, which holds onto a lot of water.",
+        "Ducks have special glands near their tails to keep their feathers waterproof.",
+        "Sometimes solitary ducks just like to float quietly in the shade of the reeds."
+      ]
     },
     {
       "id": "q-2026-11-21-boler-mountain",
-      "title": "Find a squirrel at Boler Mountain, with a friend",
+      "title": "Go find a squirrel at Boler Mountain with a friend.",
       "place": "Boler Mountain",
       "time": "long",
       "minutes": 40,
@@ -84,11 +114,18 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.939433,
+      "lng": -81.340403,
+      "tidbits": [
+        "Grey squirrels like this area often bury many different nuts and remember where most of them are hidden.",
+        "Tree branches up ahead make fine highways for bushy tails if we keep our eyes on the canopy.",
+        "Squirrel whiskers help them balance as they scramble along narrow wooden rails."
+      ]
     },
     {
       "id": "q-2026-11-21-byron-valley",
-      "title": "Find a squirrel at Byron Valley",
+      "title": "See if you can spot a squirrel at Byron Valley today.",
       "place": "Byron Valley",
       "time": "long",
       "minutes": 40,
@@ -98,11 +135,16 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "tidbits": [
+        "Grey squirrels like this one often bury dozens of nuts and actually remember where most of them are hidden.",
+        "Byron Valley gives us a fine, quiet stretch of green where the trees keep us company all the way.",
+        "A squirrel tail serves as a handy balance pole when they are scampering along high branches."
+      ]
     },
     {
       "id": "q-2026-11-21-the-coves",
-      "title": "Find a squirrel at The Coves",
+      "title": "See if you can spot a squirrel at The Coves today.",
       "place": "The Coves",
       "time": "long",
       "minutes": 40,
@@ -112,11 +154,18 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.971862,
+      "lng": -81.26236,
+      "tidbits": [
+        "Squirrels spend a lot of their time burying acorns and then trying to remember where they put them.",
+        "River valleys like this one are great quiet places to look up and watch the trees.",
+        "Grey squirrels can jump quite far between branches without making much of a sound."
+      ]
     },
     {
       "id": "q-2026-11-21-kains-woods",
-      "title": "Find a tree at Kains Woods, with a friend",
+      "title": "Find a tree at Kains Woods, with a friend.",
       "place": "Kains Woods",
       "time": "long",
       "minutes": 40,
@@ -126,7 +175,13 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.977604,
+      "lng": -81.367711,
+      "tidbits": [
+        "The river valley holds the mist close to the ground today.",
+        "Trees are patient listeners when we take our time walking."
+      ]
     },
     {
       "id": "q-2026-11-21-downtown-london",
@@ -140,7 +195,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.985539,
+      "lng": -81.239647
     },
     {
       "id": "q-2026-11-21-western-alumni-stadium",
@@ -154,7 +211,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.999785,
+      "lng": -81.273892
     },
     {
       "id": "q-2026-11-21-fanshawe-conservation-area",
@@ -168,7 +227,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.065424,
+      "lng": -81.185625
     }
   ]
 }

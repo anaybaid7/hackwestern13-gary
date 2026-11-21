@@ -794,7 +794,7 @@ struct Options {
   std::string audio_cmd = "mmrplay";
   std::string friend_label = "person";
   std::string image;
-  float threshold = 0.5f;
+  float threshold = 0.35f;  // a backpack often scores 0.35-0.5; the 3-of-5-frame check keeps false finds out
   int window = 5, need = 3, threads = 3, priority = 0, clip_timeout = 10;
   bool mute = false;
 };
@@ -816,7 +816,7 @@ static void usage() {
       "  --sounds DIR      folder of WAV clips\n"
       "  --audio-cmd CMD   player command (default mmrplay)\n"
       "  --clip-timeout S  stop a clip that plays longer than S seconds (default 10)\n"
-      "  --threshold X     minimum confidence (default 0.5)\n"
+      "  --threshold X     minimum confidence (default 0.35)\n"
       "  --window N        frames remembered (default 5)\n"
       "  --need N          frames needed to confirm (default 3)\n"
       "  --threads N       TFLite threads (default 3)\n"

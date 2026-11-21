@@ -193,6 +193,28 @@ From a laptop, in one line: `ssh qnxuser@<hostname>.local 'sh ~/gary/start_gary.
 You can log out; everything keeps running. If Gary stops, he is started again
 after 3 seconds. Logs are in `logs/`.
 
+### Run the backend on the Pi too
+
+Then nothing but a browser is needed off the device: the camera, the model, the
+rules, Gary's state and the page all live on the Pi, and a sniff becomes XP with
+no network at all.
+
+```
+# once: the backend, the contract and the built page, beside ~/gary
+(cd web && VITE_API_URL= npm run build)       # on the laptop: the page talks to its own address
+tar czf - backend/*.py backend/schema.sql contract web/dist | ssh qnxuser@<pi> 'mkdir -p ~/server && tar xzf - -C ~/server'
+ssh qnxuser@<pi> 'cd ~/gary && python3 -m venv venv && venv/bin/pip install "fastapi==0.99.1" "pydantic<2" uvicorn tzdata'
+# gary.env on the Pi
+GARY_API=http://localhost:8800
+GARY_BACKEND=../server/backend
+```
+
+`sh start_gary.sh` then starts the backend too, and keeps Gary's state in
+`gary.db` (SQLite), so pulling the plug loses nothing. Open
+`http://<pi>:8800` on a laptop or phone. With `GARY_LIVE` set, the live view is at
+`http://<pi>:8800/live/` (build the page with `VITE_LIVE_URL=/live/`). The scout posts quests to the same
+address.
+
 **Start at power-on (QNX).** QNX runs `/usr/etc/post_startup.sh` at the end of
 start-up. Add one line to it, as root:
 
@@ -293,7 +315,7 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   --force --only say_<clip>`. If any clip a sniff needs is missing, Gary plays
   the chimes (`hello`, `new`, `again`, `quest`, `herd`, `nothing`, `done`)
   instead.
-- **Strictness:** `--threshold 0.6` asks for more confidence. `--need 4` asks for
+- **Strictness:** the default threshold is 0.35. `--threshold 0.6` asks for more confidence. `--need 4` asks for
   4 of the last 5 frames. Raise these if Gary names the wrong things.
 - **What Gary can recognise:** edit `NATURE` (or `RENAME`) in `models/make_model.py` and the
   same names in `contract/labels.json`, then rebuild the model (the command is

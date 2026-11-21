@@ -19,7 +19,9 @@
     "herd": false,
     "source": "seed",
     "source_url": null,
-    "day": "2026-11-21"
+    "day": "2026-11-21",
+    "lat": 43.0096,
+    "lng": -81.2737
   },
   "quest_choice": null,
   "quest_options": {
@@ -34,7 +36,9 @@
       "herd": false,
       "source": "seed",
       "source_url": null,
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.0096,
+      "lng": -81.2737
     },
     "long": null
   },
@@ -50,7 +54,8 @@
       "quest_id": "q-harris-bench",
       "latency_ms": 41.0,
       "xp": 80,
-      "place": "Harris Park"
+      "place": "Harris Park",
+      "been_there": false
     }
   ],
   "guide": {
@@ -65,14 +70,20 @@
       "quest_id": "q-demo-bottle",
       "cleared": false,
       "cleared_at": null,
-      "finds": []
+      "finds": [],
+      "lat": 43.0096,
+      "lng": -81.2737,
+      "visited": false
     },
     {
       "place": "Hack Western, the next table",
       "quest_id": "q-demo-backpack",
       "cleared": false,
       "cleared_at": null,
-      "finds": []
+      "finds": [],
+      "lat": 43.0096,
+      "lng": -81.2737,
+      "visited": false
     },
     {
       "place": "Harris Park",
@@ -86,7 +97,10 @@
           "friend": true,
           "quest_id": "q-harris-bench"
         }
-      ]
+      ],
+      "lat": 42.9862,
+      "lng": -81.2563,
+      "visited": false
     }
   ],
   "herd": {
@@ -106,7 +120,9 @@
       "herd": true,
       "source": "seed",
       "source_url": null,
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.0096,
+      "lng": -81.2737
     },
     "cup": {
       "week": "2026-W47",

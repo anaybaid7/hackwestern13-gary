@@ -563,7 +563,7 @@ def main():
     ap.add_argument("--sounds", default=os.path.join(HERE, "sounds"))
     ap.add_argument("--audio-cmd", help='player command, for example "aplay -q -D plughw:2,0"')
     ap.add_argument("--mute", action="store_true")
-    ap.add_argument("--threshold", type=float, default=0.5, help="minimum confidence (default 0.5)")
+    ap.add_argument("--threshold", type=float, default=0.35, help="minimum confidence (default 0.35)")
     ap.add_argument("--window", type=int, default=5, help="frames remembered (default 5)")
     ap.add_argument("--need", type=int, default=3, help="frames needed to confirm (default 3)")
     ap.add_argument("--threads", type=int, default=3)

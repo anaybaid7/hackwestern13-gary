@@ -6,7 +6,16 @@ herd, the active quest and the private wellness numbers. The shapes are in
 [`../contract`](../contract/README.md).
 
 With nothing set it keeps everything in memory. Set `DATABASE_URL` and it uses
-Postgres on Tiger Data, and a restart keeps Gary's state.
+Postgres on Tiger Data, and a restart keeps Gary's state. Set `GARY_DB` to a
+file name instead and it uses SQLite, which is how it runs on the Pi (QNX has
+no Postgres driver).
+
+**On the Pi, beside Gary.** The backend runs on QNX with FastAPI 0.99 and
+pydantic 1 (both pure Python; newer FastAPI needs pydantic-core, which does not
+build on QNX). `start_gary.sh` starts it when `GARY_BACKEND` is set in
+`gary.env`: see [the device README](../device/README.md#run-the-backend-on-the-pi-too).
+Then the camera, the model, the rules and the page all run on the device, and
+it works with no network at all.
 
 ## Run it
 
@@ -61,7 +70,8 @@ On the server they live in `/opt/gary/.env`. None of these files is in git.
 
 | Setting | Meaning |
 | --- | --- |
-| `DATABASE_URL` | Postgres on Tiger Data. Unset: memory |
+| `DATABASE_URL` | Postgres on Tiger Data. Unset: `GARY_DB`, then memory |
+| `GARY_DB` | A SQLite file. Used when `DATABASE_URL` is unset (the Pi) |
 | `SCOUT_KEY` | If set, the scout must send it as `X-Scout-Key` to post quests |
 | `GARY_ADMIN_KEY` | If set, `POST /api/dev/reset` must send it as `X-Admin-Key`. **Set this on the public server**, or anyone can wipe the demo |
 | `GARY_PRIVATE_KEY` | A passphrase for the private side. If set, the check-ins and the wellness view open only with it (`X-Private-Key`), and the page asks for it once per device. **Set this on the public server**: without it anyone who has the address can read the check-ins, and the page says so |

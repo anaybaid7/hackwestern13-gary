@@ -13,7 +13,8 @@ def test_a_tile_is_a_real_place_and_remembers_what_was_found(client):
     assert tile == {"place": "Harris Park", "quest_id": "q-harris-bench", "cleared": True,
                     "cleared_at": "2026-11-21T05:20:00Z",
                     "finds": [{"label": "bench", "ts": "2026-11-21T05:20:00Z", "friend": True,
-                               "quest_id": "q-harris-bench"}]}
+                               "quest_id": "q-harris-bench"}],
+                    "lat": 42.9862, "lng": -81.2563, "visited": False}
 
 
 def test_free_sniffs_fill_the_field_guide_but_clear_no_tile(client):

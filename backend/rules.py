@@ -22,6 +22,9 @@ XP_NEW_INDOOR = 2        # first find of an indoor thing
 XP_REPEAT = 1            # a thing Gary has seen before
 FRIEND_MULTIPLIER = 2    # a friend in frame doubles that sniff
 XP_WELCOME_BACK = 15     # first sniff after a nap; never doubled
+XP_BEEN_THERE = 10       # a quest finished at its place (the page said you were there); never doubled
+VISIT_BEFORE = 2 * 3600  # a visit this long before the sniff counts...
+VISIT_AFTER = 30 * 60    # ...and this long after (the page may report late)
 
 # --- Stages: (id, XP needed). The web swaps images by id. -------------------
 STAGES = [("kid", 0), ("scrambler", 60), ("ibex", 150), ("summit-elder", 300)]
@@ -192,6 +195,15 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
     choices = []        # (when, time, quest id), oldest first
     last_when, last_was_return = None, False
     this_week = iso_week(now, tz)
+    # Visits first, so a visit that arrives after its sniff still counts.
+    visits = {}         # quest id -> [when the page was at its place]
+    for ev in events:
+        if ev.get("type") == "visit":
+            visits.setdefault(ev.get("quest_id"), []).append(parse_ts(ev.get("ts")))
+
+    def been_there(quest_id, when):
+        return bool(when) and any(at and -VISIT_AFTER <= (when - at).total_seconds() <= VISIT_BEFORE
+                                  for at in visits.get(quest_id, []))
 
     def active_at(when):
         """The quest the person had chosen at that moment, or None."""
@@ -203,6 +215,9 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
 
     for ev in events:
         kind = ev.get("type")
+        if kind == "visit":
+            results[ev.get("id")] = {"xp": 0, "reaction": "visit", "new": False, "quest_id": ev.get("quest_id")}
+            continue
         if kind == "choice":
             choices.append((parse_ts(ev.get("ts")), ev.get("time"), ev.get("quest_id")))
             results[ev.get("id")] = {"xp": 0, "reaction": "choice", "new": False, "quest_id": ev.get("quest_id")}
@@ -227,6 +242,9 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
         if friend:
             gained *= FRIEND_MULTIPLIER
             herd["shared"] += 1
+        there = bool(quest) and been_there(quest["id"], when)
+        if there:
+            gained += XP_BEEN_THERE
 
         # A quest lifts the fog over its place. With a friend it also counts for the herd.
         place = None
@@ -257,7 +275,7 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
         entry = {
             "id": ev.get("id"), "ts": ev.get("ts"), "label": label, "score": ev.get("score"),
             "friend": friend, "new": is_new, "quest_id": quest["id"] if quest else None,
-            "latency_ms": ev.get("latency_ms"), "xp": gained, "place": place,
+            "latency_ms": ev.get("latency_ms"), "xp": gained, "place": place, "been_there": there,
         }
         journal.append(entry)
         results[ev.get("id")] = {"xp": gained, "reaction": reaction, "new": is_new, "quest_id": entry["quest_id"]}
@@ -276,7 +294,10 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
             continue
         seen_places.add(key)
         tiles.append({"place": q["place"], "quest_id": q["id"], "cleared": key in cleared,
-                      "cleared_at": cleared.get(key), "finds": finds_at.get(key, [])})
+                      "cleared_at": cleared.get(key), "finds": finds_at.get(key, []),
+                      "lat": q.get("lat"), "lng": q.get("lng"),
+                      "visited": any(visits.get(other["id"]) for other in quests
+                                     if place_key(other.get("place")) == key)})
     tiles = tiles[-MAP_TILES:]
 
     # The quest to show: the chosen one while it is open, then the next of the

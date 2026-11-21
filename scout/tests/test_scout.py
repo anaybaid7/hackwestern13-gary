@@ -109,8 +109,9 @@ def test_every_quest_has_the_contract_fields():
     quests, _ = scout.build_quests(sample_places(), {"url": None}, DAY, ALLOWED)
     assert len(quests) == 3
     for q in quests:
-        assert set(q) == {"id", "title", "place", "time", "minutes", "target", "xp", "herd", "note",
-                          "source", "source_url", "day"}
+        # "_about" (the page text, for --voice) is a working note: main() removes it before posting
+        assert {k for k in q if not k.startswith("_")} == {"id", "title", "place", "time", "minutes", "target", "xp",
+                                                            "herd", "note", "source", "source_url", "day"}
         assert q["target"] in ALLOWED and q["time"] in ("short", "long")
         assert q["xp"] == (40 if q["time"] == "long" else 20) and q["source"] == "tinyfish" and q["day"] == DAY
         assert q["place"] in q["title"] and q["target"] in q["title"]
@@ -358,6 +359,7 @@ class Backend:
 def run_scout(*args, env=None):
     clean = {k: v for k, v in os.environ.items() if k not in ("TINYFISH_API_KEY", "GEMINI_API_KEY", "SCOUT_KEY", "GARY_API")}
     clean["GARY_NO_ENV_FILE"] = "1"  # never read the developer's real credentials
+    clean["GARY_NO_GEOCODE"] = "1"   # no network: OpenStreetMap is not asked
     clean.update(env or {})
     return subprocess.run([sys.executable, os.path.join(SCOUT, "scout.py")] + list(args), capture_output=True,
                           text=True, env=clean, timeout=60)
@@ -482,7 +484,7 @@ def test_main_loads_local_key_and_backend_address_before_running():
         with open(os.path.join(work, ".env"), "w", encoding="utf-8") as f:
             f.write("TINYFISH_API_KEY=test-key\nGARY_API=" + backend.api + "\n")
         output = io.StringIO()
-        with patch.object(scout, "HERE", work), patch.dict(os.environ, {}, clear=True), redirect_stdout(output):
+        with patch.object(scout, "HERE", work), patch.dict(os.environ, {"GARY_NO_GEOCODE": "1"}, clear=True), redirect_stdout(output):
             scout.main(["--one", "--sources", paths["sources.json"], "--runs", paths["runs.jsonl"],
                         "--cache", paths["cached_quests.json"], "--tinyfish-url", tinyfish.url])
         assert len(tinyfish.calls) == 1 and tinyfish.calls[0]["key"] == "test-key"
@@ -686,6 +688,7 @@ def test_gemini_lines_that_break_the_rules_are_thrown_away():
     assert not ok("A bicycle at Harris Park <b>now</b>")
     assert not ok("A bicycle at Harris Park. Go on.", herd), "a co-op quest must still ask for a friend"
     assert ok("Bring a friend and find a bicycle at Harris Park.", herd)
+    assert not ok("Find a bicycle at Harris Park, with a friend, if you like.", herd), "the friend is not optional"
 
 
 def test_gemini_failing_or_missing_changes_nothing():
@@ -712,13 +715,97 @@ def test_gemini_says_why_once_when_it_cannot_be_asked():
     # an answer with no line in it is not an outage: every quest is still asked about
     fake = FakeGemini(line=None)
     assert gary_voice.apply(voice_quests(), "key", say=lambda _text: None, opener=fake) == 0
-    assert len(fake.requests) == 3
+    assert len(fake.requests) == 6  # a title and the tidbits for each of the three
+
+
+def test_tidbits_come_from_the_page_text_and_unsafe_ones_are_dropped():
+    quest = voice_quests()[0]
+    lines = ["Harris Park sits on the Thames.", "A ripe mushroom here is edible.", "Go for a swim by the bridge.",
+             "Look for a bicycle by the path.", 7, "x" * 200, "One more fine line.", "And a fifth."]
+    fake = FakeGemini(json.dumps(lines))
+    got = gary_voice.gary_tidbits(quest, "Harris Park: a riverside park on the Thames.", "key", scout.risk_in, opener=fake)
+    assert got == ["Harris Park sits on the Thames.", "Look for a bicycle by the path.", "One more fine line."]
+    body = json.loads(fake.requests[0].data)
+    assert body["generationConfig"]["responseMimeType"] == "application/json"
+    prompt = body["contents"][0]["parts"][0]["text"]
+    assert "a riverside park on the Thames" in prompt and "ONLY from the web page text" in prompt
+    assert gary_voice.gary_tidbits(quest, "", "key", scout.risk_in, opener=FakeGemini("not json")) == []
+    assert gary_voice.gary_tidbits(quest, "", "key", scout.risk_in, opener=FakeGemini('{"a": 1}')) == []
+
+
+def test_voice_gives_quests_tidbits_and_never_posts_the_page_text():
+    quests = voice_quests()
+    assert all(q.get("_about") is not None for q in quests)
+    gary_voice.apply(quests, "key", say=lambda _text: None, opener=FakeGemini(json.dumps(["A fine line."])))
+    assert all(q["tidbits"] == ["A fine line."] for q in quests)
+
+
+def test_the_line_pack_keeps_only_safe_lines_for_real_things():
+    import gary_lines
+
+    def ask(prompt, key, model):
+        if "Situations:" in prompt:
+            return {"quest": ["Well climbed.", "x" * 200], "napping": ["Zzz."]}
+        names = prompt.split("Things: ")[1].split("\n")[0].split(", ")
+        return {name: {"line": "A %s. Fine." % name, "facts": ["True thing one.", "Lick it to check.", "Two."]}
+                for name in names if name != "dog"}
+    out = gary_lines.build("key", say=lambda _text: None, ask=ask)
+    assert "dog" not in out["things"] and out["things"]["bench"] == {"line": "A bench. Fine.", "facts": ["True thing one.", "Two."]}
+    assert len(out["things"]) == len(gary_lines.labels()) - 1
+    assert out["pools"]["quest"] == ["Well climbed."] and out["pools"]["napping"] == ["Zzz."] and out["pools"]["again"] == []
+
+
+def test_progress_templates_use_only_their_own_slots():
+    import gary_lines
+
+    def ask(prompt, key, model):
+        assert "{finds_today}" in prompt and "never claim" in prompt
+        return {"today": ["{finds_today} so far.", "{xp_left} to go.", "Nothing to fill."],
+                "start": ["Look for {target} at {place}.", "Look for {target}."],
+                "encourage": ["Any pace is the right pace.", "Feed the ducks."], "almost": "not a list"}
+    out = gary_lines.progress_templates("key", ask=ask)
+    assert out["today"] == ["{finds_today} so far."]                 # a slot from elsewhere, or none: dropped
+    assert out["start"] == ["Look for {target} at {place}."]        # both required slots, or dropped
+    assert out["encourage"] == ["Any pace is the right pace."]      # the same safety checks as every line
+    assert out["almost"] == [] and out["guide"] == []
 
 
 def test_no_file_here_hides_a_python_module():
     for name in os.listdir(SCOUT):
         if name.endswith(".py"):
             assert name[:-3] not in getattr(sys, "stdlib_module_names", ()), name
+
+
+def test_geocode_reads_where_a_place_is_and_asks_by_its_address():
+    asked = []
+
+    def fetch(url):
+        asked.append(url)
+        return b'[{"lat": "42.98621", "lon": "-81.25634", "display_name": "Harris Park"}]'
+    assert scout.geocode("Harris Park", "355 Ridout St N", fetch=fetch) == (42.98621, -81.25634)
+    assert "355+Ridout+St+N%2C+London%2C+Ontario" in asked[0] and "bounded=1" in asked[0]
+    scout.geocode("Harris Park", fetch=fetch)
+    assert "Harris+Park%2C+London" in asked[1]
+
+
+def test_geocode_gives_none_when_it_cannot_say():
+    assert scout.geocode("Nowhere", fetch=lambda url: b"[]") is None
+    assert scout.geocode("Nowhere", fetch=lambda url: b"not json") is None
+
+    def down(url):
+        raise urllib.error.URLError("no network")
+    assert scout.geocode("Nowhere", fetch=down) is None
+
+
+def test_quests_carry_a_position_when_one_is_found_and_still_come_without():
+    spots = {"Harris Park": (42.9862, -81.2563)}
+    quests, _ = scout.build_quests([{"name": "Harris Park", "address": "355 Ridout St N"}, {"name": "Elsewhere"}],
+                                   PARKS, DAY, ALLOWED, limit=5, locate=lambda name, address: spots.get(name))
+    by_place = {q["place"]: q for q in quests}
+    assert (by_place["Harris Park"]["lat"], by_place["Harris Park"]["lng"]) == (42.9862, -81.2563)
+    assert "lat" not in by_place["Elsewhere"]
+    plain, _ = scout.build_quests([{"name": "Harris Park"}], PARKS, DAY, ALLOWED)
+    assert "lat" not in plain[0]
 
 
 if __name__ == "__main__":

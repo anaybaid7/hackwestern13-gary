@@ -38,6 +38,7 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `POST /api/quests` | scout | `{"quests": [Quest]}`, header `X-Scout-Key` if the server sets `SCOUT_KEY` | `{"accepted": [ids], "rejected": [{"id", "why"}]}` |
 | `POST /api/quest/choose` | web | `{"time": "short"\|"long"}` | `{"quest": Quest or null, "state": State}`. Makes a quest of that length the active one. Asking again gives the next one |
 | `GET /api/state` | web | | State |
+| `POST /api/visit` | web | `{"quest_id": "..."}` | `{"ok": true}`, `422` for an unknown quest. The page sends it when it works out, in the browser, that you are at that quest's place. **No position is ever sent**; only the quest id is kept. A quest finished from 2 hours after a visit to 30 minutes before one earns the Been there bonus (+10 XP, never doubled) |
 | `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}`, header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | `{"ok": true}`. `401` without the passphrase |
 | `GET /api/wellness` | web | header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | Wellness. `401` without the passphrase |
 | `POST /api/dev/reset` | demos, tests, the page's "Reset Gary" button | optional `{"keep_quests": true}`; header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | with `keep_quests`: forgets events and moods, keeps every quest and opens them all again. Without it: forgets events and moods, reloads seed quests |
@@ -81,6 +82,8 @@ only. It never decides XP.
 | `herd` | `true` means it only completes with a friend in frame |
 | `note` | Optional. One line from the scout about where to stand: "Stay on the marked trail. Any safe, accessible spot counts." |
 | `source`, `source_url` | `tinyfish` and the page the agent read: only these are shown as "Found by the scout". `seed` for the built-in quests. `sample` for hand-written places posted with `scout.py --from-file`. `source_url` must be an `http` or `https` address, or the backend drops it |
+| `lat`, `lng` | Optional. The place's real position in decimal degrees: the scout looks it up on OpenStreetMap. The page uses it to tell when you are there. Anything that is not a number in range is dropped |
+| `tidbits` | Optional. Up to three lines Gary says on the way: trail facts and asides, written by Gemini from the page the scout read (`scout.py --voice`). Each at most 160 characters. Facts about the place come only from that page. Always a list in replies, maybe empty |
 | `day` | `2026-11-21`, the local day. "Today's" quests are the ones dated today. Short or long offers today's scout quests first, then anything else added today, then the scout's older quests (newest first), then the built-in ones |
 | `active` | Only in `GET /api/quests`: this is the quest on the card |
 
@@ -96,9 +99,9 @@ only. It never decides XP.
 | `quest_choice` | `short`, `long`, or `null` if the person has not chosen |
 | `quest_options` | `{"short": Quest or null, "long": Quest or null}`: what each button would give |
 | `quests_open` | How many quests are open |
-| `journal` | Finds, newest first (at most 50), each with the `xp` it earned and the `place` of the quest it finished, or `null` |
+| `journal` | Finds, newest first (at most 50), each with the `xp` it earned, the `place` of the quest it finished (or `null`), and `been_there`: the page said you were at that place |
 | `guide` | Field guide: `total` things, and the names `found` |
-| `map` | Up to 25 tiles. Pad to 5 × 5 with fog. Each: `place`, `quest_id`, `cleared`, `cleared_at`, and `finds`: what was found there (`label`, `ts`, `friend`, `quest_id`) |
+| `map` | Up to 25 tiles. Pad to 5 × 5 with fog. Each: `place`, `quest_id`, `cleared`, `cleared_at`, `finds`: what was found there (`label`, `ts`, `friend`, `quest_id`), `lat`/`lng` (or `null`), and `visited`: the page has said you were there |
 | `herd.badges` | Earned together, never taken away: `first-herd`, `herd-quest`, `herd-of-five`, `trail-mates` |
 | `herd.shared` | How many finds had a friend in frame |
 | `herd.quest` | An open co-op quest, or `null` |

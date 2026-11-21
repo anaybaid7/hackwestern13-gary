@@ -5,11 +5,12 @@
 // "Sample" or "Starter" otherwise.
 import { useState } from 'react'
 import { host, webAddress } from '../format.js'
+import { tidbitFor } from '../voice.js'
 import QuestDetail from './QuestDetail.jsx'
 
 const MINUTES = { short: 15, long: 40 }
 
-export default function QuestCard({ quest, choice, options = {}, onChoose, onShowMap, busy = false }) {
+export default function QuestCard({ quest, choice, options = {}, onChoose, onShowMap, busy = false, where = null }) {
   const [open, setOpen] = useState(null) // the quest whose details are showing
 
   async function start(time) {
@@ -28,6 +29,14 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
             </button>
           </h3>
           <p className="sign-facts">📍 {quest.place}</p>
+          {where?.near ? (
+            <>
+              <p className="sign-here" role="status">You're here. Sniff it now for a Been there bonus.</p>
+              {tidbitFor(quest) && <p className="sign-tidbit">Gary: {tidbitFor(quest)}</p>}
+            </>
+          ) : (
+            where?.away && <p className="sign-away">{where.away}</p>
+          )}
           <p className="chips">
             <span className="chip chip-xp">+{quest.xp} XP</span>
             {quest.time === 'long' && <span className="chip chip-trail">Trail</span>}

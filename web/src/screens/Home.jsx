@@ -3,15 +3,23 @@
 import Climb from '../components/Climb.jsx'
 import Gary from '../components/Gary.jsx'
 import QuestCard from '../components/QuestCard.jsx'
-import { garyLine } from '../voice.js'
+import { factFor, garyLine, lineFor, progressLine } from '../voice.js'
 import { STAGE_NAMES } from '../words.js'
 
 // Where the device serves what Gary sees (device/qnx/live.sh), if anywhere.
 const LIVE_URL = import.meta.env.VITE_LIVE_URL
 
-export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl = LIVE_URL }) {
+export default function Home({ state, flash, onChoose, onShowMap, busy, where = null, now = new Date(), liveUrl = LIVE_URL }) {
   const { gary, journal } = state
   const celebrating = Boolean(flash.find)
+  // Right after a sniff: Gary on that thing, and a fact about it. Otherwise:
+  // about you and your progress.
+  const speech =
+    gary.napping || gary.welcome_back
+      ? garyLine(gary, journal[0])
+      : celebrating
+        ? lineFor(flash.find)
+        : (progressLine(state, now) ?? garyLine(gary, journal[0]))
   return (
     <div className="home">
       <section className={`lcd${gary.napping ? ' napping' : ''}`} aria-label="Gary">
@@ -30,8 +38,9 @@ export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl 
           )}
         </div>
         <p className={`speech${celebrating ? ' fresh' : ''}`} aria-live="polite">
-          {garyLine(gary, journal[0])}
+          {speech}
         </p>
+        {celebrating && factFor(flash.find) && <p className="fact">💡 {factFor(flash.find)}</p>}
         <Climb gary={gary} />
         {liveUrl && (
           <a className="link live-link" href={liveUrl} target="_blank" rel="noreferrer">
@@ -47,6 +56,7 @@ export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl 
         onChoose={onChoose}
         onShowMap={onShowMap}
         busy={busy}
+        where={where}
       />
     </div>
   )

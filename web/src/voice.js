@@ -1,48 +1,28 @@
-// Gary's voice (issue #25). One short line for each find, and a one-sentence
-// recap of the day. The lines are hand-written and picked here, on the web
-// side; the backend sends facts only.
+// Gary's voice (issue #25). One short line for each find, a fact about the
+// thing, and a one-sentence recap of the day. Picked here, on the web side;
+// the backend sends facts only. The words are in gary_lines.json, written
+// once by Gemini (scout/gary_lines.py) and read by a person, so Gary talks
+// with no network at all. The few hand-written lines below are only a
+// fallback for a pool the file leaves empty.
 //
 // Gary is a mountain goat: dry, nosy, unimpressed by flat ground. He never
 // nags and never guilts. Missing a day is a nap, nothing more.
 import { isToday, list } from './format.js'
+import written from './gary_lines.json'
+import { STAGES, STAGE_NAMES } from './words.js'
 
-// Lines tied to a thing. Used the first time Gary finds it, and for quests.
-const BY_THING = {
-  bench: 'A bench. I respect anything that holds still.',
-  dog: 'A dog. Loud, loyal, cannot climb. Still, a decent animal.',
-  bird: 'A bird. It shows off about the flying, but fine.',
-  bicycle: 'A bicycle. Two wheels and nobody fell off. Impressive.',
-  bottle: 'A bottle. The lowland version of licking a glacier.',
-  backpack: 'A backpack. Someone here is planning to go somewhere. Good.',
-  'fire hydrant': 'A fire hydrant. Short, red, stubborn. We could be friends.',
-  'stop sign': 'A stop sign. I have never once obeyed one.',
-  'traffic light': 'A traffic light. It changed its mind three times while I watched.',
-  car: 'A car. Fast. Cannot climb stairs.',
-  bus: 'A bus. A whole herd in one box.',
-  kite: 'A kite. A thing that climbs with no legs. Suspicious.',
-  boat: 'A boat. Mountains do not need those.',
-  umbrella: 'An umbrella. Rain is only the sky licking you.',
-  skateboard: 'A skateboard. Four wheels, no hooves.',
-  'sports ball': 'A ball. It rolls downhill. So do most things.',
-  cat: 'A cat. Climbs well. Arrogant about it.',
-  sheep: 'A sheep. A cousin. We do not talk.',
-  laptop: 'A laptop. An indoor thing. Noted, barely.',
-  cup: 'A cup. Indoors again, I see.',
-  'cell phone': 'A phone. You are holding another one right now.',
-  'potted plant': 'A potted plant. A snack that someone locked in a pot.',
-  book: 'A book. I ate one once. Dry.',
-  chair: 'A chair. A bench for one.',
+const THINGS = written.things ?? {}
+const FALLBACK = {
+  quest: ['Quest done. I knew you could walk that far.'],
+  new: ['New to me. Writing it down.'],
+  again: ['Seen one. Still counts, a little.'],
+  friend: ['And you brought someone. That is a herd.'],
+  napping: ['Zzz. Gary is napping. No guilt. He was tired anyway.'],
+  welcome_back: ['Oh, you are back. Good. I saved you a rock.'],
+  awake: ['Gary is awake and nosy. Point him at something.'],
 }
-
-// General lines, by what happened.
-const QUEST = [
-  'Quest done. I knew you could walk that far.',
-  'That is the one I asked for. Well found.',
-  'Done. The fog was getting boring anyway.',
-]
-const NEW = ['New to me. Writing it down.', 'Never sniffed one of those before.', 'That goes in the field guide.']
-const AGAIN = ['Seen one. Still counts, a little.', 'Again. Fine. One point for effort.', 'I know that one. Hello again.']
-const FRIEND = ['And you brought someone. That is a herd.', 'Two of you. Better than one.']
+/** Gary's lines for one situation: Gemini's, else the fallback. */
+export const pool = (name) => (written.pools?.[name]?.length ? written.pools[name] : FALLBACK[name])
 
 /** A small, stable number from a string, so one entry always gets the same line. */
 function pick(lines, key) {
@@ -53,20 +33,71 @@ function pick(lines, key) {
 
 /** Gary's line for one journal entry. The same entry always gets the same line. */
 export function lineFor(entry) {
-  const own = BY_THING[entry.label]
+  const own = THINGS[entry.label]?.line
   let line
-  if (entry.quest_id) line = own && entry.new ? own : pick(QUEST, entry.id)
-  else if (entry.new) line = own ?? pick(NEW, entry.id)
-  else line = pick(AGAIN, entry.id)
-  return entry.friend ? `${line} ${pick(FRIEND, entry.id)}` : line
+  if (entry.quest_id) line = own && entry.new ? own : pick(pool('quest'), entry.id)
+  else if (entry.new) line = own ?? pick(pool('new'), entry.id)
+  else line = pick(pool('again'), entry.id)
+  return entry.friend ? `${line} ${pick(pool('friend'), entry.id)}` : line
+}
+
+/** A fact Gary knows about what was found, or null. The same entry always gets the same one. */
+export function factFor(entry) {
+  const facts = THINGS[entry?.label]?.facts ?? []
+  return facts.length ? pick(facts, entry.id) : null
+}
+
+/** One of the quest's trail tidbits (from the scout, with Gemini), or null. Stable for a quest. */
+export function tidbitFor(quest, salt = '') {
+  const lines = quest?.tidbits ?? []
+  return lines.length ? pick(lines, `${quest.id}${salt}`) : null
+}
+
+const ALMOST_XP = 25 // this close to the next stage, Gary mentions it
+
+/**
+ * Gary's line about your own progress: today's finds (or today's quest, if
+ * there are none yet), and how close he is to growing. Gemini wrote the
+ * templates (gary_lines.json "progress"); the numbers come from the state.
+ * Null when the file has none.
+ */
+export function progressLine(state, now = new Date()) {
+  const templates = written.progress ?? {}
+  const { gary, journal = [], quest, guide } = state
+  const today = journal.filter((entry) => isToday(entry.ts, now)).length
+  const next = STAGES[gary.stage_index + 1]
+  const xpLeft = gary.next_stage_xp == null ? null : gary.next_stage_xp - gary.xp
+  const slots = {
+    target: quest ? withArticle(quest.target) : null,
+    place: quest?.place,
+    finds_today: `${today} find${today === 1 ? '' : 's'}`,
+    last: journal[0] ? withArticle(journal[0].label) : null,
+    xp_left: xpLeft == null ? null : `${xpLeft} XP`,
+    next_stage: next ? (STAGE_NAMES[next] ?? next) : null,
+    guide: guide ? `${guide.found.length} of ${guide.total} things` : null,
+  }
+  const key = `${journal[0]?.id ?? 'none'}:${today}`
+  const say = (name) => {
+    const usable = (templates[name] ?? []).filter((line) =>
+      [...line.matchAll(/\{(\w+)\}/g)].every(([, slot]) => slots[slot] != null),
+    )
+    return usable.length ? pick(usable, key).replace(/\{(\w+)\}/g, (_, slot) => slots[slot]) : null
+  }
+  const parts = [today > 0 ? say('today') : quest ? say('start') : null]
+  // then: how close he is to growing, or else a nudge for body, mind and friends outdoors
+  parts.push(xpLeft != null && gary.xp > 0 && xpLeft <= ALMOST_XP ? say('almost') : say('encourage'))
+  if (!parts.some(Boolean)) parts.push(say('guide'))
+  const line = parts.filter(Boolean).join(' ')
+  return line || null
 }
 
 /** What Gary says under his picture. */
 export function garyLine(gary, latest) {
-  if (gary.napping) return 'Zzz. Gary is napping. No guilt. He was tired anyway.'
-  if (gary.welcome_back) return 'Oh, you are back. Good. I saved you a rock.'
+  const key = latest?.id ?? 'gary'
+  if (gary.napping) return pick(pool('napping'), key)
+  if (gary.welcome_back) return pick(pool('welcome_back'), key)
   if (latest) return lineFor(latest)
-  return 'Gary is awake and nosy. Point him at something.'
+  return pick(pool('awake'), key)
 }
 
 const NO_ARTICLE = new Set(['skis', 'scissors', 'broccoli'])

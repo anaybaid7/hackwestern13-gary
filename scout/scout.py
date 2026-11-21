@@ -34,11 +34,17 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TINYFISH_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
+# Where a place really is, so the web page can tell when you are there.
+# OpenStreetMap's Nominatim: at most one request a second, a named client.
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+LONDON_BOX = "-81.45,43.10,-81.10,42.88"  # west, north, east, south: London, Ontario
+GEO_AGENT = "gary-scout/0.1 (hackathon project)"
 
 
 def load_settings(path=None, environ=None):
@@ -320,7 +326,35 @@ def pick_target(name, text, allowed):
     return choices[turn % len(choices)]
 
 
-def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
+_last_geocode = [0.0]
+
+
+def geocode(name, address=None, fetch=None):
+    """(lat, lng) of a place in London, Ontario, or None. The agent's street
+    address is used when it gave one, the name otherwise. A failure never
+    drops a quest: it only has no position, and the page then never says
+    "you are here" about it."""
+    query = "%s, London, Ontario" % (address or name)
+    url = NOMINATIM_URL + "?" + urllib.parse.urlencode(
+        {"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "ca", "viewbox": LONDON_BOX, "bounded": 1})
+    if fetch is None:
+        wait = 1.0 - (time.monotonic() - _last_geocode[0])
+        if wait > 0:
+            time.sleep(wait)
+        _last_geocode[0] = time.monotonic()
+
+        def fetch(u):
+            with urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": GEO_AGENT}), timeout=10) as r:
+                return r.read()
+    try:
+        found = json.loads(fetch(url))
+        lat, lng = float(found[0]["lat"]), float(found[0]["lon"])
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return None
+    return (round(lat, 6), round(lng, 6)) if -90 <= lat <= 90 and -180 <= lng <= 180 else None
+
+
+def build_quests(places, source, day, allowed, limit=3, taken=None, count=0, locate=None):
     """Turn agent places into contract Quests.
 
     places   what the agent returned: [{"name", "about", ...}]
@@ -329,6 +363,7 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
              were not found by an agent, and the page must not say they were
     taken    place keys already used in this run; a place gets one quest
     count    quests built so far in this run (every third is a herd quest)
+    locate   (name, address) -> (lat, lng) or None, e.g. geocode. None: no positions
     Returns (quests, dropped). dropped is [{"name", "why"}].
     """
     taken = set() if taken is None else taken
@@ -382,6 +417,10 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
             "source_url": web_address(place.get("url")) or web_address(source.get("url")),
             "day": day,
         })
+        quests[-1]["_about"] = " ".join(sorted(abouts[key])).strip()  # for --voice; never posted
+        spot = locate(name, clean_name(place.get("address"))) if locate else None
+        if spot:
+            quests[-1]["lat"], quests[-1]["lng"] = spot
     return quests, dropped
 
 
@@ -494,7 +533,10 @@ def main(argv=None):
     ap.add_argument("--cache", default=os.path.join(HERE, "cached_quests.json"), help="the last good set of quests")
     ap.add_argument("--evidence", default=os.path.join(HERE, "EVIDENCE.md"))
     ap.add_argument("--all", action="store_true", help=argparse.SUPPRESS)  # every source is now the default
+    ap.add_argument("--no-geocode", action="store_true",
+                    help="do not look up where each place is (OpenStreetMap). Also GARY_NO_GEOCODE=1")
     args = ap.parse_args(argv)
+    locate = None if args.no_geocode or os.environ.get("GARY_NO_GEOCODE") else geocode
 
     def say(text):
         print(text, flush=True)
@@ -518,6 +560,16 @@ def main(argv=None):
             sys.exit("No cached quests yet (%s). They are saved by the first good live run." % args.cache)
         quests = saved.get("quests", [])
         say("%d quests from the live run saved at %s. No new agent run was made." % (len(quests), saved.get("saved_at")))
+        missing = [q for q in quests if q.get("lat") is None] if locate else []
+        for quest in missing:  # saved before the scout looked up positions: look them up once, and keep them
+            spot = locate(quest.get("place"), None)
+            if spot:
+                quest["lat"], quest["lng"] = spot
+        if any(q.get("lat") is not None for q in missing):
+            with open(args.cache, "w", encoding="utf-8") as f:
+                json.dump(dict(saved, quests=quests), f, indent=2)
+                f.write("\n")
+            say("Looked up where %d of %d places are." % (sum(q.get("lat") is not None for q in missing), len(missing)))
     elif args.from_file:
         with open(args.from_file, "r", encoding="utf-8") as f:
             saved = json.load(f)
@@ -525,7 +577,7 @@ def main(argv=None):
         say("%d places from %s. This is not a live run: the quests are marked as sample quests,\n"
             "and the page will not say the scout found them." % (len(places), args.from_file))
         source = {"url": None, "kind": saved.get("kind") if isinstance(saved, dict) else None, "sample": True}
-        quests, dropped = build_quests(places, source, day, allowed, args.max)
+        quests, dropped = build_quests(places, source, day, allowed, args.max, locate=locate)
         for d in dropped:
             say("  left out %s: %s" % (d["name"], d["why"]))
     else:
@@ -559,7 +611,7 @@ def main(argv=None):
                 # The reply is documented as "result"; look through the whole event if it is elsewhere.
                 places = find_places(final.get("result")) or find_places(
                     {k: v for k, v in final.items() if k not in ("type", "status", "run_id", "streaming_url")})
-                found, dropped = build_quests(places, source, day, allowed, args.max, taken, len(quests))
+                found, dropped = build_quests(places, source, day, allowed, args.max, taken, len(quests), locate)
                 say("  %d places -> %d quests" % (len(places), len(found)))
                 for d in dropped:
                     say("  left out %s: %s" % (d["name"], d["why"]))
@@ -586,8 +638,16 @@ def main(argv=None):
     if args.voice:
         import gary_voice
         changed = gary_voice.apply(quests, os.environ.get("GEMINI_API_KEY"), say=say)
-        say("Gemini put %d of %d titles in Gary's voice." % (changed, len(quests)))
+        say("Gemini put %d of %d titles in Gary's voice, and gave %d quests trail tidbits."
+            % (changed, len(quests), sum(1 for q in quests if q.get("tidbits"))))
+    for quest in quests:  # working notes, like the page text, stay here
+        for name in [k for k in quest if k.startswith("_")]:
+            del quest[name]
 
+    if args.cached and args.voice:
+        with open(args.cache, "w", encoding="utf-8") as f:
+            json.dump(dict(saved, quests=quests), f, indent=2)
+            f.write("\n")
     if live:
         with open(args.cache, "w", encoding="utf-8") as f:
             json.dump({"saved_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

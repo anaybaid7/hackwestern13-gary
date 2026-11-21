@@ -14,7 +14,8 @@ restart keeps Gary's state. The shapes are in contract/README.md.
 Settings, all optional, from the environment or from a .env file beside this
 file (or in the repo root):
 
-    DATABASE_URL       postgres://... on Tiger Data. Unset: memory
+    DATABASE_URL       postgres://... on Tiger Data. Unset: GARY_DB, then memory
+    GARY_DB            a SQLite file (on the Pi). Used when DATABASE_URL is unset
     SCOUT_KEY          the scout must send it as X-Scout-Key to post quests
     GARY_ADMIN_KEY     POST /api/dev/reset must send it as X-Admin-Key
     GARY_PRIVATE_KEY   a passphrase. With it set, the private side (check-ins
@@ -22,6 +23,7 @@ file (or in the repo root):
     GARY_NAP_SECONDS   quiet time before Gary naps. Default 8 hours; 60 for a demo
     GARY_TZ            where days and weeks turn over. Default America/Toronto
     GARY_SEED          the quests a fresh backend starts with
+    GARY_LIVE_DIR      a folder to serve at /live/: Gary's live view, on the Pi
 """
 import datetime as dt
 import hmac
@@ -39,6 +41,16 @@ from fastapi.staticfiles import StaticFiles
 
 import rules
 from store import make_store
+
+# QNX reports no limit for SC_IOV_MAX (-1), and Python 3.14's asyncio then fails
+# on every reply too big for one write: the page's script arrived cut short.
+# 1024 is the POSIX/Linux value.
+try:
+    import asyncio.selector_events as _sel
+    if getattr(_sel, "SC_IOV_MAX", 1024) < 1:
+        _sel.SC_IOV_MAX = 1024
+except ImportError:  # pragma: no cover
+    pass
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -237,7 +249,19 @@ def check_quest(raw):
         "source": one_line(raw.get("source") or "manual", 20) or "manual",
         "source_url": web_address(raw.get("source_url")),
         "day": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else rules.local_day(now(), TZ),
+        "lat": degrees(raw.get("lat"), 90), "lng": degrees(raw.get("lng"), 180),
+        # Gary's trail tidbits (the scout, with Gemini): plain lines only, at most three
+        "tidbits": [line for line in (one_line(t, 160) for t in raw.get("tidbits") or [] if isinstance(t, str))
+                    if line][:3] if isinstance(raw.get("tidbits"), list) else [],
     }, None
+
+
+def degrees(value, limit):
+    """A latitude or longitude, or None: the page uses it to tell whether you
+    are at the place, so anything that is not a number in range is dropped."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), 6) if -limit <= value <= limit else None
 
 
 def current(events=None, quests=None):
@@ -347,6 +371,20 @@ def post_mood(payload: dict = Body(...), x_private_key: Optional[str] = Header(N
     return {"ok": True}
 
 
+@app.post("/api/visit")
+def post_visit(payload: dict = Body(...)):
+    """{"quest_id": ...}: the web page is at that quest's place. It works that
+    out in the browser, so no position ever reaches this server, and only the
+    quest id is kept. A quest finished near a visit earns the Been there bonus."""
+    quest_id = str(payload.get("quest_id") or "")
+    with lock:
+        if not any(q["id"] == quest_id for q in store.quests()):
+            raise HTTPException(422, "no quest has that id")
+        store.add([{"id": "visit-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "visit",
+                    "quest_id": quest_id}])
+    return {"ok": True}
+
+
 @app.get("/api/wellness")
 def get_wellness(x_private_key: Optional[str] = Header(None)):
     """The private side: check-ins, before and after pairs, estimated outdoor
@@ -377,5 +415,9 @@ def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(Non
 
 # If the web page has been built (cd web && npm run build), serve it from here
 # too, so one address carries both. This must stay below the API routes.
+# GARY_LIVE_DIR: on the Pi, the folder Gary writes his live frame to. Served
+# at /live/, so the page's "What Gary sees" link needs no second server.
+if os.environ.get("GARY_LIVE_DIR") and Path(os.environ["GARY_LIVE_DIR"]).is_dir():
+    app.mount("/live", StaticFiles(directory=os.environ["GARY_LIVE_DIR"], html=True), name="live")
 if (ROOT / "web" / "dist").is_dir():
     app.mount("/", StaticFiles(directory=str(ROOT / "web" / "dist"), html=True), name="web")
