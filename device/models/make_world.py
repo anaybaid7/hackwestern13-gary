@@ -25,11 +25,10 @@ with open(os.path.join(HERE, "coco_labels.txt"), "r", encoding="utf-8") as f:
     COCO = [line.strip() for line in f if line.strip() not in ("", "n/a")]
 
 # What a trail adds. Keep in step with contract/labels.json.
-TRAIL = [
-    "tree", "flower", "leaf", "mushroom", "rock", "pine cone", "squirrel", "chipmunk", "duck", "goose",
-    "rabbit", "deer", "butterfly", "bridge", "trail sign", "picnic table", "trash can", "statue",
-    "fountain", "playground", "street lamp", "mailbox", "canoe", "kayak", "waterfall",
-]
+# Only names that bench_model.py shows working: of 25 tried, most lost to the
+# COCO word every time (duck -> bird, squirrel -> bear, picnic table -> bench).
+# Try a new name here, re-export, and run bench_model.py before keeping it.
+TRAIL = ["tree", "flower", "trash can", "street lamp"]
 NAMES = COCO + TRAIL
 
 if __name__ == "__main__":

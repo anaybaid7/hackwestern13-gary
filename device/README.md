@@ -17,8 +17,9 @@ records facts; XP, stages and the map belong to the backend.
 | `start_gary.sh`, `stop_gary.sh` | Run all of it in the background, with no keyboard or screen | Tested on Linux. **Not yet run on QNX** (issue #13) |
 | `gary_numbers.py`, `cpu_load.py` | The timing table for the judges | Tested on Linux (issue #14) |
 | `fake_sniff.py` | Posts a pretend sniff, for teammates with no device | Tested |
-| `models/gary_world.tflite`, `gary_labels.txt` | The detector: YOLO-World (YOLOv8s) with our own list of 104 things plus `person`, 320 x 320, float32, 48 MB. About 20 ms a frame on a laptop | Made by `models/make_world.py`. Tested on a photo and in both decoders. **Not yet run on QNX** |
+| `models/gary_world.tflite`, `gary_labels.txt` | The detector: YOLO-World (YOLOv8s) with our own list of 83 things (the 79 COCO ones, tree, flower, trash can, street lamp) plus `person`, 320 x 320, float32, 48 MB. About 20 ms a frame on a laptop | Made by `models/make_world.py`. Tested on a photo and in both decoders. **Not yet run on QNX** |
 | `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The old detector: SSD MobileNet v2, 80 COCO things, 6 MB. Still works: `--model models/ssd_mobilenet_v2_coco_quant_postprocess.tflite --labels models/coco_labels.txt` | From google-coral/test_data |
+| `bench_model.py` | How well the model names things: scores it on labelled photos (`--fetch` downloads about 10 per thing from Wikimedia Commons into `bench_photos/`, not committed). Writes `bench_results.md` | Run on the laptop |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
 | `sounds/` | Placeholder chimes | Replace with Gary's voice |
 

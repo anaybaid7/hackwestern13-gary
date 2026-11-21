@@ -31,7 +31,7 @@ def test_discovery_changes_xp_journal_and_map(client):
     state = client.get("/api/state").json()
     assert state["gary"]["xp"] == 80 and state["gary"]["stage"] == "scrambler"
     assert state["journal"][0]["label"] == "bench" and state["journal"][0]["xp"] == 80
-    assert state["guide"] == {"total": 104, "found": ["bench"]}
+    assert state["guide"] == {"total": 83, "found": ["bench"]}
     cleared = [t["place"] for t in state["map"] if t["cleared"]]
     assert cleared == ["Harris Park"]
 

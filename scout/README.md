@@ -105,10 +105,8 @@ venue as the name.
 ## From a place to a quest
 
 - **The thing to find** comes from the words about the place (`TARGET_RULES`):
-  a dog park asks for a dog, a paved path for a bicycle, woods for a tree, a
-  squirrel, a pine cone or a leaf, a pond or bog for a duck or a goose, gardens
-  for a bench. With no clue it picks from bench, tree,
-  squirrel, bird, dog and bicycle.
+  a dog park asks for a dog, a paved path for a bicycle, woods for a bird,
+  gardens for a bench. With no clue it picks from bench, bird, dog and bicycle.
   The same place always gets the same thing. The rules only ask for things
   that are there in any season, so a quest can always be finished.
 - **Short or long** comes from the page: parks and events are short (about 15

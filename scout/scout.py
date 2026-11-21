@@ -70,23 +70,20 @@ def load_settings(path=None, environ=None):
 # contract/labels.json, because the Sniff Test is what confirms the quest.
 # Only things that are there in any season: a quest nobody can finish is no
 # fun. So no "sports ball" for a tennis court: in November there is none, and
-# no flower or butterfly either, though Gary knows both.
+# no flower either, though Gary knows it. Only things device/bench_model.py
+# shows Gary naming reliably: not tree (38%), which would leave quests unfinishable.
 # A rule may name several things; each place always gets the same one of them.
 TARGET_RULES = [
     (("off-leash", "off leash", "dog park", "dogs"), ("dog",)),
     (("skate park", "skatepark", "skateboard"), ("skateboard",)),
-    (("boat launch", "boathouse", "rowing club", "canoe club", "marina"), ("boat", "canoe")),
-    (("waterfall", "falls"), ("waterfall",)),
-    (("bridge",), ("bridge",)),
-    (("pond", "wetland", "marsh", "bog"), ("duck", "goose")),
+    (("boat launch", "boathouse", "rowing club", "canoe club", "marina"), ("boat",)),
     (("bike", "bicycle", "cycling", "parkway", "paved path", "multi-use"), ("bicycle",)),
-    (("wood", "forest", "meadow", "natural area", "trail", "valley"), ("tree", "squirrel", "pine cone", "leaf")),
-    (("bird",), ("bird",)),
+    (("bird", "pond", "wetland", "marsh", "bog", "woods", "forest", "meadow", "natural area", "trail", "valley"), ("bird",)),
     # bench, not picnic table: many parks put their picnic tables away for the winter
     (("garden", "playground", "picnic", "seating", "accessible", "plaza", "market", "square", "festival", "lights"),
      ("bench",)),
 ]
-FALLBACK_TARGETS = ["bench", "tree", "squirrel", "bird", "dog", "bicycle"]
+FALLBACK_TARGETS = ["bench", "bird", "dog", "bicycle"]
 LONG_WORDS = ("trail", "hike", "hiking", "woods", "forest", "conservation", "bog", "ponds", "meadow", "valley")
 HERD_EVERY = 3  # every third quest is a co-op quest: it needs a friend in frame
 

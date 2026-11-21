@@ -10,7 +10,7 @@ or a removal needs all four of you to agree, in an issue.
 
 | File | What it is |
 | --- | --- |
-| `labels.json` | The 104 things Gary can recognise, each marked outdoor or indoor. `friend` names the label that means a person is in frame |
+| `labels.json` | The 83 things Gary can recognise, each marked outdoor or indoor. `friend` names the label that means a person is in frame |
 | `examples/event.discovery.json` | A Sniff Test that named something |
 | `examples/event.miss.json` | A Sniff Test that found nothing nameable |
 | `examples/event.mood.json` | A private mood check-in |
