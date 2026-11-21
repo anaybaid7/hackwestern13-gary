@@ -71,3 +71,13 @@ def test_a_quest_keeps_real_coordinates_and_drops_anything_else(client):
     assert (by_id["q-c"]["lat"], by_id["q-c"]["lng"]) == (None, None)
     tile = next(t for t in state_of(client)["map"] if t["quest_id"] == "q-a")
     assert (tile["lat"], tile["lng"], tile["visited"]) == (42.9849, -81.2585, False)
+
+
+def test_tidbits_are_kept_as_plain_lines_three_at_most(client):
+    client.post("/api/quests", json={"quests": [
+        quest("q-t", "tree", "Sifton Bog", tidbits=["A rare peat bog.", "Line\nbreak", 7, "", "three", "four"]),
+        quest("q-n", "tree", "Warbler Woods", tidbits="not a list"),
+    ]})
+    by_id = {q["id"]: q for q in client.get("/api/quests").json()["quests"]}
+    assert by_id["q-t"]["tidbits"] == ["A rare peat bog.", "Line break", "three"]
+    assert by_id["q-n"]["tidbits"] == []

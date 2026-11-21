@@ -84,6 +84,15 @@ describe('Gary (issue #25)', () => {
 })
 
 describe('Quest card (issue #28)', () => {
+  test('at the place the card adds one of Gary\'s trail tidbits, and the details list them all', () => {
+    const quest = { ...example.quest, tidbits: ['Sifton Bog is a real peat bog.', 'Mind the boardwalk.'] }
+    render(<QuestCard quest={quest} choice={null} options={{ short: quest }} where={{ near: true }} />)
+    expect(screen.getByText(/^Gary: (Sifton Bog is a real peat bog\.|Mind the boardwalk\.)$/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: quest.title }))
+    expect(screen.getByText('Gary, on the way:')).toBeTruthy()
+    expect(screen.getByText('Mind the boardwalk.')).toBeTruthy()
+  })
+
   const scoutQuest = step(2).quest // the scout's Springbank Park quest, chosen with "short"
 
   test('shows the place, the thing, and where the scout found it', () => {

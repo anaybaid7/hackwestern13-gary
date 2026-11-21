@@ -3,7 +3,7 @@
 import Climb from '../components/Climb.jsx'
 import Gary from '../components/Gary.jsx'
 import QuestCard from '../components/QuestCard.jsx'
-import { garyLine } from '../voice.js'
+import { factFor, garyLine } from '../voice.js'
 import { STAGE_NAMES } from '../words.js'
 
 // Where the device serves what Gary sees (device/qnx/live.sh), if anywhere.
@@ -32,6 +32,7 @@ export default function Home({ state, flash, onChoose, onShowMap, busy, where = 
         <p className={`speech${celebrating ? ' fresh' : ''}`} aria-live="polite">
           {garyLine(gary, journal[0])}
         </p>
+        {!gary.napping && factFor(journal[0]) && <p className="fact">💡 {factFor(journal[0])}</p>}
         <Climb gary={gary} />
         {liveUrl && (
           <a className="link live-link" href={liveUrl} target="_blank" rel="noreferrer">

@@ -1,10 +1,16 @@
-// Gary's voice (issue #25). One short line for each find, and a one-sentence
-// recap of the day. The lines are hand-written and picked here, on the web
-// side; the backend sends facts only.
+// Gary's voice (issue #25). One short line for each find, a fact about the
+// thing, and a one-sentence recap of the day. Picked here, on the web side;
+// the backend sends facts only. The hand-written lines below come first; the
+// rest are in gary_lines.json, written once by Gemini (scout/gary_lines.py)
+// and read by a person, so Gary talks with no network at all.
 //
 // Gary is a mountain goat: dry, nosy, unimpressed by flat ground. He never
 // nags and never guilts. Missing a day is a nap, nothing more.
 import { isToday, list } from './format.js'
+import written from './gary_lines.json'
+
+const THINGS = written.things ?? {}
+const POOLS = written.pools ?? {}
 
 // Lines tied to a thing. Used the first time Gary finds it, and for quests.
 const BY_THING = {
@@ -39,9 +45,11 @@ const QUEST = [
   'Quest done. I knew you could walk that far.',
   'That is the one I asked for. Well found.',
   'Done. The fog was getting boring anyway.',
+  ...(POOLS.quest ?? []),
 ]
-const NEW = ['New to me. Writing it down.', 'Never sniffed one of those before.', 'That goes in the field guide.']
-const AGAIN = ['Seen one. Still counts, a little.', 'Again. Fine. One point for effort.', 'I know that one. Hello again.']
+const NEW = ['New to me. Writing it down.', 'Never sniffed one of those before.', 'That goes in the field guide.', ...(POOLS.new ?? [])]
+const AGAIN = ['Seen one. Still counts, a little.', 'Again. Fine. One point for effort.', 'I know that one. Hello again.', ...(POOLS.again ?? [])]
+// kept short and hand-written: it is said after another line
 const FRIEND = ['And you brought someone. That is a herd.', 'Two of you. Better than one.']
 
 /** A small, stable number from a string, so one entry always gets the same line. */
@@ -53,12 +61,24 @@ function pick(lines, key) {
 
 /** Gary's line for one journal entry. The same entry always gets the same line. */
 export function lineFor(entry) {
-  const own = BY_THING[entry.label]
+  const own = BY_THING[entry.label] ?? THINGS[entry.label]?.line
   let line
   if (entry.quest_id) line = own && entry.new ? own : pick(QUEST, entry.id)
   else if (entry.new) line = own ?? pick(NEW, entry.id)
   else line = pick(AGAIN, entry.id)
   return entry.friend ? `${line} ${pick(FRIEND, entry.id)}` : line
+}
+
+/** A fact Gary knows about what was found, or null. The same entry always gets the same one. */
+export function factFor(entry) {
+  const facts = THINGS[entry?.label]?.facts ?? []
+  return facts.length ? pick(facts, entry.id) : null
+}
+
+/** One of the quest's trail tidbits (from the scout, with Gemini), or null. Stable for a quest. */
+export function tidbitFor(quest, salt = '') {
+  const lines = quest?.tidbits ?? []
+  return lines.length ? pick(lines, `${quest.id}${salt}`) : null
 }
 
 /** What Gary says under his picture. */

@@ -83,6 +83,7 @@ only. It never decides XP.
 | `note` | Optional. One line from the scout about where to stand: "Stay on the marked trail. Any safe, accessible spot counts." |
 | `source`, `source_url` | `tinyfish` and the page the agent read: only these are shown as "Found by the scout". `seed` for the built-in quests. `sample` for hand-written places posted with `scout.py --from-file`. `source_url` must be an `http` or `https` address, or the backend drops it |
 | `lat`, `lng` | Optional. The place's real position in decimal degrees: the scout looks it up on OpenStreetMap. The page uses it to tell when you are there. Anything that is not a number in range is dropped |
+| `tidbits` | Optional. Up to three lines Gary says on the way: trail facts and asides, written by Gemini from the page the scout read (`scout.py --voice`). Each at most 160 characters. Facts about the place come only from that page. Always a list in replies, maybe empty |
 | `day` | `2026-11-21`, the local day. "Today's" quests are the ones dated today. Short or long offers today's scout quests first, then anything else added today, then the scout's older quests (newest first), then the built-in ones |
 | `active` | Only in `GET /api/quests`: this is the quest on the card |
 

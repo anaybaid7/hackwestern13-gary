@@ -2,7 +2,9 @@
 import { expect, test } from 'vitest'
 import example from '../../contract/examples/state.json'
 import story from '../../contract/examples/story.json'
-import { garyLine, lineFor, recap, withArticle } from './voice.js'
+import labels from '../../contract/labels.json'
+import written from './gary_lines.json'
+import { factFor, garyLine, lineFor, recap, tidbitFor, withArticle } from './voice.js'
 
 const entry = (more) => ({ id: 'e-1', label: 'bench', new: true, friend: false, quest_id: null, xp: 10, ...more })
 
@@ -81,4 +83,36 @@ test('the recap is one sentence about today', () => {
   // more than three things are counted, and a find with no place has no "at"
   const many = ['dog', 'cup', 'kite', 'bird', 'car'].map((label, i) => entry({ id: `m-${i}`, label, ts: '2026-11-21T15:00:00Z', place: null }))
   expect(recap(many, now)).toBe('Today you found a car, a bird, a kite and 2 more.')
+})
+
+test('Gemini\'s lines fill in for things with no hand-written one, and each find gets a fact', () => {
+  expect(lineFor(entry({ label: 'squirrel' }))).toBe(written.things.squirrel.line)
+  expect(lineFor(entry())).toBe('A bench. I respect anything that holds still.') // hand-written wins
+  const fact = factFor(entry({ label: 'squirrel' }))
+  expect(written.things.squirrel.facts).toContain(fact)
+  expect(factFor(entry({ label: 'squirrel' }))).toBe(fact) // the same find, the same fact
+  expect(factFor(entry({ label: 'not a thing' }))).toBeNull()
+  expect(factFor(undefined)).toBeNull()
+})
+
+test('a quest\'s trail tidbit is one of its own, the same each time, or nothing', () => {
+  const quest = { id: 'q-1', tidbits: ['One.', 'Two.'] }
+  expect(quest.tidbits).toContain(tidbitFor(quest))
+  expect(tidbitFor(quest)).toBe(tidbitFor({ ...quest }))
+  expect(tidbitFor({ id: 'q-2', tidbits: [] })).toBeNull()
+  expect(tidbitFor(null)).toBeNull()
+})
+
+test('every written line is about a real thing, short, kind, and never says to eat, touch or feed anything', () => {
+  const names = new Set(labels.labels.map((item) => item.name))
+  const all = [...Object.values(written.pools).flat()]
+  for (const [name, own] of Object.entries(written.things)) {
+    expect(names.has(name), name).toBe(true)
+    all.push(...own.facts, ...(own.line ? [own.line] : []))
+  }
+  expect(all.length).toBeGreaterThan(250)
+  for (const line of all) {
+    expect(line.length, line).toBeLessThanOrEqual(140)
+    expect(line.toLowerCase(), line).not.toMatch(/\b(should|lazy|missed|streak|shame|failed|edible|forag\w*|safe to eat|feed (it|them)|touch (it|them))\b/)
+  }
 })

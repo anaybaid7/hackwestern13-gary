@@ -148,22 +148,36 @@ read, the quests made, and what was left out and why.
 a page you can show in 20 seconds. Commit both after each live session. The run
 ids can also be looked up in the TinyFish dashboard.
 
-## Stretch: Gary's voice from Gemini (issue #37)
+## Gary's voice from Gemini (issue #37)
+
+Put `GEMINI_API_KEY=...` in `scout/.env` (a free key from Google AI Studio).
+Gemini needs the internet, so it writes Gary's words ahead of time; the Pi
+and the page then use them with no network.
 
 ```
-export GEMINI_API_KEY=...        # a free key from Google AI Studio
-python3 scout/scout.py --voice
+python3 scout/scout.py --voice              # a live run: titles and trail tidbits
+python3 scout/scout.py --cached --voice     # the same for the saved quests (saved back)
+python3 scout/gary_lines.py                 # web/src/gary_lines.json: a line and facts per thing
 ```
 
-Gemini rewords each quest's title the way Gary would say it. The quest itself
-still comes from the scout: the place, the thing, the length and the note are
-never touched. A rewording is kept only if it still names the place and the
-thing, is short, keeps "friend" on a quest for two, and says nothing risky or
-pushy (`gary_voice.py`). Otherwise the plain title stays.
+- **Titles.** Gemini rewords each title the way Gary would say it. Kept only
+  if it still names the place and the thing, is short, keeps "friend" on a
+  quest for two (without making it sound optional), and says nothing risky or
+  pushy. Otherwise the plain title stays.
+- **Trail tidbits.** Two or three lines Gary says on the way, in the quest's
+  `tidbits`. Facts about the place come only from the text the TinyFish agent
+  read there; with none (a cached quest), Gary talks about the kind of place
+  and the thing to find. Nothing about eating, touching or feeding anything,
+  swimming, climbing or leaving the path (`gary_voice.UNSAFE`). The page shows
+  one when you are at the place, and all of them in the quest's details.
+- **The line pack.** `gary_lines.py` asks for one line and two facts for each
+  of the 90 things, and pools of everyday lines. Read the file before you
+  commit it: the first run had five facts that were wrong or doubtful, fixed
+  by hand. The page's hand-written lines still win where they exist.
 
-**Not run against the real Gemini API**: there was no key. Model names change
-often; if the default is refused, set `GEMINI_MODEL` to a current one from
-ai.google.dev.
+Default model `gemini-3.5-flash-lite` (under a second a call; `gemini-flash-latest`
+timed out). Set `GEMINI_MODEL` to change it. A refused key, a missing model or
+no network is said once and changes nothing.
 
 ## Test it
 
