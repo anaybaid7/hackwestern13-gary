@@ -1,0 +1,7 @@
+# Seed quests. Gary uses these until sync.py has written quests.tsv from the backend.
+# Columns are separated by TABs: id, target, xp, text, and optionally "herd".
+# "target" must be a name from models/coco_labels.txt (bottle, backpack, bench, dog, bird, bicycle ...).
+# A quest marked herd only completes with a friend in the frame.
+q-demo-bottle	bottle	20	Find a water bottle at your table
+q-demo-backpack	backpack	20	Find a backpack, with a friend in frame	herd
+q-harris-bench	bench	40	Find a bench by the river at Harris Park

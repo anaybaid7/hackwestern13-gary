@@ -1,0 +1,9 @@
+{
+  "_note": "Hand-written test data in the shape the agent is asked to return. It is NOT the output of a TinyFish run. Use it to build quests with no API key, and as the cached fallback during judging.",
+  "places": [
+    {"name": "Harris Park", "about": "Riverside park downtown, open lawns and a paved path.", "url": "https://london.ca/parks-london"},
+    {"name": "Gibbons Park", "about": "Park on the Thames with a paved path and a playground.", "url": "https://london.ca/parks-london"},
+    {"name": "Springbank Park", "about": "Large riverside park with gardens and picnic areas.", "url": "https://london.ca/parks-london"},
+    {"name": "Kains Woods", "about": "Wooded hiking trail.", "url": "https://www.londontourism.ca/best-of-london/hiking"}
+  ]
+}

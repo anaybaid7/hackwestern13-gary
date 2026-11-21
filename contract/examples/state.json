@@ -1,0 +1,91 @@
+{
+  "gary": {
+    "stage": "scrambler",
+    "stage_index": 1,
+    "xp": 80,
+    "stage_xp": 60,
+    "next_stage_xp": 150,
+    "napping": false,
+    "welcome_back": false
+  },
+  "quest": {
+    "id": "q-demo-bottle",
+    "title": "Find a water bottle at your table",
+    "place": "Hack Western, your table",
+    "time": "short",
+    "minutes": 5,
+    "target": "bottle",
+    "xp": 20,
+    "herd": false,
+    "source": "seed",
+    "source_url": null,
+    "day": "2026-11-21"
+  },
+  "quests_open": 2,
+  "journal": [
+    {
+      "id": "gary-01-1795238400000-1",
+      "ts": "2026-11-21T05:20:00Z",
+      "label": "bench",
+      "score": 0.93,
+      "friend": true,
+      "new": true,
+      "quest_id": "q-harris-bench",
+      "latency_ms": 41.0,
+      "xp": 80
+    }
+  ],
+  "guide": {
+    "total": 79,
+    "found": [
+      "bench"
+    ]
+  },
+  "map": [
+    {
+      "place": "Hack Western, your table",
+      "quest_id": "q-demo-bottle",
+      "cleared": false
+    },
+    {
+      "place": "Hack Western, the next table",
+      "quest_id": "q-demo-backpack",
+      "cleared": false
+    },
+    {
+      "place": "Harris Park",
+      "quest_id": "q-harris-bench",
+      "cleared": true
+    }
+  ],
+  "herd": {
+    "badges": [
+      "first-herd"
+    ],
+    "shared": 1,
+    "cup": {
+      "week": "2026-W47",
+      "rank": 4,
+      "demo": true,
+      "table": [
+        {
+          "herd": "Cliff Hangers",
+          "score": 6
+        },
+        {
+          "herd": "The Bleat Goes On",
+          "score": 4
+        },
+        {
+          "herd": "Summit Else",
+          "score": 2
+        },
+        {
+          "herd": "Your herd",
+          "score": 1,
+          "you": true
+        }
+      ]
+    }
+  }
+}

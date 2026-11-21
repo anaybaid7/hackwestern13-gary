@@ -1,30 +1,43 @@
 #!/usr/bin/env python3
 """
 Gary the Goat - device loop for Linux, Raspberry Pi OS and macOS.
+(The QNX version is qnx/gary_qnx.cpp. Both read and write the same files.)
 
-    camera frame -> on-device object detector -> quest match -> sound + log
+    camera -> on-device object detector -> SNIFF TEST -> journal + sound
+
+The camera and the model run all the time, so Gary always knows what is in
+view. Nothing is recorded until someone presses the button. That press is the
+Sniff Test: Gary names what he sees, writes it in his journal, and reacts.
+A friend in the frame marks the find as Herd Mode.
 
 Quick start
-    python3 gary_device.py                        # webcam 0
+    python3 gary_device.py                        # webcam 0, Enter = sniff
     python3 gary_device.py --image test/pets.jpg  # no camera needed
     python3 gary_device.py --show                 # draw boxes in a window
 
 While it runs
-    Enter       "Ask Gary": he says what he sees right now
+    Enter       Sniff Test
     q + Enter   quit
-    From another program (Linux, macOS):  kill -USR1 $(cat gary.pid)  = Ask Gary
+    From another program (Linux, macOS):
+        kill -USR1 $(cat gary.pid)   Sniff Test (this is how a hardware button is wired in)
+        kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 
 Files it reads
     models/ssd_mobilenet_v2_coco_quant_postprocess.tflite   the detector
     models/coco_labels.txt                                 class id -> name
-    quests.tsv                                             id, label, points, text
+    quests.tsv                                             id, target, xp, text, [herd]
+                                                           (written by sync.py; until it exists,
+                                                           the seed quests in quests.seed.tsv)
     sounds/*.wav                                           created on first run
 
 Files it writes
-    finds.jsonl    one line per completed quest (append-only, survives power loss)
+    journal.jsonl  one line per sniff (append-only, survives power loss).
+                   This is the device's whole output. sync.py uploads it.
+                   Each line is an Event from contract/README.md.
     latency.csv    per-frame timings, written on exit
 
-Nothing here uploads images. Only labels are logged.
+The device records facts only. XP, stages and the map belong to the backend.
+No image is ever stored or uploaded. Only labels are written down.
 """
 import argparse
 import collections
@@ -124,14 +137,26 @@ class Detector:
 
 
 # --------------------------------------------------------------------------
-# Quests and the find log
+# Quests and the journal
 # --------------------------------------------------------------------------
-Quest = collections.namedtuple("Quest", "id label points text")
+Quest = collections.namedtuple("Quest", "id label xp text herd")
+
+
+def quests_file(explicit=None):
+    """quests.tsv is written by sync.py. Until it exists, use the seed quests."""
+    if explicit:
+        return explicit
+    synced = os.path.join(HERE, "quests.tsv")
+    return synced if os.path.exists(synced) else os.path.join(HERE, "quests.seed.tsv")
 
 
 def load_quests(path):
-    """quests.tsv: id <TAB> label <TAB> points <TAB> text. '#' starts a comment."""
+    """quests.tsv: id <TAB> target <TAB> xp <TAB> text [<TAB> herd].
+    '#' starts a comment. A quest marked "herd" needs a friend in the frame.
+    A missing file means no quests yet; sniffing still works."""
     quests = []
+    if not os.path.exists(path):
+        return quests
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.rstrip("\n")
@@ -139,21 +164,30 @@ def load_quests(path):
                 continue
             parts = line.split("\t")
             if len(parts) < 3:
-                print("skipping bad quest line:", line)
+                print("skipping bad quest line (use TABs between columns):", line)
                 continue
+            try:
+                xp = int(parts[2])
+            except ValueError:
+                xp = 0
             text = parts[3] if len(parts) > 3 else "Find a " + parts[1]
-            quests.append(Quest(parts[0].strip(), parts[1].strip().lower(), int(parts[2]), text.strip()))
+            herd = len(parts) > 4 and parts[4].strip().lower() == "herd"
+            quests.append(Quest(parts[0].strip(), parts[1].strip().lower(), xp, text.strip(), herd))
     return quests
 
 
-class FindLog:
-    """Append-only journal. State is rebuilt from it on every start, so pulling
-    the power never loses a completed quest."""
+class Journal:
+    """Append-only event log, one JSON object per line.
 
-    def __init__(self, path):
-        self.path = path
-        self.done = set()
-        self.points = 0
+    It is the device's only output. sync.py uploads it, and a button or buzzer
+    script can watch it. State is rebuilt from it on every start, so pulling
+    the power loses nothing."""
+
+    def __init__(self, path, device):
+        self.path, self.device = path, device
+        self.discovered = set()  # labels Gary has sniffed before
+        self.done = set()        # quest ids already completed
+        self.seq = 0
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -161,24 +195,31 @@ class FindLog:
                         rec = json.loads(line)
                     except ValueError:
                         continue  # a half-written last line after a power cut
-                    self.done.add(rec.get("quest_id"))
-                    self.points += int(rec.get("points", 0))
+                    if not isinstance(rec, dict) or rec.get("type") != "discovery":
+                        continue
+                    if rec.get("label"):
+                        self.discovered.add(rec["label"])
+                    if rec.get("quest_id"):
+                        self.done.add(rec["quest_id"])
 
-    def add(self, quest, label, score, friend, points):
+    def add(self, kind, **fields):
+        self.seq += 1
+        now = datetime.datetime.now(datetime.timezone.utc)
         rec = {
-            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
-            "quest_id": quest.id,
-            "label": label,
-            "score": round(score, 3),
-            "friend": bool(friend),
-            "points": int(points),
+            "id": "%s-%d-%d" % (self.device, int(now.timestamp() * 1000), self.seq),
+            "ts": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "type": kind,
+            "device": self.device,
         }
+        rec.update(fields)
         with open(self.path, "a", encoding="utf-8") as f:
             f.write(json.dumps(rec) + "\n")
             f.flush()
-            os.fsync(f.fileno())
-        self.done.add(quest.id)
-        self.points += int(points)
+            os.fsync(f.fileno())  # on disk before Gary reacts
+        if kind == "discovery":
+            self.discovered.add(rec["label"])
+            if rec.get("quest_id"):
+                self.done.add(rec["quest_id"])
         return rec
 
 
@@ -220,11 +261,12 @@ def ensure_sounds(folder):
     os.makedirs(folder, exist_ok=True)
     chimes = {
         "hello": [523, 659],
-        "found": [659, 880, 1047],
-        "friend": [880, 1047, 1319, 1568],
-        "ask": [587],
-        "nothing": [392, 330],
-        "done": [523, 659, 784, 1047, 1319],
+        "new": [659, 880, 1047],              # a new discovery
+        "again": [587],                       # Gary has seen one before
+        "quest": [523, 659, 784, 1047],       # quest complete
+        "herd": [880, 1047, 1319, 1568],      # a friend is in the frame
+        "nothing": [392, 330],                # nothing he can name
+        "done": [523, 659, 784, 1047, 1319],  # every quest finished
     }
     for name, freqs in chimes.items():
         path = os.path.join(folder, name + ".wav")
@@ -372,8 +414,9 @@ def main():
     ap.add_argument("--save-debug", help="with --image: save an annotated copy here")
     ap.add_argument("--model", default=os.path.join(HERE, "models", "ssd_mobilenet_v2_coco_quant_postprocess.tflite"))
     ap.add_argument("--labels", default=os.path.join(HERE, "models", "coco_labels.txt"))
-    ap.add_argument("--quests", default=os.path.join(HERE, "quests.tsv"))
-    ap.add_argument("--log", default=os.path.join(HERE, "finds.jsonl"))
+    ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
+    ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
+    ap.add_argument("--device", default="gary-01", help="name written into every journal line")
     ap.add_argument("--sounds", default=os.path.join(HERE, "sounds"))
     ap.add_argument("--audio-cmd", help='player command, for example "aplay -q -D plughw:2,0"')
     ap.add_argument("--mute", action="store_true")
@@ -382,16 +425,16 @@ def main():
     ap.add_argument("--need", type=int, default=3, help="frames needed to confirm (default 3)")
     ap.add_argument("--threads", type=int, default=3)
     ap.add_argument("--friend-label", default="person")
-    ap.add_argument("--button-gpio", type=int, help="Raspberry Pi OS only: GPIO pin of the Ask button")
+    ap.add_argument("--button-gpio", type=int, help="Raspberry Pi OS only: GPIO pin of the Sniff button")
     ap.add_argument("--show", action="store_true", help="show a window with boxes")
-    ap.add_argument("--reset", action="store_true", help="forget completed quests and start over")
+    ap.add_argument("--reset", action="store_true", help="set the journal aside and start over")
     args = ap.parse_args()
 
     detector = Detector(args.model, args.labels, args.threads)
-    quests = load_quests(args.quests)
+    quests = load_quests(quests_file(args.quests))
     if args.reset and os.path.exists(args.log):
         os.rename(args.log, args.log + "." + time.strftime("%Y%m%d-%H%M%S") + ".bak")
-    log = FindLog(args.log)
+    journal = Journal(args.log, args.device)
     ensure_sounds(args.sounds)
     speaker = Speaker(args.sounds, args.audio_cmd, args.mute)
     stable = Stability(args.window, args.need)
@@ -401,35 +444,47 @@ def main():
         if q.label not in known:
             print("WARNING: quest %s wants '%s', which this model cannot see." % (q.id, q.label))
 
-    print("Gary is awake. Model input %dx%d. %d quests, %d already done, %d points."
-          % (detector.in_w, detector.in_h, len(quests), sum(q.id in log.done for q in quests), log.points))
+    print("Gary is awake. Model input %dx%d. %d quests, %d done. %d kinds of thing in the journal."
+          % (detector.in_w, detector.in_h, len(quests), sum(q.id in journal.done for q in quests),
+             len(journal.discovered)))
     for q in quests:
-        print("  [%s] %s  (%s, %d pts)" % ("x" if q.id in log.done else " ", q.text, q.label, q.points))
+        print("  [%s] %s  (%s%s)" % ("x" if q.id in journal.done else " ", q.text, q.label,
+                                     ", needs a friend" if q.herd else ""))
+    if not args.image:
+        print("Press Enter to sniff. q + Enter quits.")
     speaker.play("hello")
 
     ask = threading.Event()
     stop = threading.Event()
+    reload_quests = threading.Event()
+    pressed_at = [0.0]
+
+    def press(*_):
+        """The button: Enter, the GPIO button, or kill -USR1 from another program."""
+        pressed_at[0] = time.monotonic()
+        ask.set()
 
     def keys():
         for line in sys.stdin:
             if line.strip().lower() == "q":
                 stop.set()
                 return
-            ask.set()
+            press()
 
     pid_path = os.path.join(HERE, "gary.pid")
     if not args.image:
         threading.Thread(target=keys, daemon=True).start()
-        if hasattr(signal, "SIGUSR1"):  # kill -USR1 <pid> = Ask Gary (a hardware button can use this)
-            signal.signal(signal.SIGUSR1, lambda *_: ask.set())
+        if hasattr(signal, "SIGUSR1"):  # kill -USR1 = Sniff Test, kill -HUP = reload quests.tsv
+            signal.signal(signal.SIGUSR1, press)
+            signal.signal(signal.SIGHUP, lambda *_: reload_quests.set())
             with open(pid_path, "w", encoding="utf-8") as f:
                 f.write("%d\n" % os.getpid())
         if args.button_gpio is not None:
             try:
                 from gpiozero import Button
                 button = Button(args.button_gpio)
-                button.when_pressed = ask.set
-                print("Ask button on GPIO", args.button_gpio)
+                button.when_pressed = press
+                print("Sniff button on GPIO", args.button_gpio)
             except Exception as exc:
                 print("Button not available:", exc)
 
@@ -452,17 +507,68 @@ def main():
     frame_budget = args.window if args.image else None
     confirmed, detections, frame = {}, [], None
 
-    def answer_ask():
-        if not ask.is_set():
-            return
-        ask.clear()
-        seen = sorted(confirmed.items(), key=lambda kv: -kv[1])[:3]
-        if seen:
-            print("\nGary sees: " + ", ".join("%s (%.0f%%)" % (l, s * 100) for l, s in seen))
-            speaker.play("ask", *[l.replace(" ", "_") for l, _ in seen])
-        else:
-            print("\nGary sees nothing he can name.")
+    sniff_ms, counts = [], {"discovery": 0, "new": 0, "miss": 0}
+
+    def sniff(at):
+        """The Sniff Test: name what is in view right now and write it down."""
+        friend = args.friend_label in confirmed
+        things = {l: s for l, s in confirmed.items() if l != args.friend_label}
+
+        def latency():
+            return round((time.monotonic() - at) * 1000.0, 1)
+
+        if not things:
+            rec = journal.add("miss", friend=friend, latency_ms=latency())
+            counts["miss"] += 1
+            sniff_ms.append(rec["latency_ms"])
+            print("\nSNIFF: nothing Gary can name%s.  [%s ms]"
+                  % (" (he does see a friend)" if friend else "", rec["latency_ms"]))
             speaker.play("nothing")
+            return
+
+        # An open quest's target wins if it is in view; otherwise the surest thing.
+        open_quests = [q for q in quests if q.id not in journal.done and q.label in things]
+        quest = max(open_quests, key=lambda q: things[q.label]) if open_quests else None
+        label = quest.label if quest else max(things, key=things.get)
+        completed = quest if (quest and (friend or not quest.herd)) else None
+        new = label not in journal.discovered
+        rec = journal.add("discovery", label=label, score=round(things[label], 3), friend=friend, new=new,
+                          quest_id=completed.id if completed else None, latency_ms=latency())
+        counts["discovery"] += 1
+        counts["new"] += int(new)
+        sniff_ms.append(rec["latency_ms"])
+
+        line, clips = "\nSNIFF: %s (%.0f%%)." % (label, things[label] * 100), []
+        if completed:
+            line += " Quest complete: %s." % completed.text
+            clips.append("quest")
+        elif new:
+            line += " New discovery."
+            clips.append("new")
+        else:
+            line += " Gary has seen one before."
+            clips.append("again")
+        if friend:
+            line += " Herd Mode: a friend is in frame."
+            clips.append("herd")
+        elif quest and quest.herd:
+            line += " That quest needs a friend in frame."
+        if speaker.has(label.replace(" ", "_")):
+            clips.append(label.replace(" ", "_"))  # a spoken label, if someone recorded one
+        if completed and all(q.id in journal.done for q in quests):
+            line += " All of today's quests are done."
+            clips.append("done")
+        print(line + "  [%s ms]" % rec["latency_ms"])
+        speaker.play(*clips)
+
+    def handle_sniff():
+        if reload_quests.is_set():
+            reload_quests.clear()
+            quests[:] = load_quests(quests_file(args.quests))
+            print("\nQuests reloaded: %d, %d done." % (len(quests), sum(q.id in journal.done for q in quests)))
+        if ask.is_set():
+            ask.clear()
+            sniff(pressed_at[0])
 
     try:
         while not stop.is_set():
@@ -476,7 +582,7 @@ def main():
                 if frame is None:
                     if camera.ended:
                         break
-                    answer_ask()  # keep the button alive while the camera stalls
+                    handle_sniff()  # keep the button alive while the camera stalls
                     continue
 
             t0 = time.monotonic()
@@ -489,27 +595,10 @@ def main():
                     best[label] = max(best.get(label, 0.0), score)
             confirmed = stable.update(best)
 
-            friend_here = args.friend_label in confirmed
-            for q in quests:
-                if q.id in log.done or q.label not in confirmed:
-                    continue
-                friend = friend_here and q.label != args.friend_label
-                points = q.points * (2 if friend else 1)
-                log.add(q, q.label, confirmed[q.label], friend, points)
-                print("\nFOUND: %s  (+%d points%s)  total %d"
-                      % (q.text, points, ", friend bonus" if friend else "", log.points))
-                clips = ["friend" if friend else "found"]
-                if speaker.has(q.label.replace(" ", "_")):
-                    clips.append(q.label.replace(" ", "_"))
-                if all(x.id in log.done for x in quests):
-                    clips.append("done")
-                    print("All of today's quests are done. Gary is very pleased.")
-                speaker.play(*clips)
-
             timings.append(((time.monotonic() - stamp) * 1000.0, infer_ms))
             frames_since += 1
 
-            answer_ask()
+            handle_sniff()
 
             if args.show:
                 try:
@@ -547,6 +636,7 @@ def main():
         for label, score, box in sorted(detections, key=lambda d: -d[1]):
             print("  %-14s %.0f%%  box %s" % (label, score * 100, tuple(round(v, 2) for v in box)))
         print("Confirmed after %d frames: %s" % (args.window, ", ".join(sorted(confirmed)) or "-"))
+        sniff(time.monotonic())  # one Sniff Test on the picture, written to the journal
         if args.save_debug and frame is not None:
             cv2.imwrite(args.save_debug, draw(frame.copy(), detections))
             print("Annotated image saved to", args.save_debug)
@@ -560,7 +650,11 @@ def main():
             f.write("frame,frame_to_decision_ms,model_ms\n")
             for i, (a, b) in enumerate(timings):
                 f.write("%d,%.2f,%.2f\n" % (dropped + i, a, b))
-    print("Points: %d. Quests done: %d of %d." % (log.points, sum(q.id in log.done for q in quests), len(quests)))
+    if sniff_ms:
+        print("Sniffs: %d (%d discoveries, %d new, %d misses). Answered in p50 %.0f ms, max %.0f ms."
+              % (len(sniff_ms), counts["discovery"], counts["new"], counts["miss"],
+                 percentile(sniff_ms, 50), max(sniff_ms)))
+    print("Quests done: %d of %d." % (sum(q.id in journal.done for q in quests), len(quests)))
     time.sleep(0.3)  # let the last sound start
 
 

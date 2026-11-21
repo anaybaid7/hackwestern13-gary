@@ -1,0 +1,43 @@
+{
+  "quests": [
+    {
+      "id": "q-demo-bottle",
+      "title": "Find a water bottle at your table",
+      "place": "Hack Western, your table",
+      "time": "short",
+      "minutes": 5,
+      "target": "bottle",
+      "xp": 20,
+      "herd": false,
+      "source": "seed",
+      "source_url": null,
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-demo-backpack",
+      "title": "Find a backpack, with a friend in frame",
+      "place": "Hack Western, the next table",
+      "time": "short",
+      "minutes": 5,
+      "target": "backpack",
+      "xp": 20,
+      "herd": true,
+      "source": "seed",
+      "source_url": null,
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-harris-bench",
+      "title": "Find a bench by the river at Harris Park",
+      "place": "Harris Park",
+      "time": "long",
+      "minutes": 40,
+      "target": "bench",
+      "xp": 40,
+      "herd": false,
+      "source": "seed",
+      "source_url": null,
+      "day": "2026-11-21"
+    }
+  ]
+}
