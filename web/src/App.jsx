@@ -2,21 +2,23 @@
 // seconds. It decides nothing: every number comes from the backend (or, in
 // mock mode, from the demo story the backend produced).
 import { useCallback, useEffect, useRef, useState } from 'react'
-import napping from './art/gary-kid-nap.svg'
-import { ordinal } from './format.js'
+import CheckIn, { readAsk } from './components/CheckIn.jsx'
+import QuestComplete from './components/QuestComplete.jsx'
+import Nav, { SCREENS } from './components/Nav.jsx'
 import StoryBar from './components/StoryBar.jsx'
-import Tabs, { TABS } from './components/Tabs.jsx'
+import { ordinal } from './format.js'
 import Guide from './screens/Guide.jsx'
 import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
-import You from './screens/You.jsx'
+import Settings from './screens/Settings.jsx'
 import { createService } from './services/index.js'
+import { garySrc } from './sprites.js'
 import { STAGE_NAMES } from './words.js'
 
 const POLL_MS = 2000
 const FLASH_MS = 6000
-const NO_FLASH = { find: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
+const NO_FLASH = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
 const STATUS = {
   live: 'Live',
   mock: 'Demo story',
@@ -40,11 +42,16 @@ export default function App({ service: given }) {
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
 export function whatChanged(prev, next) {
   if (!prev) return null
-  const out = { find: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
+  const out = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
   const top = next.journal[0]
   if (top && top.id !== prev.journal[0]?.id && next.gary.xp > prev.gary.xp) {
     out.find = top
     out.messages.push(`New find: ${top.label}. +${top.xp} XP.`)
+    if (top.quest_id) {
+      // the sniff finished a quest: find its title in what the page was showing
+      const known = [prev.quest, prev.quest_options?.short, prev.quest_options?.long, prev.herd?.quest]
+      out.quest = known.find((q) => q?.id === top.quest_id) ?? { id: top.quest_id, title: null }
+    }
   }
   if (next.gary.stage_index > prev.gary.stage_index) {
     const name = STAGE_NAMES[next.gary.stage] ?? next.gary.stage
@@ -63,18 +70,25 @@ export function whatChanged(prev, next) {
   return out.messages.length > 0 ? out : null
 }
 
+// Old addresses keep working.
+const OLD_TABS = { gary: 'home', guide: 'journal', herd: 'cup', you: 'settings' }
+
 function readTab() {
-  const id = window.location.hash.replace('#', '')
-  return TABS.some((tab) => tab.id === id) ? id : 'gary'
+  const raw = window.location.hash.replace('#', '')
+  const id = OLD_TABS[raw] ?? raw
+  return SCREENS.some((screen) => screen.id === id) ? id : 'home'
 }
 
-export function Shell({ service, pollMs = POLL_MS }) {
+export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState(readTab)
-  const [side, setSide] = useState(() => (readTab() === 'gary' ? 'guide' : readTab()))
   const [flash, setFlash] = useState(NO_FLASH)
   const [busy, setBusy] = useState(false)
+  const [asking, setAsking] = useState(askCheckIn) // once per visit
+  const [mapFocus, setMapFocus] = useState(null) // a place "See on map" asked for
+  const [reward, setReward] = useState(null) // a finished quest, until it is dismissed
+  const [afterCheckIn, setAfterCheckIn] = useState(false) // the check-in that follows it
   const last = useRef(null)
   const flashTimer = useRef(null)
 
@@ -84,6 +98,7 @@ export function Shell({ service, pollMs = POLL_MS }) {
     setState(next)
     setError(null)
     if (changes) {
+      if (changes.quest) setReward({ ...changes, gary: next.gary })
       setFlash(changes)
       clearTimeout(flashTimer.current)
       flashTimer.current = setTimeout(() => setFlash(NO_FLASH), FLASH_MS)
@@ -104,9 +119,19 @@ export function Shell({ service, pollMs = POLL_MS }) {
     }
   }, [refresh, pollMs])
 
-  function pick(id) {
+  const closeCheckIn = useCallback(() => {
+    setAsking(false)
+    setAfterCheckIn(false)
+  }, [])
+
+  function closeReward() {
+    setReward(null)
+    if (askCheckIn && readAsk()) setAfterCheckIn(true) // "how do you feel now?", unless turned off
+  }
+
+  function pick(id, focus = null) {
+    setMapFocus(focus)
     setTab(id)
-    if (id !== 'gary') setSide(id)
     window.history.replaceState(null, '', `#${id}`)
   }
 
@@ -139,38 +164,34 @@ export function Shell({ service, pollMs = POLL_MS }) {
 
   const now = service.now()
   const status = service.mode === 'mock' ? 'mock' : error ? 'stale' : 'live'
-  const dots = { map: flash.cleared.length > 0, guide: Boolean(flash.find), herd: Boolean(flash.rankUp) }
+  const dots = { map: flash.cleared.length > 0, journal: Boolean(flash.find), cup: Boolean(flash.rankUp) }
   // The wellness view is fetched again whenever something that feeds it changes.
   const stamp = `${state.journal[0]?.id ?? ''}:${service.story?.index ?? ''}`
 
   return (
-    <div className="app" data-tab={tab} data-mode={service.mode}>
-      <header className="topbar">
-        <h1>Gary the Goat</h1>
-        <span className={`status status-${status}`}>{STATUS[status]}</span>
-      </header>
+    <Handheld onPick={pick}>
+      <div className="app" data-tab={tab} data-mode={service.mode}>
+        <header className="topbar">
+          <h1>Gary</h1>
+          <span className={`status status-${status}`}>{STATUS[status]}</span>
+        </header>
 
-      {flash.messages.length > 0 && (
-        <div className="toast" role="status">
-          {flash.messages.map((message) => (
-            <p key={message}>{message}</p>
-          ))}
-        </div>
-      )}
+        {flash.messages.length > 0 && !reward && (
+          <div className="toast" role="status">
+            {flash.messages.map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+        )}
 
-      <main className="panes">
-        <section className="pane pane-gary" aria-label="Gary">
-          <Home state={state} flash={flash} now={now} onChoose={choose} busy={busy} onSeeAll={() => pick('guide')} />
-        </section>
-        <section className="pane pane-side" aria-label={TABS.find((t) => t.id === side)?.name}>
-          {side === 'map' && <MapScreen map={state.map} flash={flash} questPlace={state.quest?.place} />}
-          {side === 'guide' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
-          {side === 'herd' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
-          {side === 'you' && <You service={service} stamp={stamp} />}
-        </section>
-      </main>
+        <main className="view">
+          {tab === 'home' && <Home state={state} flash={flash} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} />}
+          {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
+          {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
+          {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
+          {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} />}
+        </main>
 
-      <footer className="dock">
         {service.story && (
           <StoryBar
             story={service.story}
@@ -180,8 +201,38 @@ export function Shell({ service, pollMs = POLL_MS }) {
             }}
           />
         )}
-        <Tabs tab={tab} side={side} onPick={pick} dots={dots} />
-      </footer>
+        <Nav tab={tab} onPick={pick} dots={dots} />
+        {reward && (
+          <QuestComplete
+            reward={reward}
+            onClose={closeReward}
+            onShowMap={(place) => {
+              closeReward()
+              pick('map', place)
+            }}
+          />
+        )}
+        {!reward && afterCheckIn && <CheckIn service={service} phase="after" onClose={closeCheckIn} />}
+        {!reward && !afterCheckIn && asking && tab === 'home' && <CheckIn service={service} onClose={closeCheckIn} />}
+      </div>
+    </Handheld>
+  )
+}
+
+/** On a wide screen the page is a little handheld; on a phone, the phone is the handheld. */
+function Handheld({ children, onPick }) {
+  return (
+    <div className="desk">
+      <div className="handheld">
+        <div className="handheld-screen">{children}</div>
+        {/* Shortcuts that copy the bar at the bottom of the screen, so screen readers skip them. */}
+        <div className="handheld-buttons" aria-hidden="true">
+          <button type="button" tabIndex={-1} onClick={() => onPick('home')}>R</button>
+          <button type="button" tabIndex={-1} onClick={() => onPick('map')}>O</button>
+          <button type="button" tabIndex={-1} onClick={() => onPick('cup')}>G</button>
+        </div>
+        <p className="handheld-name" aria-hidden="true">Pocket Gary</p>
+      </div>
     </div>
   )
 }
@@ -189,7 +240,7 @@ export function Shell({ service, pollMs = POLL_MS }) {
 function Splash({ children }) {
   return (
     <div className="splash">
-      <img src={napping} alt="" width="160" height="160" />
+      <img src={garySrc('kid', true)} alt="" width="160" height="160" />
       <p>{children}</p>
     </div>
   )

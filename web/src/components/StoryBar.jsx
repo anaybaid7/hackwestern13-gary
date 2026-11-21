@@ -8,7 +8,6 @@ export default function StoryBar({ story, onMove }) {
         <p className="storybar-title">
           Demo story, step {story.index + 1} of {story.total}: {story.title}
         </p>
-        <p className="storybar-note">{story.note}</p>
       </div>
       <div className="storybar-buttons">
         <button type="button" disabled={first} onClick={() => onMove(() => story.back())}>

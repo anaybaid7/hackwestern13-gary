@@ -55,8 +55,8 @@ running on QNX on the Pi, and the scout working on live sites.
 | #22 | Deploy on Vultr | **Code done, needs the account** | `sh backend/deploy/deploy.sh root@<ip>`. Rehearsed in a container, never run on Vultr |
 | #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
 | **Phase 4** | **Front end (C)** | | |
-| #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface are in, and every screen works in both. The prototype's own code was never in this repo, so the screens were built fresh. The team decides: keep these, or port the prototype onto them |
-| #25 | Gary: stages, naps, welcome back, his voice | **Done** | The eight images in `web/src/art/` are stand-ins an artist can replace |
+| #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
+| #25 | Gary: stages, naps, welcome back, his voice | **Done** | Gary is a 32 x 32 pixel sprite in `web/src/sprites.js`: one drawing plus a few edits per stage |
 | #26 | Fog-of-war map view | **Done** | |
 | #27 | Discovery journal and field guide | **Done** | |
 | #28 | Quest card, short or long | **Done** | |
@@ -357,7 +357,8 @@ removal needs all four owners to agree, in an issue.
 - `start_gary.sh` has not run under QNX's shell, and the power-on line in
   `/usr/etc/post_startup.sh` is untested.
 - `docs/qnx-numbers.md` has no numbers in it yet.
-- The web page has not been opened on a real phone.
+- The web page has not been opened on a real phone: location on the map, pinch zoom and the fog's zoom animation are checked only in tests and headless Chrome.
+- The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work.
 
 - The hypertable step and the `time_bucket` query have never run: there was
   no TimescaleDB here. `python3 backend/check_db.py` proves them on Tiger Data.
@@ -386,6 +387,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 2:55 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
 | 21 Nov, 3:20 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
 | 21 Nov, 4:00 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
+| 21 Nov, 9:30 am | The page is restyled as Pocket Pixel. The map is OpenStreetMap (Leaflet) under fog; place positions are hand-placed in `web/src/places.js` (presentation only, not a contract change; optional `lat`/`lng` on quests is the upgrade). The browser's location is shown on the map and never sent anywhere. The leaderboard is the Herd Cup only. A long quest is shown as a trail walk. After a quest, a reward screen, then an optional "after" check-in |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 
