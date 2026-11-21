@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 3:50 am, with the Phase 5 pull request.
+Last updated: Sat 21 Nov 2026, 4:10 am, with the Phase 5 pull request (#46).
 
 ## 1. What Gary is
 
@@ -385,7 +385,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 2:40 am | The button script is `gary_io.py`, not `io.py`: that name hides Python's own `io` module. Buzzer patterns differ by rhythm, because the Grove buzzer is on/off. `sync.py` sends the device's clock with each upload |
 | 21 Nov, 2:55 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
 | 21 Nov, 3:20 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
-| 21 Nov, 3:50 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
+| 21 Nov, 4:10 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 
