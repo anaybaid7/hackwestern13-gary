@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import story from '../../contract/examples/story.json'
 import { Shell, whatChanged } from './App.jsx'
-import { CLIPS, pickClip, playClip, writeSound } from './sound.js'
+import { CLIPS, VOICE, pickClip, playClip, voiceFor, writeSound } from './sound.js'
 import { createMock } from './services/mock.js'
 
 afterEach(() => {
@@ -47,6 +47,20 @@ describe("Gary's sounds on the page", () => {
     for (const name of ['quest', 'herd', 'new', 'again', 'hello']) expect(CLIPS[name], name).toBeTruthy()
   })
 
+  test('Gary says what he found, by the same rule as the device', () => {
+    const find = (more) => ({ find: { label: 'bottle', new: true, quest_id: null, friend: false, ...more } })
+    const open = { quests_open: 2, quest: { target: 'backpack', herd: true } }
+    expect(voiceFor(find({ quest_id: 'q' }), open, { quests_open: 1 })).toEqual(['say_found_bottle'])
+    expect(voiceFor(find({ quest_id: 'q' }), open, { quests_open: 0 })).toEqual(['say_found_bottle', 'say_done'])
+    expect(voiceFor(find({ label: 'backpack' }), open, open)).toEqual(['say_backpack', 'say_need_friend'])
+    expect(voiceFor(find({ label: 'fire hydrant' }), open, open)).toEqual(['say_not_it', 'say_fire_hydrant'])
+    expect(voiceFor(find(), { quests_open: 0 }, { quests_open: 0 })).toEqual(['say_bottle', 'say_new'])
+    expect(voiceFor(find({ quest_id: 'q', friend: true }), open, open)).toEqual(['say_found_bottle', 'say_herd'])
+    expect(voiceFor(find({ label: 'no such thing' }), {}, {})).toBeNull() // no clip: the chime plays instead
+    expect(voiceFor({ find: null }, {}, {})).toBeNull()
+    expect(Object.keys(VOICE).length).toBeGreaterThan(180)
+  })
+
   test('the page plays the clip when a find arrives, unless sound is switched off', async () => {
     const played = []
     vi.stubGlobal('Audio', class {
@@ -65,7 +79,7 @@ describe("Gary's sounds on the page", () => {
       await screen.findByText('Kid')
       expect(played).toEqual([]) // the first state is not news
       service.state = step(3)
-      await waitFor(() => expect(played).toEqual([CLIPS.quest]))
+      await waitFor(() => expect(played).toEqual([VOICE.say_found_bicycle])) // Gary says it, in his voice
       unmount()
 
       writeSound(false)
@@ -74,7 +88,7 @@ describe("Gary's sounds on the page", () => {
       await screen.findByText('Kid')
       quiet.state = step(3)
       await screen.findByText('Quest complete!') // the page did see the find
-      expect(played).toEqual([CLIPS.quest]) // nothing more
+      expect(played).toEqual([VOICE.say_found_bicycle]) // nothing more
       expect(playClip('no-such-clip')).toBe(false)
     } finally {
       window.localStorage.clear()

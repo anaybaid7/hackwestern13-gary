@@ -12,7 +12,7 @@ import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
-import { pickClip, playClip, readSound } from './sound.js'
+import { pickClip, playClip, playVoice, readSound, voiceFor } from './sound.js'
 import { away, isNear, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
@@ -109,13 +109,18 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
   }, [near, questId, service])
 
   const take = useCallback((next) => {
-    const changes = whatChanged(last.current, next)
+    const prev = last.current
+    const changes = whatChanged(prev, next)
     last.current = next
     setState(next)
     setError(null)
     if (changes) {
-      const clip = pickClip(changes)
-      if (clip && readSound()) playClip(clip)
+      if (readSound()) {
+        const voice = voiceFor(changes, prev, next) // Gary's own voice, else a chime
+        const clip = voice ? null : pickClip(changes)
+        if (voice) playVoice(voice)
+        else if (clip) playClip(clip)
+      }
       if (changes.quest) setReward({ ...changes, gary: next.gary })
       setFlash(changes)
       clearTimeout(flashTimer.current)
