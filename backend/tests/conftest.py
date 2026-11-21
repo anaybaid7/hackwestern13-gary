@@ -20,6 +20,9 @@ BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 # The tests must not pick up a developer's real settings (a .env file, or
 # variables in the shell): start from a known, empty configuration.
+# GARY_NO_ENV_FILE stops the backend from reading backend/.env at all, so the
+# tests can never reach a real database named there.
+os.environ["GARY_NO_ENV_FILE"] = "1"
 os.environ["DATABASE_URL"] = ""
 os.environ["GARY_TZ"] = "America/Toronto"
 for _name in ("SCOUT_KEY", "GARY_ADMIN_KEY"):
