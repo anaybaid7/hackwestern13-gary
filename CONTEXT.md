@@ -42,7 +42,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #5 | `sync.py`, `fake_sniff.py` | **Done** | |
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
-| #8 | Scout: one live TinyFish run | **Partly** | Code done, and tested against a stand-in for TinyFish. The live run needs `TINYFISH_API_KEY` |
+| #8 | Scout: one live TinyFish run | **Done** | Live runs on 21 Nov, recorded in `scout/runs.jsonl`. Dry runs: quests have not yet been sent to a backend by a live run |
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Code done, needs the Pi** | `device/gary_io.py`, tested with stand-in pins. On the Pi: wire it, run `python3 gary_io.py`, press once, check for one journal line |
@@ -69,9 +69,9 @@ running on QNX on the Pi, and the scout working on live sites.
 | #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
 | #30 | Wellness view, private mood check-in | **Done** | |
 | **Phase 5** | **Scout and story (D)** | | |
-| #31 | Scout on three or more live London sites | **Code done, needs the key** | Five pages in `scout/sources.json`: parks, two for trails, two for events. One command: `python3 scout/scout.py` |
+| #31 | Scout on three or more live London sites | **Done** | Five pages in `scout/sources.json`: parks, two for trails, two for events. All five ran live on 21 Nov: 13 quests passed the checks. City of London events is the slow page (about 3.5 minutes, 1 place). One command: `python3 scout/scout.py` |
 | #32 | Scout checks | **Done** | Gary can name the target, one quest per place, nothing closed or risky, a note on where to stand. The tests need no key |
-| #33 | Scout evidence for the judges | **Code done, needs the key** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. Empty until the first live run |
+| #33 | Scout evidence for the judges | **Done** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. It shows 6 live runs, 16 quests, 5 pages. Rerun `--report` after new runs |
 | #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
 | #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Seven claims in it are marked `[A]` to `[G]`: each is true only when its issue is closed |
 | #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. Its tabs and taps describe the page before the Pocket Pixel redesign and are to be rewritten once the page is final. The video needs the real device |
@@ -379,8 +379,8 @@ removal needs all four owners to agree, in an issue.
 **Not verified**
 
 - The C++ program has never been built or run on QNX (#4).
-- No successful live TinyFish run (#8). The stand-in follows TinyFish's
-  documents; the real service may differ.
+- The scout has run live on TinyFish (#8), but only as dry runs: no live
+  run has yet sent its quests to the backend.
 - The Gemini step (`--voice`) has never called Gemini.
 - The demo has not been rehearsed on the device or timed out loud.
 - `docs/DEVPOST.md` makes seven claims that are not true yet. They are marked.
