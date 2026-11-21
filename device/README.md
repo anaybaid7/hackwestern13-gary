@@ -20,8 +20,9 @@ records facts; XP, stages and the map belong to the backend.
 | `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The main detector: SSD MobileNet v2, 80 everyday things and people. 57 ms a frame on the Pi | From google-coral/test_data |
 | `models/gary_detector.tflite`, `gary_nature_labels.txt` | The extra detector, run on the same frames: YOLOv8s trained on Open Images, of which Gary keeps only the nature names (tree, squirrel, duck, butterfly, rabbit, deer ...). 228 ms a frame on the Pi, float32, 46 MB. `--extra-model none` turns it off | Made by `models/make_model.py`. Scores: `bench_results.md` |
 | `bench_model.py` | How well the model names things: scores it on labelled photos (`--fetch` downloads about 10 per thing from Wikimedia Commons into `bench_photos/`, not committed). Writes `bench_results.md` | Run on the laptop |
+| `qnx/live.sh` | A live view of what Gary sees, with his boxes, at `http://<pi>:8090`. Needs `GARY_LIVE=live/frame.jpg` in `gary.env`; off unless set. Each frame replaces the last, nothing is kept. The web page links to it when started with `VITE_LIVE_URL` | Run on the Pi |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
-| `sounds/` | Placeholder chimes | Replace with Gary's voice |
+| `sounds/` | Clips that match the buzzer: right answers rise, a miss slides down. Played only with `GARY_SOUND=on` in `gary.env` (a USB speaker on the Pi) | Replace with Gary's voice |
 
 Both versions of Gary read the same files and write the same `journal.jsonl`.
 Each line of it is an Event from [`../contract`](../contract/README.md).
