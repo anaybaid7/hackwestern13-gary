@@ -48,6 +48,9 @@ A page that fails or takes too long is skipped, and the others still run. A
 refused key stops the run at once.
 
 If the server sets `SCOUT_KEY`, export the same value here and the scout sends it.
+With `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_SCOUT_CLIENT_ID` and
+`AUTH0_SCOUT_CLIENT_SECRET` in `scout/.env` it also asks Auth0 for a machine
+token that carries `write:quests` and sends that (`docs/AUTH0.md`).
 
 Nothing to install: standard library only. Keep keys in your shell or the local
 `scout/.env`. Never commit them.
