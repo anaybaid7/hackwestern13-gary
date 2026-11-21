@@ -40,6 +40,7 @@ from fastapi import Body, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+import auth
 import rules
 from store import make_store
 
@@ -130,13 +131,37 @@ def key_matches(sent, key):
     return hmac.compare_digest(str(sent or "").encode("utf-8"), str(key).encode("utf-8"))
 
 
-def private_side(sent):
-    """The private side is the check-ins and the wellness view. When the server
-    sets GARY_PRIVATE_KEY it opens only with that passphrase. -> is it locked?"""
+def caller(authorization):
+    """Who sent this request, from its Auth0 token. None: no token, or Auth0 is
+    off. A token that is sent and is wrong is refused, never ignored."""
+    try:
+        return auth.identify(authorization)
+    except auth.AuthError as err:
+        raise HTTPException(401, str(err))
+
+
+def private_side(sent, who=None):
+    """The private side is the check-ins and the wellness view. It opens for a
+    signed-in person (Auth0), who then sees their own check-ins, or with the
+    passphrase when the server sets GARY_PRIVATE_KEY. -> is it locked?"""
     key = os.environ.get("GARY_PRIVATE_KEY")
-    if key and not key_matches(sent, key):
-        raise HTTPException(401, "The private page is locked. Send its passphrase as X-Private-Key.")
-    return bool(key)
+    if who and not who["machine"]:
+        return True
+    if key and key_matches(sent, key):
+        return True
+    if key or auth.enabled():
+        raise HTTPException(401, "The private page is locked. Sign in, or send its passphrase as X-Private-Key.")
+    return False
+
+
+def guarded(setting, sent, who, permission, header):
+    """A shared key or an Auth0 permission opens this door. With neither set
+    up on the server, the door is open, as on a laptop."""
+    key = os.environ.get(setting)
+    if auth.allows(who, permission) or (key and key_matches(sent, key)):
+        return
+    if key or auth.enabled():
+        raise HTTPException(401, "wrong or missing %s, and no token with %s" % (header, permission))
 
 
 def as_list(payload, key):
@@ -284,16 +309,43 @@ def health():
         return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME,
                 "nap_seconds": nap_seconds(),
                 "keys": {name: bool(os.environ.get(setting)) for name, setting in
-                         (("scout", "SCOUT_KEY"), ("admin", "GARY_ADMIN_KEY"), ("private", "GARY_PRIVATE_KEY"))}}
+                         (("scout", "SCOUT_KEY"), ("admin", "GARY_ADMIN_KEY"), ("private", "GARY_PRIVATE_KEY"))},
+                "auth0": auth.enabled()}
+
+
+@app.get("/api/auth/config")
+def auth_config():
+    """What the page and the device need to start an Auth0 login. Nothing secret."""
+    return auth.public_config()
+
+
+@app.get("/api/me")
+def get_me(authorization: Optional[str] = Header(None)):
+    """Who the token says you are, as Gary knows you: a fingerprint, never a
+    name. "paired" says whether a Gary has sent sniffs signed as you."""
+    who = caller(authorization)
+    if not who:
+        return {"signed_in": False}
+    with lock:
+        paired = any(ev.get("owner") == who["fingerprint"] for ev in store.events())
+    return {"signed_in": True, "fingerprint": who["fingerprint"], "paired": paired,
+            "permissions": who["permissions"]}
 
 
 @app.post("/api/events")
-def post_events(payload: Any = Body(...)):
-    """The device's journal arrives here. Sending the same id twice is harmless."""
+def post_events(payload: Any = Body(...), authorization: Optional[str] = Header(None)):
+    """The device's journal arrives here. Sending the same id twice is harmless.
+    A Gary that was paired (Auth0 device flow) sends a token: his sniffs are
+    then marked with his person's fingerprint. No token is fine too."""
+    who = caller(authorization)
     events = as_list(payload, "events")
     sent_at = rules.parse_ts(payload.get("sent_at")) if isinstance(payload, dict) else None
     received = now()
     clean = [clean_event(raw, sent_at, received) for raw in events]
+    for event in clean:
+        event.pop("owner", None)  # only a checked token can say whose it is
+        if who and not who["machine"]:
+            event["owner"] = who["fingerprint"]
     with lock:
         accepted = len(store.add(clean))
         _, results, _ = current()
@@ -318,11 +370,11 @@ def get_quests(time: Optional[str] = Query(None, pattern="^(short|long)$"), all:
 
 
 @app.post("/api/quests")
-def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(None)):
-    """The scout writes quests here. A quest with a known id is replaced."""
-    key = os.environ.get("SCOUT_KEY")
-    if key and not key_matches(x_scout_key, key):
-        raise HTTPException(401, "wrong or missing X-Scout-Key")
+def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(None),
+                authorization: Optional[str] = Header(None)):
+    """The scout writes quests here. A quest with a known id is replaced. It
+    proves itself with SCOUT_KEY or with an Auth0 token that has write:quests."""
+    guarded("SCOUT_KEY", x_scout_key, caller(authorization), "write:quests", "X-Scout-Key")
     accepted, rejected = [], []
     with lock:
         for raw in as_list(payload, "quests"):
@@ -366,13 +418,17 @@ def get_state():
 
 
 @app.post("/api/mood")
-def post_mood(payload: dict = Body(...), x_private_key: Optional[str] = Header(None)):
-    """A private check-in: {"phase": "before" | "after", "value": 1..5}."""
-    private_side(x_private_key)
+def post_mood(payload: dict = Body(...), x_private_key: Optional[str] = Header(None),
+              authorization: Optional[str] = Header(None)):
+    """A private check-in: {"phase": "before" | "after", "value": 1..5}.
+    Signed in, it is kept as yours."""
+    who = caller(authorization)
+    private_side(x_private_key, who)
     check_mood(payload.get("phase"), payload.get("value"))
+    mine = who["fingerprint"] if who and not who["machine"] else None
     with lock:
         store.add([{"id": "mood-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "mood",
-                    "phase": payload["phase"], "value": payload["value"], "source": "web"}])
+                    "phase": payload["phase"], "value": payload["value"], "source": "web", "owner": mine}])
     return {"ok": True}
 
 
@@ -391,27 +447,30 @@ def post_visit(payload: dict = Body(...)):
 
 
 @app.get("/api/wellness")
-def get_wellness(x_private_key: Optional[str] = Header(None)):
+def get_wellness(x_private_key: Optional[str] = Header(None), authorization: Optional[str] = Header(None)):
     """The private side: check-ins, before and after pairs, estimated outdoor
     minutes per day, and solo versus shared finds. None of it is ever part of
     /api/state. "locked" says whether a passphrase guards it: without
     GARY_PRIVATE_KEY anyone who has the address can read this, and the page
     says so. The wording never says an outing caused a feeling."""
-    locked = private_side(x_private_key)
+    who = caller(authorization)
+    locked = private_side(x_private_key, who)
+    mine = who["fingerprint"] if who and not who["machine"] else None
     with lock:
         events, moods = store.events(), store.moods()
         days = store.outdoor_by_day(OUTDOOR_LABELS, TZ_NAME)
-    return dict(rules.wellness(moods, events, OUTDOOR, TZ, days), locked=locked)
+    # Signed in: your own check-ins. With the passphrase: the ones nobody signed.
+    moods = [m for m in moods if m.get("owner") == mine]
+    return dict(rules.wellness(moods, events, OUTDOOR, TZ, days), locked=locked, signed_in=bool(mine))
 
 
 @app.post("/api/dev/reset")
-def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(None)):
+def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(None),
+              authorization: Optional[str] = Header(None)):
     """Forget every event and mood and reload the seed quests. For demos and tests.
     With {"keep_quests": true} the quests stay, the scout's included, and every
     one is open again: that is the page's "Reset Gary" button."""
-    key = os.environ.get("GARY_ADMIN_KEY")
-    if key and not key_matches(x_admin_key, key):
-        raise HTTPException(401, "wrong or missing X-Admin-Key")
+    guarded("GARY_ADMIN_KEY", x_admin_key, caller(authorization), "reset:gary", "X-Admin-Key")
     keep = isinstance(payload, dict) and payload.get("keep_quests") is True
     with lock:
         store.reset(keep_quests=keep)

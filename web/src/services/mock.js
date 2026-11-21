@@ -39,6 +39,9 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
     // The story has no lock: nothing in it is anyone's own.
     unlock: async () => steps[index].wellness,
     forgetKey: () => {},
+    // The demo story has no accounts.
+    account: async () => ({ enabled: false, reason: 'demo', signedIn: false }),
+    getMe: async () => ({ signed_in: false }),
     // In the story, starting over is going back to its first step.
     resetGary: async () => {
       go(0)

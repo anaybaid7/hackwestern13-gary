@@ -1,11 +1,86 @@
 // Settings: the check-in pop-up, the private wellness view, where the page
 // gets Gary's state from, a reset for testing, and the promises Gary keeps.
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { goatName } from '../auth.js'
 import { readAsk, writeAsk } from '../components/CheckIn.jsx'
 import { playClip, readSound, writeSound } from '../sound.js'
 import You from './You.jsx'
 
 const STATUS_WORDS = { live: 'Live', mock: 'Demo story', stale: 'Offline · last state' }
+
+// Your account, with Auth0. Shown only when the server has a tenant set up.
+// Signed in, your check-ins are kept as yours. Gary stores a fingerprint of
+// your Auth0 id and nothing else, so here you are a goat name, not a person.
+function Account({ service, onChange }) {
+  const [account, setAccount] = useState(null)
+  const [me, setMe] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    if (!service.account) return undefined // a service with no accounts
+    service.account().then(async (found) => {
+      if (!alive) return
+      setAccount(found)
+      if (found.enabled && found.signedIn) {
+        try {
+          const who = await service.getMe()
+          if (alive) setMe(who)
+        } catch {
+          // the page still works; it just cannot say who you are
+        }
+        if (alive && onChange) onChange()
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [service]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!account || (!account.enabled && account.reason !== 'needs-https')) return null
+  if (!account.enabled) {
+    return (
+      <section className="panel">
+        <h3 className="section-title">Account</h3>
+        <p className="small">Signing in works on the https address of this page, not on this one.</p>
+      </section>
+    )
+  }
+  return (
+    <section className="panel account">
+      <div className="you-head">
+        <h3 className="section-title">Account</h3>
+        {account.signedIn && <span className="chip chip-herd">Signed in</span>}
+      </div>
+      {account.signedIn ? (
+        <>
+          <p className="goat-id">
+            <strong>{goatName(me?.fingerprint)}</strong>
+            {me?.fingerprint && <span className="small"> · herder #{me.fingerprint.slice(0, 4)}</span>}
+          </p>
+          <p className="small">
+            That is all Gary knows about you: no name, no e-mail address. Your check-ins are kept under this goat
+            and shown to nobody else.
+          </p>
+          <p>
+            {me?.paired
+              ? 'A Gary is paired with you: his sniffs arrive signed as yours.'
+              : 'No Gary is paired with you yet. On the Pi, run python3 pair.py and enter the code it shows.'}
+          </p>
+          <button type="button" className="button" onClick={() => account.signOut()}>
+            Sign out
+          </button>
+        </>
+      ) : (
+        <>
+          <p>Sign in to keep your check-ins as yours, and to pair a Gary with you.</p>
+          <button type="button" className="button primary" onClick={() => account.signIn()}>
+            Sign in
+          </button>
+        </>
+      )}
+    </section>
+  )
+}
 
 // Start over, for testing: Gary back to 0 XP, no finds, no check-ins. The
 // quests stay and are all open again. It asks first, and a server that has an
@@ -90,6 +165,7 @@ function ResetGary({ service, onReset }) {
 export default function Settings({ service, stamp, status, onReset }) {
   const [ask, setAsk] = useState(readAsk)
   const [sound, setSound] = useState(readSound)
+  const [signedInAt, setSignedInAt] = useState(0) // bumps the wellness view once a sign-in is known
 
   function toggle() {
     writeAsk(!ask)
@@ -125,8 +201,10 @@ export default function Settings({ service, stamp, status, onReset }) {
         </p>
       </section>
 
+      <Account service={service} onChange={() => setSignedInAt((n) => n + 1)} />
+
       <section className="panel">
-        <You service={service} stamp={stamp} />
+        <You service={service} stamp={`${stamp}-${signedInAt}`} />
       </section>
 
       <section className="panel">
