@@ -257,6 +257,36 @@ def choose_quest(quests, done, things, friend):
     return quest, (quest if doable else None)
 
 
+def voice_clips(label, quest, completed, new, friend, any_open, all_done):
+    """What Gary says after a sniff, as clip names (made by make_voice.py).
+
+    label      what Gary names
+    quest      the open quest whose target is in view, or None (choose_quest)
+    completed  that quest if this sniff finishes it, or None
+    new        first time Gary has seen this label
+    friend     a person is in frame
+    any_open   an open quest is left that this sniff did not match
+    all_done   this sniff finished the last open quest
+
+    The caller plays these only if every clip exists, and the chimes otherwise.
+    gary_qnx.cpp: voice_clips() is the same rule.
+    """
+    name = label.replace(" ", "_")
+    if completed:
+        clips = ["say_found_" + name]
+    elif quest:
+        clips = ["say_" + name, "say_need_friend"]  # the right thing, but a herd quest
+    elif any_open:
+        clips = ["say_not_it", "say_" + name]
+    else:
+        clips = ["say_" + name] + (["say_new"] if new else [])
+    if friend:
+        clips.append("say_herd")
+    if all_done:
+        clips.append("say_done")
+    return clips
+
+
 class Journal:
     """Append-only event log, one JSON object per line.
 
@@ -566,7 +596,7 @@ def main():
                                      ", needs a friend" if q.herd else ""))
     if not args.image:
         print("Press Enter to sniff. q + Enter quits.")
-    speaker.play("hello")
+    speaker.play("say_hello" if speaker.has("say_hello") else "hello")
 
     ask = threading.Event()
     stop = threading.Event()
@@ -639,7 +669,7 @@ def main():
             sniff_ms.append(rec["latency_ms"])
             print("\nSNIFF: nothing Gary can name%s.  [%s ms]"
                   % (" (he does see a friend)" if friend else "", rec["latency_ms"]))
-            speaker.play("nothing")
+            speaker.play("say_nothing" if speaker.has("say_nothing") else "nothing")
             return
 
         # An open quest's target wins if it is in view; otherwise the surest thing.
@@ -669,11 +699,14 @@ def main():
             line += " That quest needs a friend in frame."
         if speaker.has(label.replace(" ", "_")):
             clips.append(label.replace(" ", "_"))  # a spoken label, if someone recorded one
-        if completed and all(q.id in journal.done for q in quests):
+        all_done = bool(completed) and all(q.id in journal.done for q in quests)
+        if all_done:
             line += " All of today's quests are done."
             clips.append("done")
         print(line + "  [%s ms]" % rec["latency_ms"])
-        speaker.play(*clips)
+        any_open = any(q.id not in journal.done and q.label != args.friend_label for q in quests)
+        voiced = voice_clips(label, quest, completed, new, friend, any_open, all_done)
+        speaker.play(*(voiced if all(speaker.has(c) for c in voiced) else clips))
 
     def handle_sniff():
         if reload_quests.is_set():

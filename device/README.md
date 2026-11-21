@@ -304,9 +304,17 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   for a quest that needs a friend in frame. `target` must be a name in
   `models/coco_labels.txt` or `models/gary_nature_labels.txt`. When two open quests want the same thing, the
   earlier line wins; `sync.py` puts the quest chosen on the web page first.
-- **Gary's voice:** replace the WAV files in `sounds/` (`hello`, `new`,
-  `again`, `quest`, `herd`, `nothing`, `done`). Add `sounds/<label>.wav`, for
-  example `bottle.wav`, and Gary plays it after the chime.
+- **Gary's voice:** Gary speaks with the `sounds/say_*.wav` clips: "You found
+  the water bottle!", "That's not what we're looking for. That's a bird.",
+  "Hmm, I'm not seeing it right. Can you move closer?". They are made once, on
+  a laptop, by `python3 make_voice.py` with ElevenLabs (the voice is Maxim; put
+  `ELEVENLABS_API_KEY` in `device/.env`, and optionally `ELEVENLABS_VOICE_ID`).
+  The Pi needs no key and no network to play them. The lines are in
+  `make_voice.py`; `voice_clips()` (in both versions of Gary) picks which ones
+  to play. To change a line, edit it there and run `python3 make_voice.py
+  --force --only say_<clip>`. If any clip a sniff needs is missing, Gary plays
+  the chimes (`hello`, `new`, `again`, `quest`, `herd`, `nothing`, `done`)
+  instead.
 - **Strictness:** the default threshold is 0.35. `--threshold 0.6` asks for more confidence. `--need 4` asks for
   4 of the last 5 frames. Raise these if Gary names the wrong things.
 - **What Gary can recognise:** edit `NATURE` (or `RENAME`) in `models/make_model.py` and the
