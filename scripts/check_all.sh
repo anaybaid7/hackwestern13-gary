@@ -36,6 +36,7 @@ fi
 
 step "Device scripts: button, buzzer, sync, start and stop"
 "$PY" device/tests/test_device.py || fail "device script tests"
+"$PY" -m pytest -q device/tests/test_pair.py || fail "device pairing tests"
 
 step "QNX program: reading the YOLO model's output"
 if command -v c++ >/dev/null 2>&1; then

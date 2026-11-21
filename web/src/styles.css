@@ -1385,6 +1385,18 @@ body {
   background: var(--orange);
 }
 
+/* Settings: the account */
+.account {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.goat-id strong {
+  font-family: var(--pixel);
+  font-size: 18px;
+}
+
 /* Settings: the reset for testing */
 .reset,
 .reset-sure {

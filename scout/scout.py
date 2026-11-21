@@ -442,10 +442,33 @@ def check_quests(quests, allowed):
     return good, bad
 
 
+def machine_token(env=None, opener=urllib.request.urlopen):
+    """The scout's own identity: an Auth0 machine-to-machine token that carries
+    the write:quests permission. Needs AUTH0_DOMAIN, AUTH0_AUDIENCE,
+    AUTH0_SCOUT_CLIENT_ID and AUTH0_SCOUT_CLIENT_SECRET in scout/.env.
+    -> the token, or None when they are not set or Auth0 cannot be reached."""
+    env = os.environ if env is None else env
+    names = ("AUTH0_DOMAIN", "AUTH0_AUDIENCE", "AUTH0_SCOUT_CLIENT_ID", "AUTH0_SCOUT_CLIENT_SECRET")
+    if not all(env.get(name) for name in names):
+        return None
+    body = json.dumps({"grant_type": "client_credentials", "client_id": env["AUTH0_SCOUT_CLIENT_ID"],
+                       "client_secret": env["AUTH0_SCOUT_CLIENT_SECRET"], "audience": env["AUTH0_AUDIENCE"]})
+    req = urllib.request.Request("https://%s/oauth/token" % env["AUTH0_DOMAIN"].strip("/"),
+                                 data=body.encode("utf-8"), headers={"Content-Type": "application/json"})
+    try:
+        with opener(req, timeout=10) as reply:
+            return json.loads(reply.read().decode("utf-8")).get("access_token")
+    except (OSError, ValueError):
+        return None
+
+
 def post_quests(api, quests):
     headers = {"Content-Type": "application/json"}
     if os.environ.get("SCOUT_KEY"):
         headers["X-Scout-Key"] = os.environ["SCOUT_KEY"]
+    token = machine_token()
+    if token:
+        headers["Authorization"] = "Bearer " + token
     req = urllib.request.Request(api.rstrip("/") + "/api/quests",
                                  data=json.dumps({"quests": quests}).encode("utf-8"), headers=headers)
     with urllib.request.urlopen(req, timeout=10) as reply:

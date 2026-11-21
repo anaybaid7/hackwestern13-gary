@@ -1,4 +1,5 @@
 // The real backend. The shapes are in contract/README.md.
+import { createAuth } from '../auth.js'
 
 // The passphrase of the private page, kept on this device once it has been
 // typed. Storage can be missing or refuse (private browsing): then it is kept
@@ -24,8 +25,17 @@ function saveKey(value) {
   }
 }
 
-export function createLive(api = '', fetchFn = (...args) => fetch(...args)) {
+export function createLive(api = '', fetchFn = (...args) => fetch(...args), makeAuth = createAuth) {
   const base = api.replace(/\/$/, '')
+
+  // Signing in (Auth0), started the first time someone asks for it.
+  let account = null
+  const getAccount = () => {
+    if (!account) account = makeAuth({ api: base, fetchFn }).catch(() => ({ enabled: false, reason: 'no-config', signedIn: false, token: async () => '' }))
+    return account
+  }
+  // The token of a signed-in person, or ''. Never asks anyone to sign in.
+  const bearer = async () => (account ? (await account).token() : '')
 
   // `secret`: a call to the private side. It carries the passphrase, if this
   // device has one, and a 401 means the page is locked.
@@ -34,7 +44,9 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args)) {
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     const key = secret ? readKey() : ''
     if (key) headers['X-Private-Key'] = key
-    const options = body === undefined && !key
+    const token = secret ? await bearer() : ''
+    if (token) headers.Authorization = `Bearer ${token}`
+    const options = body === undefined && !key && !token
       ? undefined
       : { method: body === undefined ? 'GET' : 'POST', headers, body: body === undefined ? undefined : JSON.stringify(body) }
     const reply = await fetchFn(`${base}${path}`, options)
@@ -79,9 +91,18 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args)) {
      * open again. A server with an admin key wants it; it is sent, never kept.
      * Throws an error with `needsKey` when the key is missing or wrong.
      */
+    /** Signing in: {enabled, reason?, signedIn, signIn(), signOut()}. */
+    account: getAccount,
+    /** Who Gary thinks you are: {signed_in, fingerprint, paired, permissions}. */
+    getMe: async () => {
+      await getAccount()
+      return call('/api/me', undefined, true)
+    },
     resetGary: async (adminKey = '') => {
       const headers = { 'Content-Type': 'application/json' }
       if (adminKey) headers['X-Admin-Key'] = adminKey
+      const token = await bearer()
+      if (token) headers.Authorization = `Bearer ${token}`
       const reply = await fetchFn(`${base}/api/dev/reset`, {
         method: 'POST',
         headers,

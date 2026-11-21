@@ -75,6 +75,8 @@ On the server they live in `/opt/gary/.env`. None of these files is in git.
 | `SCOUT_KEY` | If set, the scout must send it as `X-Scout-Key` to post quests |
 | `GARY_ADMIN_KEY` | If set, `POST /api/dev/reset` must send it as `X-Admin-Key`. **Set this on the public server**, or anyone can wipe the demo |
 | `GARY_PRIVATE_KEY` | A passphrase for the private side. If set, the check-ins and the wellness view open only with it (`X-Private-Key`), and the page asks for it once per device. **Set this on the public server**: without it anyone who has the address can read the check-ins, and the page says so |
+| `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` | Switch on the Auth0 login (`docs/AUTH0.md`). Unset: no login, the keys above work as before |
+| `AUTH0_CLIENT_ID`, `AUTH0_DEVICE_CLIENT_ID` | The page's and Gary's application ids in the tenant. Not secret |
 | `GARY_NAP_SECONDS` | Quiet time before Gary naps. Default 8 hours. A short value such as `60` shows a nap within minutes. Leave it out for the three-minute demo: Gary would be asleep again before the end |
 | `GARY_TZ` | Where days and weeks turn over. Default `America/Toronto` |
 | `GARY_SEED` | The quests a fresh backend starts with |
@@ -198,9 +200,11 @@ Logs: `journalctl -u gary -f`.
 memory and a restart forgets it (then `python3 scout/scout.py --cached` puts
 the scout's quests back). The real device has not posted to it.
 
-The page is served over plain `http`. That is fine for the demo. Anything that
-needs `https` (an Auth0 login, issue #23, or the "where am I" dot on the map,
-which browsers only allow on `https`) needs a domain name first.
+The page is also at https://149-248-50-153.sslip.io: `sh backend/deploy/https.sh
+<name>` on the server puts Caddy on port 443 in front of Gary, with a
+certificate for a free sslip.io name. The Auth0 login (`docs/AUTH0.md`) and the
+"where am I" dot on the map need that address. Plain `http` on port 80 is
+unchanged, for the Pi and the scout.
 
 ## The rules, in brief
 

@@ -21,3 +21,7 @@ bench_photos/
 seeing.json
 seeing.json.tmp
 gary_talk.pid
+
+# The token of a paired Gary (pair.py). It says who he belongs to: never commit it
+gary.token
+gary.token.tmp
