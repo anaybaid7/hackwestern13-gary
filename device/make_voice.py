@@ -38,10 +38,34 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LABELS = os.path.join(HERE, "..", "contract", "labels.json")
 URL = "https://api.elevenlabs.io/v1/text-to-speech/%s?output_format=pcm_%d"
 DEFAULT_VOICE = "IGRoDkfYV2Frq7Ly0PRu"   # Maxim
-DEFAULT_MODEL = "eleven_multilingual_v2"  # more expressive than eleven_flash_v2_5; set ELEVENLABS_MODEL to change
-# How Gary sounds: a little quicker than the voice's own pace, and lively.
-# Lower stability = more rise and fall; style = more character. speed: 0.7-1.2.
+DEFAULT_MODEL = "eleven_v3"   # reads the [excited]-style cues below; set ELEVENLABS_MODEL to change
+# How Gary sounds. eleven_v3 takes stability 0.0 (creative), 0.5 (natural) or
+# 1.0 (robust) and its intonation from the cues. Older models take the rest:
+# lower stability = more rise and fall, style = more character, speed 0.7-1.2.
+V3_SETTINGS = {"stability": 0.5}
 VOICE_SETTINGS = {"stability": 0.3, "similarity_boost": 0.75, "style": 0.45, "use_speaker_boost": True, "speed": 1.12}
+
+# How Gary says each kind of line: eleven_v3 audio tags. Other models would
+# read a tag out loud, so for them the tags are left off.
+CUES = {
+    "say_hello": "[cheerful] Hi! I'm Gary. [playfully] Press my button, and I'll take a sniff.",
+    "say_nothing": "[thoughtful] Hmm... [curious] I can't quite tell. Can you move a little closer?",
+    "say_not_it": "[playfully] Ooh, close! [lighthearted] But that's not what we're looking for.",
+    "say_new": "[excited] Ooh, a new one for the journal!",
+    "say_need_friend": "[excited] That's the one! [warmly] But this quest needs a friend in the frame.",
+    "say_herd": "[delighted] Herd Mode! [warmly] I love the company.",
+    "say_done": "[proud] That's every quest for today. [laughs] Amazing work!",
+}
+PREFIX_CUES = (("say_found_", "[excited] "), ("say_", "[curious] "))
+
+
+def performed(clip, text, model):
+    """The text sent to ElevenLabs: with eleven_v3's cues, or as it is for other models."""
+    if not model.startswith("eleven_v3"):
+        return text
+    if clip in CUES:
+        return CUES[clip]
+    return next(cue for prefix, cue in PREFIX_CUES if clip.startswith(prefix)) + text
 RATE = 16000                             # plenty for a small speaker; keeps the clips small
 
 # How a label is said out loud, where the label itself reads badly.
@@ -119,8 +143,9 @@ def write_wav(path, pcm, rate=RATE):
 
 def speak(text, key, voice, model=DEFAULT_MODEL, opener=urllib.request.urlopen, tries=3):
     """One line -> raw 16-bit mono PCM at RATE."""
-    body = json.dumps({"text": text, "model_id": os.environ.get("ELEVENLABS_MODEL") or model,
-                       "voice_settings": VOICE_SETTINGS}).encode("utf-8")
+    model = os.environ.get("ELEVENLABS_MODEL") or model
+    body = json.dumps({"text": text, "model_id": model,
+                       "voice_settings": V3_SETTINGS if model.startswith("eleven_v3") else VOICE_SETTINGS}).encode("utf-8")
     req = urllib.request.Request(URL % (voice, RATE), data=body,
                                  headers={"xi-api-key": key, "Content-Type": "application/json"})
     for attempt in range(tries):
@@ -159,6 +184,8 @@ def main(argv=None):
     if not args.force:
         todo = {c: t for c, t in todo.items() if not os.path.exists(os.path.join(args.sounds, c + ".wav"))}
 
+    model = os.environ.get("ELEVENLABS_MODEL") or DEFAULT_MODEL
+    todo = {clip: performed(clip, text, model) for clip, text in todo.items()}
     if args.dry_run:
         for clip, text in todo.items():
             print("%-28s %s" % (clip, text))

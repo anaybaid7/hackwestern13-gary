@@ -640,6 +640,11 @@ def test_every_clip_gary_can_ask_for_is_made_by_make_voice():
             assert prefix + label.replace(" ", "_") in made, label
     for fixed in ("say_hello", "say_nothing", "say_not_it", "say_new", "say_need_friend", "say_herd", "say_done"):
         assert fixed in made
+        assert mv.performed(fixed, made[fixed], "eleven_v3").startswith("["), "every fixed line has its intonation"
+    # eleven_v3 gets cues for how to say a line; any other model would read them aloud, so it gets none
+    assert mv.performed("say_found_bottle", made["say_found_bottle"], "eleven_v3") == "[excited] Yes! You found the water bottle!"
+    assert mv.performed("say_apple", made["say_apple"], "eleven_v3") == "[curious] That's an apple!"
+    assert mv.performed("say_apple", made["say_apple"], "eleven_multilingual_v2") == "That's an apple!"
     # A clip is written whole, as 16-bit mono WAV, from the PCM ElevenLabs sends.
     folder = tempfile.mkdtemp()
     try:
