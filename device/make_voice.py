@@ -55,6 +55,9 @@ CUES = {
     "say_need_friend": "[excited] That's the one! [warmly] But this quest needs a friend in the frame.",
     "say_herd": "[delighted] Herd Mode! [warmly] I love the company.",
     "say_done": "[proud] That's every quest for today. [laughs] Amazing work!",
+    "say_go_ahead": "[cheerful] Go ahead!",
+    "say_thinking": "[curious] Ooh, let me think...",
+    "say_ears": "[thoughtful] Hmm, my ears are a bit fuzzy. [playfully] Try me again?",
 }
 PREFIX_CUES = (("say_found_", "[excited] "), ("say_", "[curious] "))
 
@@ -82,6 +85,10 @@ FIXED = {
     "say_need_friend": "That's the one! But this quest needs a friend in the frame.",
     "say_herd": "Herd Mode! I love the company.",
     "say_done": "That's every quest for today. Amazing work!",
+    # Talking to Gary (gary_talk.py)
+    "say_go_ahead": "Go ahead!",
+    "say_thinking": "Ooh, let me think...",
+    "say_ears": "Hmm, my ears are a bit fuzzy. Try me again?",
 }
 
 

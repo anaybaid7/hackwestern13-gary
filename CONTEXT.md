@@ -150,7 +150,7 @@ Who decides what. Do not move logic across these lines:
 | Folder | Owner | What is in it |
 | --- | --- | --- |
 | `contract/` | shared | The JSON shapes and example files. The only shared surface |
-| `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
+| `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `gary_talk.py` ("Go Gary": voice questions, Gemini answers, ElevenLabs speaks), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests, the checks, the evidence page), `sources.json` (the pages), `gary_voice.py` (optional Gemini step), tests |
@@ -250,6 +250,8 @@ removal needs all four owners to agree, in an issue.
    - No individual rankings. Herds may be ranked (the Herd Cup); people never.
    - Mood is private. It never appears in `/api/state` or in anything shared.
    - No image is stored or uploaded. Only labels.
+   - Your voice (talking to Gary, `gary_talk.py`) goes to Gemini only to answer you, and is
+     never stored, logged or printed. Only Gary's labels go with it, never an image.
    - A friend is "a person is in frame". Never identify anyone.
    - The page says "private" about the check-ins only when they are behind
      the passphrase (`locked: true`). Otherwise it says the page is not locked.
@@ -444,6 +446,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 9:30 pm | Been there: a quest finished at its place earns +10 XP. A bonus, not a gate, so Gary never punishes a sniff made elsewhere. The page compares the browser's location with the quest's `lat`/`lng` (within 150 m, or the fix's accuracy up to 500 m) and sends only the quest id; no position reaches the backend. The scout looks up positions on OpenStreetMap from the agent's street address. Hand-placed spots in `web/src/places.js` count as real; made-up map spots never do. Browsers give location only over HTTPS or on localhost |
 | 21 Nov, 10:30 pm | Gemini writes Gary's words ahead of time, never live: the Pi and the page must work offline, and a live call could say something wrong in front of judges. Trail tidbits travel on the quest (`tidbits`, from `scout.py --voice`; place facts only from the page TinyFish read). Facts and everyday lines live in `web/src/gary_lines.json` (`scout/gary_lines.py`), read and corrected by a person before commit. Default model `gemini-3.5-flash-lite` |
 | 21 Nov, 6:12 pm | The product's name is written **G.A.R.Y**: “Go Anywhere, Rediscover Yourself”. It covers both tracks: the adventure, and the outdoors and wellness side, with no health claim. In running text, voice lines and code he stays Gary |
+| 21 Nov, 7:30 pm | Talking to Gary: say "Go Gary" (or hold the button 0.8 s), he says "Go ahead", you ask, he answers in about 1.5 to 3 s with one true fact about what he sees. Gemini (`gemini-3.1-flash-lite`, backup `gemini-2.5-flash`) hears the question and gets the labels in `seeing.json`; the wake words are checked in code from what Gemini heard, so talking about Gary never wakes him; ElevenLabs' fastest model speaks. Voice is sent, never kept. Off unless `GARY_TALK=on` |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

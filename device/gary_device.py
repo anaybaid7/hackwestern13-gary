@@ -427,6 +427,21 @@ def ensure_sounds(folder):
             w.writeframes(b"".join(struct.pack("<h", int(max(-1, min(1, s)) * 32767)) for s in samples))
 
 
+def write_seeing(path, confirmed, friend_label):
+    """seeing.json: what Gary is sure he sees right now, labels only (never a
+    picture). gary_talk.py reads it to answer "what am I looking at?".
+    gary_qnx.cpp writes the same file."""
+    body = {"labels": {k: round(v, 3) for k, v in sorted(confirmed.items()) if k != friend_label},
+            "friend": friend_label in confirmed, "ts": int(time.time())}
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps(body) + "\n")
+        os.replace(tmp, path)
+    except OSError:
+        pass  # a missing file only means Gary cannot answer questions; never stop the loop
+
+
 def wav_seconds(path):
     """Length of a WAV file in seconds, or 0.0 if it cannot be read."""
     try:
@@ -695,6 +710,8 @@ def main():
     timings, dropped = [], 0
     started = time.monotonic()
     last_report = started
+    last_seeing = started - 1.0
+    seeing_path = os.path.join(os.path.dirname(os.path.abspath(args.log)), "seeing.json")
     frames_since = 0
     seq = 0
     frame_budget = args.window if args.image else None
@@ -795,6 +812,9 @@ def main():
             confirmed = stable.update(best)
 
             decided = time.monotonic()
+            if decided - last_seeing >= 0.5:
+                last_seeing = decided
+                write_seeing(seeing_path, confirmed, args.friend_label)
             timings.append(((decided - stamp) * 1000.0, infer_ms, (decided - started) * 1000.0))
             frames_since += 1
 
