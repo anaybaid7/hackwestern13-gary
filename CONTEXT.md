@@ -6,8 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, after live Tiger Data verification.
-Last updated: Sat 21 Nov 2026, 9:43 am, when the Phase 6 pull request (#47) was merged with the Pocket Pixel redesign (#48).
+Last updated: Sat 21 Nov 2026, 1:04 pm, when Gary went live on Vultr (#22).
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
 21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
@@ -58,7 +57,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #19 | Herd Mode and the Herd Cup | **Done** | Rival herds are seeded demo data, marked `demo: true` |
 | #20 | Private mood, wellness view | **Done** | `GET /api/wellness` |
 | #21 | Quest choice | **Done** | `POST /api/quest/choose` |
-| #22 | Deploy on Vultr | **Code done, needs the account** | `sh backend/deploy/deploy.sh root@<ip>`. Rehearsed in a container, never run on Vultr |
+| #22 | Deploy on Vultr | **Live, still in memory** | http://149.248.50.153 since Sat 21 Nov, 12:55 pm (Vultr, Toronto, 1 vCPU, 1 GB, Ubuntu 24.04): the page and the API on one address. `deploy.sh` ran from Moe's Mac, the three keys are set, `demo.py replay` passed all eight beats against it, and it came back by itself after a reboot. Left: `DATABASE_URL` on the server (it keeps its data in memory), and the real device posting to it. The server's SSH key and its keys are only on Moe's Mac, in `~/.gary-deploy/`; he redeploys with `sh ~/.gary-deploy/redeploy.sh` |
 | #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
 | **Phase 4** | **Front end (C)** | | |
 | #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
@@ -107,7 +106,7 @@ To finish Phase 5, four things need a person:
 To finish Phase 3, deployment remains (steps in `backend/README.md`):
 
 1. **#16 is verified.** Other machines still need `DATABASE_URL` in their own ignored `backend/.env`; the connection is not distributed through Git. Run `python3 backend/check_db.py` to verify each setup.
-2. **#22** A Vultr instance. `sh backend/deploy/deploy.sh root@<ip>`, then put `DATABASE_URL`, `SCOUT_KEY` and `GARY_ADMIN_KEY` in `/opt/gary/.env` on the server.
+2. **#22 is live** at http://149.248.50.153, with `SCOUT_KEY`, `GARY_ADMIN_KEY` and `GARY_PRIVATE_KEY` set. Two things are left. Tiger Data: put `DATABASE_URL` in `/opt/gary/.env` on the server (on Moe's Mac, `sh ~/.gary-deploy/set-database-url.sh` asks for the string and sends it straight there). The device: `GARY_API=http://149.248.50.153` in `device/gary.env` on the Pi.
 
 To finish Phase 2, on the Pi, in this order (each step is in `device/README.md`):
 
@@ -298,7 +297,7 @@ removal needs all four owners to agree, in an issue.
   `PostgresStore` with the same methods; add a method to both or to neither.
 - A press of short or long is stored as a `choice` event in the same stream as
   the sniffs, so a restart keeps it and old sniffs are never re-attributed.
-- #16 is verified on Tiger Data. #22 still needs a Vultr instance: see the two steps under the status table.
+- #16 is verified on Tiger Data. #22 is live at http://149.248.50.153, in memory until `DATABASE_URL` is set there: see the two steps under the status table.
 - #23: not started. `/api/mood` and `/api/wellness` have no login.
 
 **Phase 4, front end (C)**
@@ -393,8 +392,14 @@ removal needs all four owners to agree, in an issue.
 - The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work, and the map says the street map is missing.
 - The map's reveal, frontier, trail and "All places" were looked at in desktop Chrome 94 at 1280 px and 390 px. The distance line and the reduced-motion path are checked only in tests.
 
-- `backend/deploy/deploy.sh` has never run against a Vultr machine. The
-  systemd unit and the firewall line are untested.
+**Verified on the Vultr machine, 21 Nov 2026** (http://149.248.50.153, Ubuntu 24.04)
+
+- `backend/deploy/deploy.sh` from a Mac: build, copy, venv, the systemd unit, the firewall line, the health check.
+- The page and the API answer from a second network. The built page was looked at in headless Chrome against the live data: Home, Map, and Settings with the wellness view locked.
+- Without their key, posting quests, the reset and the private side each answer `401`.
+- `python3 scripts/demo.py replay` passed all eight beats against it; `demo.py check` says READY.
+- After a reboot the service came back by itself, with the firewall and the key-only login unchanged.
+- Not tried there: Tiger Data (`DATABASE_URL` is not set on the server yet, so a restart forgets everything), and the real device posting to it. The page is plain `http`.
 
 **Known limits**
 
@@ -427,6 +432,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 9:30 am | The page is restyled as Pocket Pixel. The map is OpenStreetMap (Leaflet) under fog; place positions are hand-placed in `web/src/places.js` (presentation only, not a contract change; optional `lat`/`lng` on quests is the upgrade). The browser's location is shown on the map and never sent anywhere. The leaderboard is the Herd Cup only. A long quest is shown as a trail walk. After a quest, a reward screen, then an optional "after" check-in |
 | 21 Nov, 9:43 am | Phase 6 merged with the Pocket Pixel redesign. The passphrase form sits in the wellness view in Settings; the view wears "Private" only behind a passphrase and "Not locked" otherwise; a visitor without the passphrase is never shown the check-in pop-up. `docs/DEMO.md`, `docs/RUNBOOK.md` and the hints in `scripts/demo.py` still name the old tabs: left as they are until the page is final. Two layout rules that the new stylesheet had lost are back, in their own block: the spacing inside the wellness view (`.you`) and the small line under "Your herd" in the Cup table (`.cup-detail`). The highlight on the "Your herd" row and the rank-up animation (`.cup-row.moved`) are also gone from the stylesheet and were left for the web owner to decide |
 | 21 Nov, 11:30 am | Gary's detector is YOLOv8s trained on Open Images, for nature: on photos it names squirrels 88%, trees 88%, ducks 60%, where YOLO-World (tried first) and SSD named none. It is weaker on benches and dogs (25%), so the scout's quests are now trees, squirrels, ducks, birds and bicycles. float32, because int8 ruins the class scores |
+| 21 Nov, 1:04 pm | Gary's public address is http://149.248.50.153 (Vultr, Toronto), plain `http`, no domain. The server takes logins with one SSH key only; that key and the server's three keys are kept on Moe's Mac in `~/.gary-deploy/`, outside the repo |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

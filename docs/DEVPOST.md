@@ -15,9 +15,9 @@ is not true by Sunday morning, change the sentence it guards (they are marked
 | `[B]` | The QNX timings it quotes | `docs/qnx-numbers.md` has rows measured on the Pi | #14 |
 | `[C]` | Quests come from live sites | `scout/EVIDENCE.md` lists completed runs. Say "five pages" only if five have one | #8, #31, #33 |
 | `[D]` | Data is on Tiger Data | `python3 backend/check_db.py` prints "events is a hypertable on ts: yes" and "time_bucket query ...: ok" | #16 |
-| `[E]` | It is deployed on Vultr | The Vultr address serves the page | #22 |
+| `[E]` | It is deployed on Vultr | **True since Sat 21 Nov, 12:55 pm:** http://149.248.50.153 serves the page and the API | #22 |
 | `[F]` | The button and buzzer | They work on the Pi's pins | #10, #11 |
-| `[G]` | The wellness view is behind a passphrase | On the demo server the wellness view in Settings wears the "Private" chip, not "Not locked" (`GARY_PRIVATE_KEY` is set) | #22 |
+| `[G]` | The wellness view is behind a passphrase | **True since Sat 21 Nov:** `GARY_PRIVATE_KEY` is set on the server, and the wellness view in Settings says "Locked" until the passphrase is typed | #22 |
 
 Fill in, wherever the text has square brackets: the video link, the repo link,
 the TinyFish post link, the Vultr address, the QNX version (`uname -r` on the
@@ -186,8 +186,8 @@ is done start to finish: page, places, checks, quests in the game.
 wellness view's "minutes outdoors per day" is a single `time_bucket` query
 over it.
 
-**Vultr.** `[E]` The API and the web page run on one Vultr instance, at
-[address], set up by one script.
+**Vultr.** `[E]` The API and the web page run on one Vultr instance in
+Toronto, at http://149.248.50.153, set up by one script.
 
 ## Challenges we ran into
 

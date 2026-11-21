@@ -16,6 +16,8 @@ SCRIPT = os.path.join(ROOT, "scripts", "check_secrets.sh")
 GOOGLE_KEY = "AIza" + "SyD3x4mpleOnlyNotARealKey0123456789ab"
 DATABASE = "postgres://tsdbadmin:" + "s3cretPassw0rd" + "@abc123.tsdb.cloud.timescale.com:31234/tsdb"
 TINYFISH = "TINYFISH_API_KEY=" + "tf_live_9f8e7d6c5b4a3210"
+TINYFISH_SK = "sk-" + "tinyfish-" + "Ab3_dE6-gH9jK2mN5pQ8rS1tU4vW7xYz"   # the shape of a real TinyFish key
+PLACEHOLDER = "TINYFISH_API_KEY=" + "your-key-here"                       # what scout/README.md tells people to replace
 PASSPHRASE = "GARY_PRIVATE_KEY=" + "sunny goats 42"
 
 
@@ -29,7 +31,8 @@ class Repo:
         self.git("config", "user.name", "Test")
         self.write(".gitignore", ".env\ngary.env\n")
         self.write("README.md", "# A repo\n\nexport TINYFISH_API_KEY=...\nDATABASE_URL=postgres://tsdbadmin:PASSWORD@HOST.tsdb.cloud.timescale.com:PORT/tsdb\n"
-                                "SCOUT_KEY=choose-a-long-random-string\n")
+                                "SCOUT_KEY=choose-a-long-random-string\n"
+                                "Put your key in scout/.env:\n\n" + PLACEHOLDER + "\n")
         self.commit("start")
 
     def git(self, *args):
@@ -84,12 +87,15 @@ def test_a_database_password_and_an_api_key_in_the_working_files_are_found():
         repo.write("backend/settings.txt", "DATABASE_URL=%s\n" % DATABASE)
         repo.write("scout/run.sh", "export %s\npython3 scout.py\n" % TINYFISH)
         repo.write("notes/server.txt", "%s\n" % PASSPHRASE)
+        repo.write("notes/chat.md", "here is the key: %s\n" % TINYFISH_SK)       # a bare key, no name before it
+        repo.write("scout/setup.md", "TINYFISH_API_KEY=%s\n" % TINYFISH_SK)      # a real key where the placeholder goes
         out = repo.check()
         assert out.returncode == 1, out.stdout
         assert "FOUND in files" in out.stdout
-        for name in ("backend/settings.txt", "scout/run.sh", "notes/server.txt"):
+        for name in ("backend/settings.txt", "scout/run.sh", "notes/server.txt", "notes/chat.md", "scout/setup.md"):
             assert name in out.stdout, name
         assert "s3cretPassw0rd" not in out.stdout and "tf_live_9f8e7d6c5b4a3210" not in out.stdout
+        assert TINYFISH_SK not in out.stdout and TINYFISH_SK[12:] not in out.stdout
         assert "sunny" not in out.stdout and "goats" not in out.stdout, "no word of a passphrase is printed"
     finally:
         repo.close()
@@ -108,6 +114,11 @@ def test_a_settings_file_that_git_would_commit_is_found():
         repo.write(".gitignore", "/.env\n")
         out = repo.check()
         assert out.returncode == 1 and "backend/.env is not ignored by git" in out.stdout, out.stdout
+        # the scout keeps its key in scout/.env: the same holds for that file
+        repo.write("scout/.env", "TINYFISH_API_KEY=%s\n" % TINYFISH_SK)
+        out = repo.check()
+        assert "scout/.env is not ignored by git" in out.stdout, out.stdout
+        assert TINYFISH_SK not in out.stdout
     finally:
         repo.close()
 

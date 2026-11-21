@@ -4,7 +4,7 @@
 # Layout on the server:
 #   /opt/gary/app     the code (backend/, contract/, web/dist)
 #   /opt/gary/venv    Python packages
-#   /opt/gary/.env    secrets: DATABASE_URL, SCOUT_KEY, GARY_ADMIN_KEY. Never in git
+#   /opt/gary/.env    secrets: DATABASE_URL, SCOUT_KEY, GARY_ADMIN_KEY, GARY_PRIVATE_KEY. Never in git
 set -e
 HOME_DIR="${GARY_HOME:-/opt/gary}"
 PORT="${GARY_PORT:-80}"
@@ -17,10 +17,15 @@ if [ ! -d "$HOME_DIR/app.new/backend" ]; then
   exit 1
 fi
 
+# A brand-new cloud machine is still setting itself up for its first minute or
+# two, and holds the package lock while it does. Wait for that, not fail on it.
+if command -v cloud-init > /dev/null 2>&1; then
+  cloud-init status --wait > /dev/null 2>&1 || true
+fi
 if ! python3 -c "import venv, ensurepip" 2>/dev/null; then
   echo "Installing python3-venv"
-  DEBIAN_FRONTEND=noninteractive apt-get update -qq
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3-venv
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=180 update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=180 install -y -qq python3-venv
 fi
 id gary > /dev/null 2>&1 || useradd --system --home "$HOME_DIR" --shell /usr/sbin/nologin gary
 
