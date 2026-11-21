@@ -45,7 +45,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
-| #11 | Buzzer reacts to each sniff | **Done** | Socket D16: `GARY_BUZZER_PIN=16`. Right answers are quick beeps, a miss a slow "wah... wahhh" |
+| #11 | Buzzer reacts to each sniff | **Done** | Socket D16: `GARY_BUZZER_PIN=16`. One quick beep for good (the quest's thing, or a find with no quest open), three for bad (something else while a quest is open), a puzzled two for nothing named. The speaker matches (a check, an X, or a puzzled "hmm?"), and Gary's voice starts as the cue ends |
 | #12 | Mood tap and short or long: where | **Proposed: the web page** | Needs the team's yes. The knob is analog and the Pi has no analog input. `gary_io.py --mood before 3` is the hook if the knob comes later |
 | #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
@@ -352,7 +352,7 @@ removal needs all four owners to agree, in an issue.
   and TFLite, also under the address, undefined-behaviour and thread
   sanitizers. It compiles against the real TFLite 2.21 headers.
 - Sync: upload, no network, lost state file, torn journal line.
-- Button and buzzer script: debounce, the five patterns, following the
+- Button and buzzer script: debounce, the good and bad patterns, following the
   journal, a stale `gary.pid`, all with stand-in pins. One real run: the
   Python Gary on a video file, pressed through `gary_io.py`.
 - Start and stop scripts, on Linux, with a stand-in Gary: restart after a

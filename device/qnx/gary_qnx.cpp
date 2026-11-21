@@ -574,14 +574,66 @@ class Speaker {
         batch = std::move(queue_.front());
         queue_.pop_front();
       }
-      for (const auto& path : batch) {
-        if (stopping()) return;
-        play_one(path);
+      // A cue (the beep before Gary's voice) overlaps the voice: the voice
+      // starts when the cue is kLead of the way through, so the player's
+      // start-up time fills the rest. gary_device.py: Speaker.LEAD, the same.
+      pid_t cue = -1;
+      std::string cue_path;
+      if (batch.size() > 1 && is_cue(batch.front())) {
+        cue_path = batch.front();
+        cue = spawn(cue_path);
+        const double lead = wav_seconds(cue_path) * kLead;
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(lead * 1000.0)));
       }
+      for (size_t i = (cue_path.empty() ? 0 : 1); i < batch.size(); ++i) {
+        if (stopping()) break;
+        play_one(batch[i]);
+      }
+      if (cue > 0) finish(cue, cue_path);
+      if (stopping()) return;
     }
   }
 
-  void play_one(const std::string& path) {
+  static constexpr double kLead = 0.75;
+
+  static bool is_cue(const std::string& path) {
+    for (const char* name : {"/good.wav", "/bad.wav", "/unsure.wav"}) {
+      const std::string n(name);
+      if (path.size() >= n.size() && path.compare(path.size() - n.size(), n.size(), n) == 0) return true;
+    }
+    return false;
+  }
+
+  // Length of a PCM WAV file in seconds, from its "fmt " and "data" chunks. 0 if unreadable.
+  static double wav_seconds(const std::string& path) {
+    FILE* f = fopen(path.c_str(), "rb");
+    if (!f) return 0.0;
+    unsigned char head[12];
+    double seconds = 0.0;
+    uint32_t byte_rate = 0;
+    if (fread(head, 1, 12, f) == 12 && memcmp(head, "RIFF", 4) == 0 && memcmp(head + 8, "WAVE", 4) == 0) {
+      unsigned char chunk[8];
+      while (fread(chunk, 1, 8, f) == 8) {
+        const uint32_t size = chunk[4] | (chunk[5] << 8) | (chunk[6] << 16) | (static_cast<uint32_t>(chunk[7]) << 24);
+        if (memcmp(chunk, "fmt ", 4) == 0 && size >= 12) {
+          unsigned char fmt[12];
+          if (fread(fmt, 1, 12, f) != 12) break;
+          byte_rate = fmt[8] | (fmt[9] << 8) | (fmt[10] << 16) | (static_cast<uint32_t>(fmt[11]) << 24);
+          if (fseek(f, static_cast<long>(size - 12 + (size & 1)), SEEK_CUR) != 0) break;
+        } else if (memcmp(chunk, "data", 4) == 0) {
+          if (byte_rate) seconds = static_cast<double>(size) / byte_rate;
+          break;
+        } else if (fseek(f, static_cast<long>(size + (size & 1)), SEEK_CUR) != 0) {
+          break;
+        }
+      }
+    }
+    fclose(f);
+    return std::min(seconds, 5.0);  // a cue is short; never wait long on a bad header
+  }
+
+  // Starts the player on one clip. Returns its pid, or -1.
+  pid_t spawn(const std::string& path) {
     // "exec" makes the shell become the player, so the pid below is the player.
     std::string cmd = "exec " + command_ + " " + shell_quote(path) + " >/dev/null 2>&1";
     std::string sh = "sh", flag = "-c";
@@ -591,9 +643,18 @@ class Speaker {
     if (rc != 0) {
       if (!warned_.exchange(true))
         fprintf(stderr, "warn: cannot start the audio player: %s\n", strerror(rc));
-      return;
+      return -1;
     }
+    return pid;
+  }
 
+  void play_one(const std::string& path) {
+    const pid_t pid = spawn(path);
+    if (pid > 0) finish(pid, path);
+  }
+
+  // Waits for a started clip, and stops it if it overruns its time limit.
+  void finish(pid_t pid, const std::string& path) {
     int status = 0;
     auto reaped = [&](int tries) {  // poll for the player to finish
       for (int i = 0; i < tries; ++i) {
@@ -642,22 +703,27 @@ static std::string clip_name(std::string label) {
 }
 
 // What Gary says after a sniff, as clip names (made by make_voice.py). The
-// caller plays these only if every clip exists, and the chimes otherwise.
-// gary_device.py: voice_clips() is the same rule.
+// first clip is "good" (one beep and a check) or "bad" (three beeps and an
+// X); the voice follows at once. The caller plays these only if every clip
+// exists, and the chimes otherwise. gary_device.py: voice_clips() is the same rule.
 static std::vector<std::string> voice_clips(const std::string& label, bool quest, bool completed,
                                             bool is_new, bool friend_here, bool any_open,
                                             bool all_done) {
   const std::string name = clip_name(label);
   std::vector<std::string> clips;
   if (completed) {
+    clips.push_back("good");
     clips.push_back("say_found_" + name);
   } else if (quest) {  // the right thing, but a herd quest
+    clips.push_back("good");
     clips.push_back("say_" + name);
     clips.push_back("say_need_friend");
   } else if (any_open) {
+    clips.push_back("bad");
     clips.push_back("say_not_it");
     clips.push_back("say_" + name);
   } else {
+    clips.push_back("good");
     clips.push_back("say_" + name);
     if (is_new) clips.push_back("say_new");
   }
@@ -1048,7 +1114,10 @@ int main(int argc, char** argv) {
       ++misses;
       printf("\nSNIFF: nothing Gary can name%s.  [%.1f ms]\n",
              friend_here ? " (he does see a friend)" : "", ms);
-      speaker.play({speaker.has("say_nothing") ? "say_nothing" : "nothing"});
+      if (speaker.has("unsure") && speaker.has("say_nothing"))
+        speaker.play({"unsure", "say_nothing"});  // a puzzled "hmm?", then "can you move closer?"
+      else
+        speaker.play({"nothing"});
       fflush(stdout);
       return;
     }

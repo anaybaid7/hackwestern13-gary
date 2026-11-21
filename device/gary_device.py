@@ -268,18 +268,19 @@ def voice_clips(label, quest, completed, new, friend, any_open, all_done):
     any_open   an open quest is left that this sniff did not match
     all_done   this sniff finished the last open quest
 
-    The caller plays these only if every clip exists, and the chimes otherwise.
-    gary_qnx.cpp: voice_clips() is the same rule.
+    The first clip is "good" (one beep and a check) or "bad" (three beeps and
+    an X); the voice follows at once. The caller plays these only if every clip
+    exists, and the chimes otherwise. gary_qnx.cpp: voice_clips() is the same rule.
     """
     name = label.replace(" ", "_")
     if completed:
-        clips = ["say_found_" + name]
+        clips = ["good", "say_found_" + name]
     elif quest:
-        clips = ["say_" + name, "say_need_friend"]  # the right thing, but a herd quest
+        clips = ["good", "say_" + name, "say_need_friend"]  # the right thing, but a herd quest
     elif any_open:
-        clips = ["say_not_it", "say_" + name]
+        clips = ["bad", "say_not_it", "say_" + name]
     else:
-        clips = ["say_" + name] + (["say_new"] if new else [])
+        clips = ["good", "say_" + name] + (["say_new"] if new else [])
     if friend:
         clips.append("say_herd")
     if all_done:
@@ -405,6 +406,14 @@ def ensure_sounds(folder):
         "herd": _notes([1319, 0, 1568, 0, 1760], 0.06),                       # a friend is in the frame
         "nothing": [(330, 300, 0.35), (0, 0, 0.08), (294, 196, 0.75)],        # wah... wahhh
         "done": _notes([523, 659, 784, 1047, 784], 0.1) + [(1047, 1047, 0.6)],  # every quest finished
+        # Played right before Gary's voice (voice_clips): short, so he speaks at once.
+        # good: one quick beep, then a bright rising "check" (ding-DING).
+        "good": [(1319, 1319, 0.07), (0, 0, 0.04), (1047, 1047, 0.08), (1568, 1568, 0.16)],
+        # bad: three quick beeps, then a low "X" buzz (eh-ehh).
+        "bad": [(880, 880, 0.06), (0, 0, 0.05)] * 2 + [(880, 880, 0.06), (0, 0, 0.05),
+                                                       (175, 175, 0.12), (0, 0, 0.04), (147, 147, 0.2)],
+        # unsure: nothing he can name. Not a failure, a puzzled "hm... hmm?" that rises like a question.
+        "unsure": [(587, 587, 0.07), (0, 0, 0.06), (523, 523, 0.07), (0, 0, 0.04), (523, 784, 0.2)],
     }
     for name, notes in chimes.items():
         path = os.path.join(folder, name + ".wav")
@@ -418,7 +427,22 @@ def ensure_sounds(folder):
             w.writeframes(b"".join(struct.pack("<h", int(max(-1, min(1, s)) * 32767)) for s in samples))
 
 
+def wav_seconds(path):
+    """Length of a WAV file in seconds, or 0.0 if it cannot be read."""
+    try:
+        with wave.open(path) as w:
+            return w.getnframes() / float(w.getframerate())
+    except (OSError, wave.Error, ZeroDivisionError):
+        return 0.0
+
+
 class Speaker:
+    # A cue (the beep before Gary's voice) overlaps the voice: the voice is
+    # started when the cue is LEAD of the way through, so the player's start-up
+    # time fills the rest and there is no gap. gary_qnx.cpp: the same.
+    CUES = ("good", "bad", "unsure")
+    LEAD = 0.75
+
     def __init__(self, folder, command=None, mute=False):
         self.folder, self.mute = folder, mute
         self.cmd = None
@@ -447,22 +471,45 @@ class Speaker:
 
     def play(self, *names):
         """Play clips one after another without blocking the camera loop."""
-        paths = [os.path.join(self.folder, n + ".wav") for n in names if self.has(n)]
-        if self.mute or not paths:
+        names = [n for n in names if self.has(n)]
+        if self.mute or not names:
             return
-        threading.Thread(target=self._play_all, args=(paths,), daemon=True).start()
+        paths = [os.path.join(self.folder, n + ".wav") for n in names]
+        # How long to wait after starting the first clip before the next: a cue
+        # overlaps the voice; anything else plays to the end.
+        lead = wav_seconds(paths[0]) * self.LEAD if names[0] in self.CUES and len(paths) > 1 else None
+        threading.Thread(target=self._play_all, args=(paths, lead), daemon=True).start()
 
-    def _play_all(self, paths):
+    def _play_all(self, paths, lead=None):
         with self.lock:
-            for path in paths:
+            cue = None
+            for i, path in enumerate(paths):
                 try:
-                    if self.winsound:
+                    if i == 0 and lead is not None:
+                        cue = self._start(path)
+                        time.sleep(lead)
+                    elif self.winsound:
+                        # winsound plays one sound at a time: this cuts the cue's last quarter
                         self.winsound.PlaySound(path, self.winsound.SND_FILENAME)
                     elif self.cmd:
                         subprocess.run(self.cmd + [path], stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, timeout=15)
                 except Exception as exc:  # audio must never stop the loop
                     print("audio error:", exc)
+            if cue is not None:
+                try:
+                    cue.wait(timeout=5)
+                except Exception:
+                    cue.kill()
+
+    def _start(self, path):
+        """Start a clip without waiting for it. Returns the player process, or None."""
+        if self.winsound:
+            self.winsound.PlaySound(path, self.winsound.SND_FILENAME | self.winsound.SND_ASYNC)
+            return None
+        if self.cmd:
+            return subprocess.Popen(self.cmd + [path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return None
 
 
 # --------------------------------------------------------------------------
@@ -669,7 +716,10 @@ def main():
             sniff_ms.append(rec["latency_ms"])
             print("\nSNIFF: nothing Gary can name%s.  [%s ms]"
                   % (" (he does see a friend)" if friend else "", rec["latency_ms"]))
-            speaker.play("say_nothing" if speaker.has("say_nothing") else "nothing")
+            if speaker.has("unsure") and speaker.has("say_nothing"):
+                speaker.play("unsure", "say_nothing")  # a puzzled "hmm?", then "can you move closer?"
+            else:
+                speaker.play("nothing")
             return
 
         # An open quest's target wins if it is in view; otherwise the surest thing.
