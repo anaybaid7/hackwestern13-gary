@@ -14,7 +14,8 @@ restart keeps Gary's state. The shapes are in contract/README.md.
 Settings, all optional, from the environment or from a .env file beside this
 file (or in the repo root):
 
-    DATABASE_URL       postgres://... on Tiger Data. Unset: memory
+    DATABASE_URL       postgres://... on Tiger Data. Unset: GARY_DB, then memory
+    GARY_DB            a SQLite file (on the Pi). Used when DATABASE_URL is unset
     SCOUT_KEY          the scout must send it as X-Scout-Key to post quests
     GARY_ADMIN_KEY     POST /api/dev/reset must send it as X-Admin-Key
     GARY_PRIVATE_KEY   a passphrase. With it set, the private side (check-ins
@@ -22,6 +23,7 @@ file (or in the repo root):
     GARY_NAP_SECONDS   quiet time before Gary naps. Default 8 hours; 60 for a demo
     GARY_TZ            where days and weeks turn over. Default America/Toronto
     GARY_SEED          the quests a fresh backend starts with
+    GARY_LIVE_DIR      a folder to serve at /live/: Gary's live view, on the Pi
 """
 import datetime as dt
 import hmac
@@ -39,6 +41,16 @@ from fastapi.staticfiles import StaticFiles
 
 import rules
 from store import make_store
+
+# QNX reports no limit for SC_IOV_MAX (-1), and Python 3.14's asyncio then fails
+# on every reply too big for one write: the page's script arrived cut short.
+# 1024 is the POSIX/Linux value.
+try:
+    import asyncio.selector_events as _sel
+    if getattr(_sel, "SC_IOV_MAX", 1024) < 1:
+        _sel.SC_IOV_MAX = 1024
+except ImportError:  # pragma: no cover
+    pass
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -377,5 +389,9 @@ def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(Non
 
 # If the web page has been built (cd web && npm run build), serve it from here
 # too, so one address carries both. This must stay below the API routes.
+# GARY_LIVE_DIR: on the Pi, the folder Gary writes his live frame to. Served
+# at /live/, so the page's "What Gary sees" link needs no second server.
+if os.environ.get("GARY_LIVE_DIR") and Path(os.environ["GARY_LIVE_DIR"]).is_dir():
+    app.mount("/live", StaticFiles(directory=os.environ["GARY_LIVE_DIR"], html=True), name="live")
 if (ROOT / "web" / "dist").is_dir():
     app.mount("/", StaticFiles(directory=str(ROOT / "web" / "dist"), html=True), name="web")

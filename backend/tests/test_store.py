@@ -9,6 +9,8 @@ import pytest
 import app as backend
 import rules
 import store as stores
+from fastapi.testclient import TestClient
+
 from conftest import BACKEND, PINNED_NOW, SEED, TEST_DATABASE_URL, post, quest, sniff, state_of
 
 needs_postgres = pytest.mark.skipif(not TEST_DATABASE_URL, reason="set TEST_DATABASE_URL to a throwaway database")
@@ -16,7 +18,7 @@ needs_postgres = pytest.mark.skipif(not TEST_DATABASE_URL, reason="set TEST_DATA
 
 def test_memory_is_the_default_and_says_so(client):
     if backend.store.kind != "memory":
-        pytest.skip("this run is on Postgres")
+        pytest.skip("this run is on another store")
     health = client.get("/api/health").json()
     assert health["ok"] is True and health["store"] == "memory"
     assert health["events"] == 0 and health["quests"] == 3 and health["last_event"] is None
@@ -253,3 +255,26 @@ def test_a_dropped_connection_is_reopened(client):
     assert state_of(client)["gary"]["xp"] == rules.XP_NEW_OUTDOOR
     backend.store.conn.close()
     assert post(client, sniff("cup"))["accepted"] == 1
+
+
+def test_sqlite_keeps_gary_across_a_restart(tmp_path, monkeypatch):
+    """The Pi's store: pull the plug, start again, and Gary is as he was."""
+    monkeypatch.setattr(backend, "now", lambda: PINNED_NOW)
+    first = stores.SqliteStore(tmp_path / "gary.db", SEED)
+    monkeypatch.setattr(backend, "store", first)
+    client = TestClient(backend.app)
+    dog = sniff("dog")
+    post(client, dog)
+    post(client, dog)  # the same id twice counts once
+    client.post("/api/quests", json={"quests": [quest("q-demo-bottle", "cup", "Somewhere else", source="manual")]})
+    before = state_of(client)
+    first.close()
+
+    again = stores.SqliteStore(tmp_path / "gary.db", SEED)
+    monkeypatch.setattr(backend, "store", again)
+    assert state_of(client) == before
+    assert again.counts()["events"] == 1 and again.quests()[0]["target"] == "cup"
+    again.reset()
+    assert stores.SqliteStore(tmp_path / "gary.db", SEED).counts()["events"] == 0
+    monkeypatch.setenv("GARY_DB", str(tmp_path / "other.db"))
+    assert stores.make_store(SEED).kind == "sqlite"

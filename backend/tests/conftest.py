@@ -1,6 +1,6 @@
 """Shared pieces for the backend tests.
 
-Every API test runs against the in-memory store. Set TEST_DATABASE_URL to an
+Every API test runs against the in-memory store and SqliteStore. Set TEST_DATABASE_URL to an
 empty, throwaway Postgres database and the same tests run against
 PostgresStore too:
 
@@ -29,6 +29,7 @@ for _name in ("SCOUT_KEY", "GARY_ADMIN_KEY"):
     os.environ[_name] = ""
 os.environ.pop("GARY_NAP_SECONDS", None)
 os.environ.pop("GARY_SEED", None)
+os.environ.pop("GARY_DB", None)
 
 import app as backend  # noqa: E402
 import store as stores  # noqa: E402
@@ -55,13 +56,15 @@ def postgres_store():
     return _postgres[0]
 
 
-@pytest.fixture(params=["memory"] + (["postgres"] if TEST_DATABASE_URL else []))
-def client(request, monkeypatch):
+@pytest.fixture(params=["memory", "sqlite"] + (["postgres"] if TEST_DATABASE_URL else []))
+def client(request, monkeypatch, tmp_path):
     monkeypatch.setattr(backend, "now", lambda: PINNED_NOW)
     for name in ("SCOUT_KEY", "GARY_NAP_SECONDS", "GARY_ADMIN_KEY"):
         monkeypatch.delenv(name, raising=False)
     if request.param == "postgres":
         monkeypatch.setattr(backend, "store", postgres_store())
+    if request.param == "sqlite":
+        monkeypatch.setattr(backend, "store", stores.SqliteStore(tmp_path / "gary.db", SEED))
     backend.store.reset()
     return TestClient(backend.app)
 
