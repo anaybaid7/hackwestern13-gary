@@ -42,11 +42,11 @@ running on QNX on the Pi, and the scout working on live sites.
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
 | #8 | Scout: one live TinyFish run | **Done** | Live runs in `scout/runs.jsonl`, each with its TinyFish run id; quests reach `GET /api/quests` |
-| #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
+| #9 | End-to-end check | **Done** | On the Pi: a button press shows on the page the Pi serves, with XP and Gary's voice, in about 2 s. The scout-quest sniff and the 20 s recording move to #38 and #36 |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
 | #11 | Buzzer reacts to each sniff | **Done** | Socket D16: `GARY_BUZZER_PIN=16`. Right answers are quick beeps, a miss a slow "wah... wahhh" |
-| #12 | Mood tap and short or long: where | **Proposed: the web page** | Needs the team's yes. The knob is analog and the Pi has no analog input. `gary_io.py --mood before 3` is the hook if the knob comes later |
+| #12 | Mood tap and short or long: where | **Done: the web page** | The check-in pop-up and Short / Long on the quest card. No knob |
 | #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
 | #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: done on the Pi** | SSD (everyday things, people) plus YOLOv8s trained on Open Images, both on every frame (`device/models/make_model.py`): 90 things, the old 79 plus tree, flower, squirrel, duck, goose, rabbit, deer, butterfly, mushroom, trash can, street lamp. `device/bench_model.py` scores it on photos. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
@@ -74,7 +74,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
 | #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Seven claims in it are marked `[A]` to `[G]`: each is true only when its issue is closed |
 | #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. Its tabs and taps describe the page before the Pocket Pixel redesign and are to be rewritten once the page is final. The video needs the real device |
-| #37 | Stretch: Gemini writes Gary's lines | **Code done, needs a key** | `python3 scout/scout.py --voice`. Never run against Gemini |
+| #37 | Stretch: Gemini writes Gary's lines | **Done** | #61: trail tidbits, a line and facts per thing, progress lines, all read by a person, all offline |
 | **Phase 6** | **Integration and demo** | | |
 | #38 | Feature freeze and full rehearsal | **Tools done, needs the team** | `python3 scripts/demo.py check` says what would go wrong in the demo. `replay` rehearses it with no device. The rehearsal itself needs the device and four people |
 | #39 | Fallbacks ready | **Partly** | Tested here: cached quests, a device with no network, the demo story with no backend. Needs people: the spare SD card, the video on two laptops. One drill each in `docs/RUNBOOK.md`, section 5 |
