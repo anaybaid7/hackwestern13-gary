@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 3:00 am, with the Phase 2 pull request (#43).
+Last updated: Sat 21 Nov 2026, 4:00 am, with the Phase 3 pull request.
 
 ## 1. What Gary is
 
@@ -45,7 +45,15 @@ running on QNX on the Pi, and the scout working on live sites.
 | #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
 | #15 | Stretch: bigger vocabulary, a screen | Open | Not started on purpose: only after #4 passes on the Pi |
-| **Phase 3** | **Backend, data, rules (B)** | Open | #16 to #23. A first version of the rules already exists |
+| **Phase 3** | **Backend, data, rules (B)** | | |
+| #16 | Tiger Data: events, quests, state in Postgres | **Code done, needs the account** | `backend/store.py`, `schema.sql`. Tested on plain PostgreSQL 16, where a restart keeps the state. On the real service: set `DATABASE_URL`, run `python3 backend/check_db.py` |
+| #17 | Rules: XP, stages, naps, welcome back | **Done** | `backend/rules.py` |
+| #18 | Fog-of-war map | **Done** | Tiles also carry `cleared_at` and `finds` |
+| #19 | Herd Mode and the Herd Cup | **Done** | Rival herds are seeded demo data, marked `demo: true` |
+| #20 | Private mood, wellness view | **Done** | `GET /api/wellness` |
+| #21 | Quest choice | **Done** | `POST /api/quest/choose` |
+| #22 | Deploy on Vultr | **Code done, needs the account** | `sh backend/deploy/deploy.sh root@<ip>`. Rehearsed in a container, never run on Vultr |
+| #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
 | **Phase 4** | **Front end (C)** | Open | #24 to #30 |
 | **Phase 5** | **Scout and story (D)** | Open | #31 to #37 |
 | **Phase 6** | **Integration and demo** | Open | #38 to #40 |
@@ -60,6 +68,11 @@ To finish Phase 1, three things need a person:
 1. **#4** Build and run `device/qnx/gary_qnx.cpp` on the Pi. Paste any build errors into the issue.
 2. **#8** `export TINYFISH_API_KEY=...`, then `python3 scout/scout.py --dry-run`, then run it without `--dry-run`. Commit `scout/runs.jsonl`.
 3. **#9** Run device, sync, backend and web together and record 20 seconds.
+
+To finish Phase 3, two accounts (steps in `backend/README.md`):
+
+1. **#16** A Tiger Data service. Put its connection string in `backend/.env`, run `python3 backend/check_db.py`, paste the output into the issue.
+2. **#22** A Vultr instance. `sh backend/deploy/deploy.sh root@<ip>`, then put `DATABASE_URL`, `SCOUT_KEY` and `GARY_ADMIN_KEY` in `/opt/gary/.env` on the server.
 
 To finish Phase 2, on the Pi, in this order (each step is in `device/README.md`):
 
@@ -76,8 +89,8 @@ To finish Phase 2, on the Pi, in this order (each step is in `device/README.md`)
  │ gary      camera → model   │ events   │ API + rules            │ state│ React + SVG Gary  │
  │   ▲ button (signal)        │ ───────► │ XP, stages, fog, herd  │ ───► │ map, journal,     │
  │   ▼ journal.jsonl          │ ◄─────── │ private mood store     │      │ quest, wellness   │
- │ sync.py   upload / fetch   │  quests  │ (memory now, Postgres  │      └───────────────────┘
- │ gary_io.py  button, buzzer │          │  on Tiger Data later)  │
+ │ sync.py   upload / fetch   │  quests  │ (memory, or Postgres   │      └───────────────────┘
+ │ gary_io.py  button, buzzer │          │  on Tiger Data)        │
  └───────────────────────────┘          └───────────▲────────────┘
                                                       │ quests
                                           scout/  TinyFish agent on live sites
@@ -96,11 +109,11 @@ Who decides what. Do not move logic across these lines:
 | --- | --- | --- |
 | `contract/` | shared | The JSON shapes and example files. The only shared surface |
 | `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
-| `backend/` | B | `app.py` (endpoints, in-memory store), `rules.py` (every rule), tests |
+| `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/api.js` is the only file that talks to the backend |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests), `sources.json`, tests |
 | `docs/` | D | `PLAN.md`, later the Devpost text and demo script |
-| `scripts/` | shared | `e2e.py` (whole chain, no hardware), `check_all.sh` (every test) |
+| `scripts/` | shared | `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
 
 Each folder has its own README with run commands and file notes.
 
@@ -109,7 +122,7 @@ Each folder has its own README with run commands and file notes.
 Four terminals, from the repo root. Nothing needs the Pi.
 
 ```
-# 1. backend (starts with three seed quests, in memory)
+# 1. backend (starts with three seed quests, in memory. DATABASE_URL in backend/.env switches to Postgres)
 cd backend && pip install -r requirements.txt && uvicorn app:app --reload --port 8000
 
 # 2. web page, reading the backend
@@ -141,7 +154,7 @@ sh scripts/check_all.sh          # every suite below, skipping what this machine
 
 | Suite | Command | Needs |
 | --- | --- | --- |
-| Backend against the contract | `cd backend && pytest` | Python |
+| Backend against the contract | `cd backend && pytest` | Python. With `TEST_DATABASE_URL` set to a throwaway database, the same tests also run on Postgres |
 | Scout | `python3 scout/tests/test_scout.py` | Python. No key, no network |
 | Web | `cd web && npm test` | Node |
 | Device scripts | `python3 device/tests/test_device.py` | Python. No Pi. The two tests of Gary himself also need the device requirements |
@@ -161,8 +174,12 @@ Full detail: `contract/README.md`. In brief:
   `id`, `title`, `place`, `time` (`short` or `long`), `target`, `xp`, `herd`,
   `source`, `source_url`, `day`. **`target` must be a name in
   `contract/labels.json`**, because the Sniff Test is what confirms a quest.
-- **State** (`GET /api/state` → web): `gary`, `quest`, `journal`, `guide`,
-  `map`, `herd`. Mood is never in it.
+- **State** (`GET /api/state` → web): `gary`, `quest`, `quest_choice`,
+  `quest_options`, `journal`, `guide`, `map`, `herd`. Mood is never in it.
+- **Choice** (`POST /api/quest/choose` with `{"time": "short"}`): makes a
+  quest the active one. `GET /api/quests` then lists it first.
+- **Wellness** (`GET /api/wellness`, private): check-ins, before and after
+  pairs, a ready-made summary sentence, estimated outdoor minutes per day.
 - **Labels** (`contract/labels.json`): the 79 things Gary recognises, each
   marked outdoor or indoor, plus `friend` = `person`.
 
@@ -193,7 +210,8 @@ removal needs all four owners to agree, in an issue.
    `numbers.py`, `json.py` ...). It replaces that module for every script in
    the folder. `device/tests` checks this.
 6. **Run `sh scripts/check_all.sh` before you push.** Add a test with every
-   rule or behaviour you add.
+   rule or behaviour you add. After a change to `backend/rules.py`, run
+   `python3 scripts/make_examples.py` and commit the example files it rewrites.
 7. **Secrets stay out of git.** Keys go in a local `.env`. Do not commit
    `journal.jsonl`, `quests.tsv`, `sync.state`, `node_modules` or `dist`.
 8. **One branch and one pull request per issue** (or a small group). Write
@@ -223,21 +241,25 @@ removal needs all four owners to agree, in an issue.
 
 **Phase 3, backend, data, rules (B)**
 
-- Everything Phase 1 built is in `backend/rules.py` (pure functions) and
-  `backend/app.py` (endpoints and the in-memory `Store`).
-- #16: replace `Store` with Postgres on Tiger Data when `DATABASE_URL` is set.
-  Keep the in-memory path for tests and for teammates. `rules.compute()` takes
-  plain lists, so it does not change.
-- #17, #18, #19: a first version exists in `rules.compute()`: XP, stages,
-  naps, the welcome-back bonus, real-place map tiles, herd badges, and a Herd
-  Cup with seeded rivals. Tune, extend and test. Do not start over.
-- #20: `/api/mood` and `/api/wellness` exist in a minimal form.
-- #21: add `POST /api/quest/choose`. Today `state.quest` is the first open quest.
-- #22: `app.py` already serves `web/dist` at `/` when it exists.
+- `rules.py` holds every rule as pure functions: `compute()` for the state,
+  `choose()` and `candidates()` for the active quest, `wellness()` for the
+  private view. Constants are at the top. Tune there; do not start over.
+- `app.py` checks what arrives, corrects a wrong device clock (`event_time`),
+  and calls the store and the rules. `store.py` has `MemoryStore` and
+  `PostgresStore` with the same methods; add a method to both or to neither.
+- A press of short or long is stored as a `choice` event in the same stream as
+  the sniffs, so a restart keeps it and old sniffs are never re-attributed.
+- #16 and #22 need accounts: see the two steps under the status table.
+- #23: not started. `/api/mood` and `/api/wellness` have no login.
 
 **Phase 4, front end (C)**
 
 - `web/src/api.js` is the seam. Mock mode draws `contract/examples/state.json`.
+- The backend now serves everything the screens need: `quest_choice` and
+  `quest_options` for the two buttons, `place` on journal entries, `finds` on
+  map tiles, `herd.quest`, `herd.cup.ahead`, and `GET /api/wellness`.
+  `contract/examples/story.json` is ten states in a row, for a mock mode that
+  can be clicked through.
 - #24: bring the React prototype in and point its mock-service interface at
   `api.js`. Keep mock mode working.
 - #25 to #30: split `App.jsx` into screens. Every number comes from State.
@@ -256,7 +278,11 @@ removal needs all four owners to agree, in an issue.
 
 **Verified here, on a Linux machine**
 
-- Backend: 18 tests, including the contract's example files against each other.
+- Backend: every rule and endpoint, in memory and on a real PostgreSQL 16
+  (a restart keeps the state; the SQL for outdoor minutes matches the Python
+  sum; a dropped connection is reopened). The contract's example files are
+  checked against the backend.
+- Deploy: the server script, rehearsed in a container with no systemd.
 - Device, Python: Sniff Tests on photos and on a simulated camera feed, with
   key presses and signals.
 - Device, C++: its logic and threading, against stand-ins for the QNX camera
@@ -285,9 +311,19 @@ removal needs all four owners to agree, in an issue.
 - `docs/qnx-numbers.md` has no numbers in it yet.
 - The web page has not been opened on a real phone.
 
+- The hypertable step and the `time_bucket` query have never run: there was
+  no TimescaleDB here. `python3 backend/check_db.py` proves them on Tiger Data.
+- `backend/deploy/deploy.sh` has never run against a Vultr machine. The
+  systemd unit and the firewall line are untested.
+
 **Known limits**
 
-- The backend keeps everything in memory. A restart starts fresh until #16.
+- With no `DATABASE_URL` the backend keeps everything in memory, and a restart
+  starts fresh.
+- Gary has no GPS. The Sniff Test proves the thing, not the place: a quest's
+  place is taken on trust.
+- There is no login. Mood never appears in the state or in anything shared,
+  but anyone who has the server's address can open `/api/wellness`.
 - Gary recognises 79 things. Mushrooms, moss and bridges are not among them (#15).
 - The Herd Cup's rival herds are seeded demo data, marked `demo: true`.
 
@@ -299,6 +335,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 1:20 am | XP rewards quests, outdoor finds and finds with a friend. Map tiles are real places. The journal is also a field guide. Herds compete weekly; individuals are never ranked |
 | 21 Nov, 2:00 am | Backend: Python with FastAPI, in memory for Phase 1. Web: React with Vite. Scout: standard library, TinyFish `run-sse`. The device talks only through `journal.jsonl` and `sync.py` |
 | 21 Nov, 3:00 am | The button script is `gary_io.py`, not `io.py`: that name hides Python's own `io` module. Buzzer patterns differ by rhythm, because the Grove buzzer is on/off. `sync.py` sends the device's clock with each upload |
+| 21 Nov, 4:00 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 
@@ -312,5 +349,6 @@ removal needs all four owners to agree, in an issue.
 | Herd Mode | A person is in the frame during a sniff. That sniff's XP doubles |
 | Herd quest | A quest that only completes in Herd Mode |
 | Herd Cup | The weekly ranking of herds. Never of people |
+| Active quest | The quest on the card: the one chosen with short or long. With no choice, the oldest open quest |
 | Scout | The TinyFish agent and `scout/scout.py` |
 | Nap | Gary's state after a quiet spell. Not a penalty |
