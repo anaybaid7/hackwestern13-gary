@@ -1591,6 +1591,174 @@ body {
   justify-self: start;
 }
 
+/* ---- meet Gary: the walkthrough for a new person ------------------------ */
+.welcome {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 12px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px;
+  background: var(--cream);
+}
+
+.welcome-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.welcome-meter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--pixel);
+  font-size: 11px;
+}
+
+.welcome-meter-name {
+  margin-right: 2px;
+}
+
+.welcome-pip {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.meter-adventure .welcome-pip.on { background: var(--coral); }
+.meter-health .welcome-pip.on { background: var(--lcd); }
+
+.welcome-pip.on {
+  animation: pop 0.3s steps(3) both;
+}
+
+.welcome-skip {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  font-family: var(--pixel);
+  font-size: 12px;
+  color: var(--ink-2);
+  text-decoration: underline;
+}
+
+.welcome-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  background: var(--lcd);
+  border: var(--line);
+  box-shadow: var(--lift);
+}
+
+.welcome-pop {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  animation: drop 0.3s steps(4) both;
+}
+
+/* what Gary says: a speech bubble with its tail towards him */
+.welcome-says {
+  position: relative;
+  min-height: 5.6em; /* four lines, so the buttons below do not jump */
+  padding: 10px 12px;
+  background: var(--paper);
+  border: var(--line);
+  font-size: 15px;
+}
+
+.welcome-says::before {
+  content: '';
+  position: absolute;
+  top: -11px;
+  left: 28px;
+  width: 16px;
+  height: 16px;
+  background: var(--paper);
+  border-left: var(--line);
+  border-top: var(--line);
+  transform: rotate(45deg);
+}
+
+.welcome-try {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+}
+
+.welcome-try .scale,
+.welcome-things {
+  width: 100%;
+}
+
+.welcome-press {
+  justify-self: center;
+  padding: 14px 18px;
+  border: var(--line);
+  background: var(--coral);
+  font-family: var(--pixel);
+  font-size: 15px;
+  text-transform: uppercase;
+  box-shadow: 5px 5px 0 var(--ink);
+  animation: pulse 1.2s steps(2) infinite;
+}
+
+.welcome-things {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.welcome-thing {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border: var(--line);
+  background: var(--paper);
+  font-family: var(--mono);
+  font-size: 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.welcome-thing strong {
+  font-family: var(--pixel);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.welcome-thing:hover {
+  background: var(--lcd);
+}
+
+.welcome-press:active,
+.welcome-thing:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.welcome-steps {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.welcome-steps li {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--ink);
+}
+
+.welcome-steps li.done { background: var(--ink); }
+.welcome-steps li.here { background: var(--orange); }
+
 /* ---- demo story bar, splash -------------------------------------------- */
 .storybar {
   display: grid;

@@ -6,6 +6,7 @@ import CheckIn, { readAsk } from './components/CheckIn.jsx'
 import QuestComplete from './components/QuestComplete.jsx'
 import Nav, { SCREENS } from './components/Nav.jsx'
 import StoryBar from './components/StoryBar.jsx'
+import Welcome, { readMet } from './components/Welcome.jsx'
 import { ordinal } from './format.js'
 import Guide from './screens/Guide.jsx'
 import Herd from './screens/Herd.jsx'
@@ -41,7 +42,7 @@ export default function App({ service: given }) {
     }
   }, [given])
   if (!service) return <Splash>Waking Gary.</Splash>
-  return <Shell service={service} />
+  return <Shell service={service} welcome={!readMet()} />
 }
 
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
@@ -88,13 +89,14 @@ function readTab() {
   return SCREENS.some((screen) => screen.id === id) ? id : 'home'
 }
 
-export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
+export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welcome = false }) {
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState(readTab)
   const [flash, setFlash] = useState(NO_FLASH)
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(askCheckIn) // once per visit
+  const [meeting, setMeeting] = useState(welcome) // a new person: Gary introduces himself first
   const [mapFocus, setMapFocus] = useState(null) // a place "See on map" asked for
   const [reward, setReward] = useState(null) // a finished quest, until it is dismissed
   const [afterCheckIn, setAfterCheckIn] = useState(false) // the check-in that follows it
@@ -196,6 +198,20 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     }
   }
 
+  // Gary's hello needs nothing from the backend, so it does not wait for it.
+  if (meeting) {
+    return (
+      <Handheld onPick={pick}>
+        <Welcome
+          onDone={() => {
+            setMeeting(false)
+            setAsking(false) // he has just asked how you feel: not twice in one visit
+          }}
+        />
+      </Handheld>
+    )
+  }
+
   if (!state) {
     return (
       <Splash>
@@ -238,7 +254,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
-          {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} onReset={refresh} />}
+          {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} onReset={refresh} onMeet={() => setMeeting(true)} />}
         </main>
 
         {service.story && (
