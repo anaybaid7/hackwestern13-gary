@@ -140,7 +140,7 @@ describe('the page', () => {
     expect(service.getWellness).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Journal' }))
-    expect(screen.getByText('3 of 79 found')).toBeTruthy()
+    expect(screen.getByText('3 of 90 found')).toBeTruthy()
 
     cleanup()
     window.history.replaceState(null, '', '#cup')

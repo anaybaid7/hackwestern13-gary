@@ -31,7 +31,7 @@ def test_discovery_changes_xp_journal_and_map(client):
     state = client.get("/api/state").json()
     assert state["gary"]["xp"] == 80 and state["gary"]["stage"] == "scrambler"
     assert state["journal"][0]["label"] == "bench" and state["journal"][0]["xp"] == 80
-    assert state["guide"] == {"total": 79, "found": ["bench"]}
+    assert state["guide"] == {"total": 90, "found": ["bench"]}
     cleared = [t["place"] for t in state["map"] if t["cleared"]]
     assert cleared == ["Harris Park"]
 
@@ -104,10 +104,10 @@ def test_quests_filter_and_finished_ones_drop_out(client):
 
 def test_scout_can_add_quests_and_bad_targets_are_refused(client):
     good = dict(example("quest.json"), id="q-new", place="Gibbons Park", target="dog", title="Find a dog")
-    bad = dict(good, id="q-bad", target="mushroom")
+    bad = dict(good, id="q-bad", target="moss")
     out = client.post("/api/quests", json={"quests": [good, bad]}).json()
     assert out["accepted"] == ["q-new"]
-    assert out["rejected"][0]["id"] == "q-bad" and "mushroom" in out["rejected"][0]["why"]
+    assert out["rejected"][0]["id"] == "q-bad" and "moss" in out["rejected"][0]["why"]
     assert "Gibbons Park" in [t["place"] for t in client.get("/api/state").json()["map"]]
 
 

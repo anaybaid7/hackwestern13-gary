@@ -80,6 +80,17 @@
     {"name": "scissors", "outdoor": false},
     {"name": "teddy bear", "outdoor": false},
     {"name": "hair drier", "outdoor": false},
-    {"name": "toothbrush", "outdoor": false}
+    {"name": "toothbrush", "outdoor": false},
+    {"name": "tree", "outdoor": true},
+    {"name": "flower", "outdoor": true},
+    {"name": "trash can", "outdoor": true},
+    {"name": "street lamp", "outdoor": true},
+    {"name": "squirrel", "outdoor": true},
+    {"name": "duck", "outdoor": true},
+    {"name": "goose", "outdoor": true},
+    {"name": "rabbit", "outdoor": true},
+    {"name": "deer", "outdoor": true},
+    {"name": "butterfly", "outdoor": true},
+    {"name": "mushroom", "outdoor": true}
   ]
 }

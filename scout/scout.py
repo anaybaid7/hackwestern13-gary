@@ -69,16 +69,20 @@ def load_settings(path=None, environ=None):
 # name or description wins. Every target must be an outdoor name in
 # contract/labels.json, because the Sniff Test is what confirms the quest.
 # Only things that are there in any season: a quest nobody can finish is no
-# fun. So no "sports ball" for a tennis court: in November there is none.
+# fun. So no "sports ball" for a tennis court and no flower or butterfly in
+# November. And only things Gary names well (device/bench_results.md): no
+# bench, dog or goose, which he gets about one time in four.
+# A rule may name several things; each place always gets the same one of them.
 TARGET_RULES = [
-    (("off-leash", "off leash", "dog park", "dogs"), "dog"),
-    (("skate park", "skatepark", "skateboard"), "skateboard"),
-    (("boat launch", "boathouse", "rowing club", "canoe club", "marina"), "boat"),
-    (("bike", "bicycle", "cycling", "parkway", "paved path", "multi-use"), "bicycle"),
-    (("bird", "pond", "wetland", "marsh", "bog", "woods", "forest", "meadow", "natural area", "trail", "valley"), "bird"),
-    (("garden", "playground", "picnic", "seating", "accessible", "plaza", "market", "square", "festival", "lights"), "bench"),
+    (("bike", "bicycle", "cycling", "parkway", "paved path", "multi-use"), ("bicycle",)),
+    (("pond", "wetland", "marsh", "bog", "lake"), ("duck",)),
+    (("wood", "forest", "meadow", "natural area", "trail", "valley"), ("tree", "squirrel")),
+    (("river", "creek"), ("duck",)),
+    (("bird",), ("bird",)),
+    (("garden", "playground", "picnic", "seating", "accessible", "plaza", "market", "square", "festival", "lights",
+      "park"), ("tree", "squirrel")),
 ]
-FALLBACK_TARGETS = ["bench", "bird", "dog", "bicycle"]
+FALLBACK_TARGETS = ["tree", "squirrel", "bird", "bicycle"]
 LONG_WORDS = ("trail", "hike", "hiking", "woods", "forest", "conservation", "bog", "ponds", "meadow", "valley")
 HERD_EVERY = 3  # every third quest is a co-op quest: it needs a friend in frame
 
@@ -110,7 +114,7 @@ def load_labels():
     with open(os.path.join(ROOT, "contract", "labels.json"), "r", encoding="utf-8") as f:
         doc = json.load(f)
     allowed = {item["name"] for item in doc["labels"] if item["outdoor"]}
-    device = os.path.join(ROOT, "device", "models", "coco_labels.txt")
+    device = os.path.join(ROOT, "device", "models", "gary_labels.txt")
     if os.path.exists(device):
         with open(device, "r", encoding="utf-8") as f:
             allowed &= {line.strip() for line in f}
@@ -300,13 +304,15 @@ def pick_target(name, text, allowed):
     """The thing to look for at a place. The same place always gets the same
     thing, so running the scout twice does not change today's quests."""
     lowered = text.lower()
-    for words, target in TARGET_RULES:
-        if target in allowed and any(word in lowered for word in words):
-            return target
+    turn = sum(ord(ch) for ch in place_key(name))
+    for words, targets in TARGET_RULES:
+        choices = [t for t in targets if t in allowed]
+        if choices and any(word in lowered for word in words):
+            return choices[turn % len(choices)]
     choices = [t for t in FALLBACK_TARGETS if t in allowed] or sorted(allowed)
     if not choices:
         return None
-    return choices[sum(ord(ch) for ch in place_key(name)) % len(choices)]
+    return choices[turn % len(choices)]
 
 
 def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
@@ -322,6 +328,12 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
     """
     taken = set() if taken is None else taken
     quests, dropped = [], []
+    def about_of(place):
+        return " ".join(str(place.get(key) or "") for key in ("about", "description", "features", "address", "status"))
+    # every description of a place, so a place listed twice gets the same target whichever copy comes first
+    abouts = {}
+    for place in places:
+        abouts.setdefault(place_key(clean_name(place.get("name")) or ""), []).append(about_of(place))
     for place in places:
         if len(quests) >= limit:
             break
@@ -331,8 +343,7 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
         if len(name) > NAME_MAX:
             dropped.append({"name": name[:NAME_MAX] + "...", "why": "that is too long to be the name of a place"})
             continue
-        about = " ".join(str(place.get(key) or "") for key in ("about", "description", "features", "address", "status"))
-        text = name + " " + about
+        text = name + " " + about_of(place)
         key = place_key(name)
         if key in taken:
             dropped.append({"name": name, "why": "another quest is already at this place"})
@@ -341,7 +352,7 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
         if why:
             dropped.append({"name": name, "why": why})
             continue
-        target = pick_target(name, text, allowed)
+        target = pick_target(name, name + " " + " ".join(sorted(abouts[key])), allowed)
         if target is None or target not in allowed:
             dropped.append({"name": name, "why": "nothing Gary can recognise fits this place"})
             continue
