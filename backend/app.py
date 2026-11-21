@@ -74,7 +74,7 @@ QUEST_XP_MAX = 100  # a posted quest cannot be worth more than this. The scout g
 EVENT_TYPES = ("discovery", "miss", "mood")
 CLOCK_TOLERANCE = 2.0  # seconds. A device clock closer than this to ours is taken as right
 
-TZ_NAME = os.environ.get("GARY_TZ", "America/Toronto")
+TZ_NAME = os.environ.get("GARY_TZ") or "America/Toronto"  # a blank setting means the default
 try:
     TZ = zoneinfo.ZoneInfo(TZ_NAME)
 except Exception:  # no timezone data on this machine
@@ -87,14 +87,19 @@ def now():
 
 
 def nap_seconds():
-    return float(os.environ.get("GARY_NAP_SECONDS", rules.NAP_SECONDS))
+    """Quiet time before Gary naps. A blank or unreadable setting means the default."""
+    try:
+        seconds = float(os.environ.get("GARY_NAP_SECONDS") or rules.NAP_SECONDS)
+    except ValueError:
+        return float(rules.NAP_SECONDS)
+    return seconds if seconds > 0 else float(rules.NAP_SECONDS)
 
 
 def stamp(when):
     return when.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-store = make_store(Path(os.environ.get("GARY_SEED", CONTRACT / "examples" / "quests.json")))
+store = make_store(Path(os.environ.get("GARY_SEED") or CONTRACT / "examples" / "quests.json"))
 lock = threading.Lock()  # one request at a time touches the store
 app = FastAPI(title="Gary the Goat", version="0.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -227,8 +232,12 @@ def current(events=None, quests=None):
 
 @app.get("/api/health")
 def health():
+    """Is the backend up, and how is it set up? Says whether the two keys are
+    set, never what they are."""
     with lock:
-        return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME}
+        return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME,
+                "nap_seconds": nap_seconds(),
+                "keys": {"scout": bool(os.environ.get("SCOUT_KEY")), "admin": bool(os.environ.get("GARY_ADMIN_KEY"))}}
 
 
 @app.post("/api/events")

@@ -32,6 +32,30 @@ def test_a_replaced_quest_keeps_its_place_in_the_order(client):
     assert quests[0]["target"] == "cup" and quests[0]["place"] == "Somewhere else"
 
 
+def test_health_says_how_the_backend_is_set_up_and_never_shows_a_key(client, monkeypatch):
+    health = client.get("/api/health").json()
+    assert health["keys"] == {"scout": False, "admin": False}
+    assert health["nap_seconds"] == 8 * 3600 and health["timezone"] == "America/Toronto"
+    monkeypatch.setenv("SCOUT_KEY", "scout-secret-1")
+    monkeypatch.setenv("GARY_ADMIN_KEY", "admin-secret-2")
+    monkeypatch.setenv("GARY_NAP_SECONDS", "60")
+    reply = client.get("/api/health")
+    assert reply.json()["keys"] == {"scout": True, "admin": True} and reply.json()["nap_seconds"] == 60
+    assert "secret" not in reply.text
+
+
+def test_a_blank_or_unreadable_setting_means_the_default(client, monkeypatch):
+    # .env files often carry "NAME=" with nothing after it
+    for value in ("", "   ", "soon", "0", "-5"):
+        monkeypatch.setenv("GARY_NAP_SECONDS", value)
+        assert client.get("/api/health").json()["nap_seconds"] == 8 * 3600, repr(value)
+        assert client.get("/api/state").status_code == 200
+    monkeypatch.setenv("SCOUT_KEY", "")
+    monkeypatch.setenv("GARY_ADMIN_KEY", "")
+    assert client.post("/api/quests", json={"quests": [quest("q-open", "dog", "Gibbons Park")]}).json()["accepted"] == ["q-open"]
+    assert client.post("/api/dev/reset").status_code == 200, "a blank key is no key"
+
+
 def test_a_quest_keeps_the_scouts_note_about_where_to_stand(client):
     noted = quest("q-note", "bird", "Kains Woods", note="  Stay on the marked trail. Any safe, accessible spot counts.  ")
     plain = quest("q-plain", "dog", "Gibbons Park")
