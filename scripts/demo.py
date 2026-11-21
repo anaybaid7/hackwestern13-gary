@@ -10,7 +10,10 @@ backend. They ask first; --yes answers for you.
 
 `check` reads the backend and a few files in this repo, and says what would
 go wrong in the demo: FAIL for what must be fixed, WARN for what changes the
-words you may say. It exits 0 when nothing must be fixed.
+words you may say. It exits 0 when nothing must be fixed. On the Pi, add
+--device: it then looks at Gary himself (is he running, is his journal empty,
+is it the QNX build) instead of the repo's files. If the Pi has only Gary's
+folder, copy this file into it first.
 
 `replay` is for rehearsing the page and the words when Gary is not on the
 table. It also proves that the numbers in docs/DEMO.md (20 XP, 40 XP, a
@@ -34,6 +37,9 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCOUT = os.path.join(ROOT, "scout", "scout.py")
+# Gary's folder: device/ in the repo. On a Pi that has only that folder, copy
+# this file next to start_gary.sh and it finds Gary there.
+DEVICE_DIR = HERE if os.path.exists(os.path.join(HERE, "start_gary.sh")) else os.path.join(ROOT, "device")
 BOTTLE, BACKPACK = "q-demo-bottle", "q-demo-backpack"   # the two quests on the demo table
 SHORT_NAP = 600   # seconds. A nap setting shorter than this puts Gary to sleep during the demo
 
@@ -328,27 +334,28 @@ def check_files(report, args, tz, day):
         report.warn("the backup video was not checked", "Once it is recorded: add --video <file>. It should be on two laptops.")
 
 
-def check_device(report):
-    report.section("Gary, on this machine  %s" % os.path.join(ROOT, "device"))
-    device = os.path.join(ROOT, "device")
+def check_device(report, device):
+    report.section("Gary, on this machine  %s" % device)
     try:
         out = subprocess.run(["sh", os.path.join(device, "start_gary.sh"), "status"], capture_output=True, text=True, timeout=30)
         status = out.stdout
     except (OSError, subprocess.TimeoutExpired) as exc:
         report.fail("could not ask start_gary.sh for its status (%s)" % exc)
         return
-    for name, line in (("Gary", "Gary: up"), ("the button and buzzer", "button and buzzer: up"), ("sync", "sync: up")):
+    for name, line in (("Gary", "Gary: up"), ("the button and buzzer script", "button and buzzer: up"),
+                       ("sync", "sync: up")):
         if line in status:
             report.ok("%s is running" % name)
         else:
-            report.fail("%s is not running" % name, "sh device/start_gary.sh --fresh")
+            report.fail("%s is not running" % name, "sh start_gary.sh --fresh   (in the device folder; logs are in logs/)")
     journal = os.path.join(device, "journal.jsonl")
     lines = 0
     if os.path.exists(journal):
         with open(journal, "r", encoding="utf-8") as f:
             lines = sum(1 for line in f if line.strip())
     if lines:
-        report.warn("the device's journal has %s from earlier" % plural(lines, "line"), "sh device/start_gary.sh --fresh")
+        report.warn("the device's journal has %s from earlier" % plural(lines, "line"),
+                    "sh start_gary.sh --fresh   (it sets the old journal aside)")
     else:
         report.ok("the device's journal is empty: a fresh run")
     if os.path.exists(os.path.join(device, "qnx", "build", "gary")):
@@ -372,9 +379,10 @@ def run_check(api, args):
         except (Offline, Refused, KeyError, TypeError) as exc:
             report.fail("the backend's answers could not be read (%s: %s)" % (type(exc).__name__, exc),
                         "Is the deployed backend the current code?")
-    check_files(report, args, tz, day)
     if args.device:
-        check_device(report)
+        check_device(report, os.path.abspath(args.device_dir))   # on the Pi: Gary, not the repo's files
+    else:
+        check_files(report, args, tz, day)
     print()
     if report.fails:
         print("NOT READY: %s to fix (FAIL above)%s." % (
@@ -562,7 +570,9 @@ def main(argv=None):
     ap.add_argument("--auto", action="store_true", help="replay: do not wait for Enter between beats")
     ap.add_argument("--pause", type=float, default=0.0, help="replay --auto: seconds to wait before each beat")
     ap.add_argument("--video", help="check: the backup video file")
-    ap.add_argument("--device", action="store_true", help="check: also look at Gary on this machine (run it on the Pi)")
+    ap.add_argument("--device", action="store_true",
+                    help="check: look at Gary on this machine instead of the repo's files (run it on the Pi)")
+    ap.add_argument("--device-dir", default=DEVICE_DIR, help="check --device: Gary's folder")
     ap.add_argument("--cache", default=os.path.join(ROOT, "scout", "cached_quests.json"), help="the scout's cached quests")
     ap.add_argument("--runs", default=os.path.join(ROOT, "scout", "runs.jsonl"), help="the scout's run log")
     args = ap.parse_args(argv)

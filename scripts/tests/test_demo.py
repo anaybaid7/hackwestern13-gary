@@ -277,6 +277,53 @@ def test_check_knows_a_before_check_in_from_one_that_is_already_paired():
         shutil.rmtree(folder)
 
 
+def test_check_device_reads_what_the_real_start_script_says():
+    """Runs the real start_gary.sh in a scratch folder, with the device tests'
+    stand-in for Gary, and reads its status the way `check --device` does."""
+    if os.name != "posix" or not shutil.which("sh"):
+        return  # needs a POSIX shell
+    device, tests = os.path.join(ROOT, "device"), os.path.join(ROOT, "device", "tests")
+    folder = tempfile.mkdtemp(prefix="gary-demo-device-")
+    scratch_folder, files = scratch()
+    start = os.path.join(folder, "start_gary.sh")
+    try:
+        for name in ("start_gary.sh", "stop_gary.sh", "gary_io.py", "sync.py"):
+            shutil.copy(os.path.join(device, name), folder)
+        shutil.copy(os.path.join(tests, "fake_gary.py"), folder)
+        with open(os.path.join(folder, "gary.env"), "w") as f:
+            f.write('GARY_CMD="%s fake_gary.py"\nGARY_FLAGS=""\nGARY_PYTHON="%s"\nGARY_API=http://127.0.0.1:9\n'
+                    'GARY_BUTTON_PIN=none\nGARY_BUZZER_PIN=none\nGARY_START_WAIT=1\n' % (PY, PY))
+        with open(os.path.join(folder, "journal.jsonl"), "w") as f:
+            f.write('{"id": "old-1", "ts": "2026-11-21T15:00:00Z", "type": "miss"}\n')
+
+        # nothing started yet
+        down = demo("check", "--api", "http://127.0.0.1:9", "--device", "--device-dir", folder, *files).stdout
+        section = down.split("Gary, on this machine")[1]
+        assert "FAIL  Gary is not running" in section and "FAIL  sync is not running" in section
+
+        up = subprocess.run(["sh", start], capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        assert "Gary: up" in up.stdout, up.stdout + up.stderr
+        seen = demo("check", "--api", "http://127.0.0.1:9", "--device", "--device-dir", folder, *files).stdout
+        section = seen.split("Gary, on this machine")[1]
+        assert "ok    Gary is running" in section and "ok    sync is running" in section, section
+        # no pins in this scratch folder, so the button script is not started: the check must say so
+        assert "FAIL  the button and buzzer script is not running" in section, section
+        assert "WARN  the device's journal has 1 line from earlier" in section
+        assert "WARN  this is the Python version of Gary, not the QNX build" in section
+        assert "This machine" not in seen, "on the Pi the repo's files are not looked at"
+        # copied next to start_gary.sh, as on a Pi that has only Gary's folder, it finds Gary by itself
+        shutil.copy(DEMO, folder)
+        clean = {k: v for k, v in os.environ.items() if k not in ("GARY_API", "GARY_PRIVATE_KEY")}
+        alone = subprocess.run([PY, os.path.join(folder, "demo.py"), "check", "--api", "http://127.0.0.1:9", "--device"],
+                               capture_output=True, text=True, env=clean, timeout=60).stdout
+        assert "Gary, on this machine  %s" % os.path.realpath(folder) in alone.replace(folder, os.path.realpath(folder)), alone
+        assert "ok    Gary is running" in alone
+    finally:
+        subprocess.run(["sh", os.path.join(folder, "stop_gary.sh")], capture_output=True, text=True, timeout=60)
+        shutil.rmtree(folder, ignore_errors=True)
+        shutil.rmtree(scratch_folder)
+
+
 if __name__ == "__main__":
     try:
         import fastapi  # noqa: F401

@@ -49,11 +49,12 @@ sh start_gary.sh --fresh
    ```
    export GARY_PRIVATE_KEY=<the passphrase>      # so that it can see the "before" check-in
    python3 scripts/demo.py check --api http://<server> --video <the backup video>
-   python3 scripts/demo.py check --api http://<server> --device      # on the Pi
    ```
 
    It must end with **READY**. Read each WARN: it tells you which line of this
-   script to change.
+   script to change. On the Pi, `sh start_gary.sh status` must say that Gary,
+   the button and buzzer, and sync are all up. (Or copy `scripts/demo.py` next
+   to `start_gary.sh` and run `python3 demo.py check --api http://<server> --device`.)
 5. Do not press Gary's button until beat 4. Gary must still be napping at beat 1.
 
 No live scout run yet? `python3 scripts/demo.py reset --samples --api http://<server>`

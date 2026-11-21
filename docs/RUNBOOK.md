@@ -82,8 +82,12 @@ sh start_gary.sh status
 
 ```
 python3 scripts/demo.py check --api http://<ip>            # from a laptop
-python3 scripts/demo.py check --api http://<ip> --device   # on the Pi
+sh start_gary.sh status                                    # on the Pi: Gary, the button and buzzer, and sync are up
 ```
+
+On the Pi you can also copy `scripts/demo.py` next to `start_gary.sh` and run
+`python3 demo.py check --api http://<ip> --device`: it adds whether the journal
+is empty and whether this Gary is the QNX build.
 
 `check` changes nothing. FAIL means fix it. WARN means it changes what you may
 say: each one names the line.
@@ -96,11 +100,13 @@ break the demo.
 1. **Learn the words first, with no device.** On a laptop:
 
    ```
+   cd web && npm install && npm run build               # once, so that the backend can serve the page
    cd backend && uvicorn app:app --port 8000            # one terminal
-   python3 scripts/demo.py replay --api http://localhost:8000    # another. Enter moves to the next beat
+   python3 scripts/demo.py replay --samples --api http://localhost:8000    # another. Enter starts each beat
    ```
 
-   Open http://localhost:8000 beside it and say the lines of `docs/DEMO.md` out loud.
+   Open http://localhost:8000 beside it and say the lines of `docs/DEMO.md`
+   out loud: say the line, then press Enter, and watch the page do it.
 2. **Rehearsal 1, on the real device**, against the deployed backend, with a
    stopwatch. Follow "Ten minutes before" in `docs/DEMO.md` exactly, then the
    eight beats.
