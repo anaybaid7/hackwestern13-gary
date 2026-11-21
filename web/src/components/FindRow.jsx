@@ -1,5 +1,6 @@
 // One find in the journal: what, the marks, when and where.
 import { clock } from '../format.js'
+import { factFor } from '../voice.js'
 import ThingIcon from './ThingIcon.jsx'
 
 export default function FindRow({ entry, fresh = false }) {
@@ -19,6 +20,12 @@ export default function FindRow({ entry, fresh = false }) {
           {entry.place ? ` · ${entry.place}` : ''}
           {entry.latency_ms != null && <span title="Time the device took to name it"> · {Math.round(entry.latency_ms)} ms</span>}
         </p>
+        {factFor(entry) && (
+          <details className="find-fact">
+            <summary>💡 Gary's fact</summary>
+            <p>{factFor(entry)}</p>
+          </details>
+        )}
       </div>
       <span className="find-xp">+{entry.xp} XP</span>
     </li>

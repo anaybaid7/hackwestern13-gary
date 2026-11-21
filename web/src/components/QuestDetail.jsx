@@ -40,6 +40,17 @@ export default function QuestDetail({ quest, active, busy, onStart, onAnother, o
 
         {quest.note && <p className="detail-note">{quest.note}</p>}
 
+        {quest.tidbits?.length > 0 && (
+          <div className="detail-tidbits">
+            <p className="small">Gary, on the way:</p>
+            <ul>
+              {quest.tidbits.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <p className="small">
           {quest.source === 'tinyfish' ? (
             webAddress(quest.source_url) ? (

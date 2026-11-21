@@ -5,6 +5,7 @@
 // "Sample" or "Starter" otherwise.
 import { useState } from 'react'
 import { host, webAddress } from '../format.js'
+import { tidbitFor } from '../voice.js'
 import QuestDetail from './QuestDetail.jsx'
 
 const MINUTES = { short: 15, long: 40 }
@@ -29,7 +30,10 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
           </h3>
           <p className="sign-facts">📍 {quest.place}</p>
           {where?.near ? (
-            <p className="sign-here" role="status">You're here. Sniff it now for a Been there bonus.</p>
+            <>
+              <p className="sign-here" role="status">You're here. Sniff it now for a Been there bonus.</p>
+              {tidbitFor(quest) && <p className="sign-tidbit">Gary: {tidbitFor(quest)}</p>}
+            </>
           ) : (
             where?.away && <p className="sign-away">{where.away}</p>
           )}

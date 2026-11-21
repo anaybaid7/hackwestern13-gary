@@ -1,0 +1,734 @@
+{
+  "_note": "Written by scout/gary_lines.py with Gemini, then read by a person, who fixed five facts, added six lines and removed templates that read badly once filled. Edit by hand freely.",
+  "things": {
+    "bicycle": {
+      "line": "A bicycle is just a metal spider with two round feet that cannot climb rocks.",
+      "facts": [
+        "Bicycles use human pedaling power to turn wheels and move forward along the ground.",
+        "The first bicycle was invented over two hundred years ago without any pedals at all."
+      ]
+    },
+    "car": {
+      "line": "A car. Fast. Cannot climb stairs.",
+      "facts": [
+        "Cars usually have four wheels and an engine that burns fuel to make them drive.",
+        "Most cars carry seats for several people to sit inside while traveling on roads."
+      ]
+    },
+    "motorcycle": {
+      "line": "A motorcycle is a loud metal beetle that balances on two wheels instead of four.",
+      "facts": [
+        "Motorcycles only have two wheels, so riders must wear helmets to stay safe.",
+        "Riders lean into a turn so the motorcycle keeps its balance."
+      ]
+    },
+    "airplane": {
+      "line": "An airplane is a giant silver bird that lacks feathers and lands on flat concrete.",
+      "facts": [
+        "Airplanes use big wings and powerful engines to fly high up in the sky.",
+        "They need long runways on the ground to take off and land safely."
+      ]
+    },
+    "bus": {
+      "line": "A bus is a very long yellow caterpillar that carries too many people at once.",
+      "facts": [
+        "Buses are large vehicles designed to transport many passengers along city streets.",
+        "They follow specific routes and stop at designated places to let people on and off."
+      ]
+    },
+    "train": {
+      "line": "A train is a stubborn metal centipede that refuses to leave its iron tracks.",
+      "facts": [
+        "Trains run on steel tracks and are made of multiple connected cars pulling together.",
+        "They can carry heavy cargo and hundreds of passengers across long distances."
+      ]
+    },
+    "truck": {
+      "line": "A truck is a heavy pack animal made of steel that carries boxes instead of grass.",
+      "facts": [
+        "Trucks are built strong and sturdy to haul heavy loads and big supplies.",
+        "Some trucks are massive semi-trailers that transport goods from city to city."
+      ]
+    },
+    "boat": {
+      "line": "A boat is a wooden floating hoof that sinks instantly if the water turns to air.",
+      "facts": [
+        "Boats float on top of water because their hulls push water out of the way.",
+        "People use oars, sails, or motors to steer boats across lakes, rivers, and oceans."
+      ]
+    },
+    "traffic light": {
+      "line": "A traffic light is a bossy glowing totem pole that tells metal boxes when to stop.",
+      "facts": [
+        "Traffic lights use red, yellow, and green lights to keep cars and pedestrians safe.",
+        "Red means stop, green means go, and yellow means slow down before stopping."
+      ]
+    },
+    "fire hydrant": {
+      "line": "A fire hydrant is a short iron stump that keeps a cold drink ready for big red trucks.",
+      "facts": [
+        "Fire hydrants connect to underground pipes full of water to help put out fires.",
+        "Firefighters attach long hoses to them to get enough water during emergencies."
+      ]
+    },
+    "stop sign": {
+      "line": "A stop sign is a red octagon that yells at metal boxes to freeze in their tracks.",
+      "facts": [
+        "Stop signs always have eight sides and are painted bright red with white letters.",
+        "Drivers must bring their vehicles to a complete halt before driving past them."
+      ]
+    },
+    "parking meter": {
+      "line": "A parking meter is a greedy metal clock that demands shiny coins to sit on asphalt.",
+      "facts": [
+        "Parking meters let drivers pay for a specific amount of time to leave a car parked.",
+        "When the time runs out, a small flag pops up or the screen turns red."
+      ]
+    },
+    "bench": {
+      "line": "A bench is a flat wooden shelf where tired flat-landers sit down to stare at nothing.",
+      "facts": [
+        "Benches are outdoor seats usually found in parks, gardens, and along city sidewalks.",
+        "They are built long enough for multiple people to sit and rest at the same time."
+      ]
+    },
+    "bird": {
+      "line": "A bird is a tiny flying rival that thinks it owns the air above my favorite peak.",
+      "facts": [
+        "Birds have feathers, wings, and lightweight bones that help them fly through the air.",
+        "Most birds hatch from hard-shelled eggs built in nests high up off the ground."
+      ]
+    },
+    "cat": {
+      "line": "A cat is a soft little rock-hopper who sleeps all day and refuses to carry gear.",
+      "facts": [
+        "Cats have whiskers and sharp claws that help them balance and climb very well.",
+        "They communicate their moods by purring, meowing, and twitching their tails."
+      ]
+    },
+    "dog": {
+      "line": "A dog lacks the proper hoof-action for genuine ridgeline exploration.",
+      "facts": [
+        "Dogs can smell things tens of thousands of times better than humans can.",
+        "Most dogs have wet noses to help them capture scent chemicals in the air."
+      ]
+    },
+    "horse": {
+      "line": "A horse. Tall, fast, and hopeless on a ledge.",
+      "facts": [
+        "Horses are able to sleep while standing up on their long legs.",
+        "A horse has the largest eyes of any land mammal on earth."
+      ]
+    },
+    "sheep": {
+      "line": "A sheep has respectable wool but gives up entirely too easily on steep inclines.",
+      "facts": [
+        "Sheep have rectangular pupils that let them see almost all around themselves.",
+        "A group of sheep is commonly known as a flock."
+      ]
+    },
+    "cow": {
+      "line": "A cow belongs strictly in the valley where the ground remains flat and boring.",
+      "facts": [
+        "Cows spend up to a third of every day eating grass and other plants.",
+        "A cow has four compartments in its stomach to help digest tough food."
+      ]
+    },
+    "elephant": {
+      "line": "An elephant brings far too much bulk to any respectable mountain ledge.",
+      "facts": [
+        "Elephants are the largest land animals alive on earth today.",
+        "An elephant uses its long trunk to breathe and drink water."
+      ]
+    },
+    "bear": {
+      "line": "A bear insists on sleeping through the best months of the climbing calendar.",
+      "facts": [
+        "Bears spend the winter months resting in dens to save energy.",
+        "Many bears are excellent climbers despite their heavy build."
+      ]
+    },
+    "zebra": {
+      "line": "A zebra wears striking stripes but completely misses the point of elevation.",
+      "facts": [
+        "Every zebra has a unique pattern of black and white stripes.",
+        "Zebras live together in family groups called harems."
+      ]
+    },
+    "giraffe": {
+      "line": "A giraffe reaches impressive heights yet avoids all actual rock faces.",
+      "facts": [
+        "Giraffes are the tallest mammals living on the planet.",
+        "A giraffe has a long dark tongue used to reach high leaves."
+      ]
+    },
+    "backpack": {
+      "line": "A backpack carries useful gear instead of useful opinions about the trail.",
+      "facts": [
+        "Backpacks help spread heavy loads evenly across your shoulders and back.",
+        "Early backpack frames were often made of wood or wicker."
+      ]
+    },
+    "umbrella": {
+      "line": "An umbrella is a nervous little roof that panics at the first sign of weather.",
+      "facts": [
+        "Umbrellas were originally invented to shade people from the sun.",
+        "Modern umbrellas often use lightweight metal frames and waterproof fabric."
+      ]
+    },
+    "handbag": {
+      "line": "A handbag stores tiny human treasures instead of proper trail snacks.",
+      "facts": [
+        "Handbags became very common for carrying personal items in daily life.",
+        "Small bags have been used by humans for hundreds of years."
+      ]
+    },
+    "tie": {
+      "line": "A tie hangs uselessly about like a strip of cloth with no real purpose.",
+      "facts": [
+        "Neckties are worn around the collar as a decorative clothing accessory.",
+        "Modern ties are usually knotted and worn with collared shirts."
+      ]
+    },
+    "suitcase": {
+      "line": "A suitcase stays firmly on flat pavement and avoids all rugged terrain.",
+      "facts": [
+        "Suitcases are designed with handles to make traveling easier.",
+        "Some modern suitcases have small wheels attached to the bottom."
+      ]
+    },
+    "frisbee": {
+      "line": "A frisbee sails through the air when thrown but lacks any climbing ambition.",
+      "facts": [
+        "Flying discs were originally inspired by pie tins tossed in the air.",
+        "The aerodynamic shape helps the disc glide smoothly across open spaces."
+      ]
+    },
+    "skis": {
+      "line": "Skis slide foolishly down the slope instead of climbing sensibly upward.",
+      "facts": [
+        "Skis attach to boots to help people glide across snow surfaces.",
+        "Ancient skis were used for winter travel long before modern sports."
+      ]
+    },
+    "snowboard": {
+      "line": "A snowboard is just a heavy leaf for sliding down slopes where moss belongs.",
+      "facts": [
+        "People strap both feet to this board to slide down snowy mountain slopes fast.",
+        "Snowboarding became an official winter sport in the Olympics years ago."
+      ]
+    },
+    "sports ball": {
+      "line": "An ordinary sports ball rolls away when you drop it on a proper ledge.",
+      "facts": [
+        "Balls are usually round so they can roll smoothly across the ground in games.",
+        "Different sports use different kinds of balls made of rubber, leather, or plastic."
+      ]
+    },
+    "kite": {
+      "line": "A kite. A thing that climbs with no legs. Suspicious.",
+      "facts": [
+        "Kites use the wind blowing through the sky to stay up high in the air.",
+        "People hold onto a long string attached to the kite to keep it from flying away."
+      ]
+    },
+    "baseball bat": {
+      "line": "A baseball bat looks like a heavy tree branch stripped of all its good bark.",
+      "facts": [
+        "Players use this wooden or metal club to hit a pitched ball during a game.",
+        "Batters wear a helmet to keep their heads safe while holding the bat."
+      ]
+    },
+    "baseball glove": {
+      "line": "An oversized leather hand like this baseball glove has no business on a hoof.",
+      "facts": [
+        "Fielders wear this large leather mitt on their hand to catch flying balls safely.",
+        "The webbing between the fingers helps players trap the ball in the pocket."
+      ]
+    },
+    "skateboard": {
+      "line": "A skateboard is a tiny wooden deck with four wheels that hate loose gravel.",
+      "facts": [
+        "Skaters stand on the board and push with one foot to roll along flat pavement.",
+        "The bottom of the board often has colorful pictures printed on the flat surface."
+      ]
+    },
+    "surfboard": {
+      "line": "A surfboard is a giant flat leaf meant for riding angry ocean waves instead of rocks.",
+      "facts": [
+        "Surfers lie or stand on this long board to ride ocean waves toward the shore.",
+        "Wax is rubbed on the top surface so feet do not slip off while riding."
+      ]
+    },
+    "tennis racket": {
+      "line": "A tennis racket is a weird net frame meant for swatting fuzzy green spheres.",
+      "facts": [
+        "Players use the strung oval head of the racket to hit a fuzzy ball over a net.",
+        "The handle is wrapped in tape so players can keep a firm grip during the match."
+      ]
+    },
+    "bottle": {
+      "line": "An empty bottle makes a hollow clink when it rolls down a rocky gully.",
+      "facts": [
+        "Bottles have narrow necks designed to hold liquids without spilling them out.",
+        "Many plastic and glass bottles can be recycled to make brand new items."
+      ]
+    },
+    "wine glass": {
+      "line": "A wine glass is a terribly fragile goblet that would shatter on my first leap.",
+      "facts": [
+        "This delicate glass stands on a thin stem so hands do not warm the drink.",
+        "It has a wide bowl at the top to let the liquid breathe and release aromas."
+      ]
+    },
+    "cup": {
+      "line": "A cup is just a miniature watering trough with a handle for clumsy fingers.",
+      "facts": [
+        "Cups have open tops and are used for holding drinks like water or milk.",
+        "Most cups have a small handle on the side so fingers stay away from hot liquids."
+      ]
+    },
+    "fork": {
+      "line": "A fork is a tiny metal rake for scraping up bits of stray vegetation.",
+      "facts": [
+        "A fork has several narrow metal prongs at the end for piercing food pieces.",
+        "People use forks to lift food to their mouths without using their fingers."
+      ]
+    },
+    "knife": {
+      "line": "A sharp knife is a thin sliver of metal that lacks the grace of a good horn.",
+      "facts": [
+        "Knives have a sharp metal blade used for cutting and slicing various items.",
+        "The handle is designed for a person to hold safely while using the blade."
+      ]
+    },
+    "spoon": {
+      "line": "A spoon is a shallow metal scoop that is utterly useless for climbing.",
+      "facts": [
+        "A spoon has a small round bowl shape at the end for holding liquids or soft food.",
+        "People use spoons to eat soup, cereal, and other foods that would slide off a fork."
+      ]
+    },
+    "bowl": {
+      "line": "A bowl is a round stone basin carved by humans instead of rushing water.",
+      "facts": [
+        "Bowls are round and deep, making them great for holding foods like cereal or soup.",
+        "The curved sides keep liquid and loose food from spilling over the edges."
+      ]
+    },
+    "banana": {
+      "line": "A banana. Comes with its own wrapper. Respect.",
+      "facts": [
+        "Bananas grow hanging upside down from tall plants that look like trees but are really giant herbs.",
+        "A bunch of bananas is technically called a hand, and the single ones are called fingers."
+      ]
+    },
+    "apple": {
+      "line": "An apple sits there looking round and smug because it has never fallen down a scree slope.",
+      "facts": [
+        "Apples float in water because twenty five percent of their volume is actually made of air.",
+        "Apple trees first grew wild in the mountains of Central Asia, and some wild ones still grow there."
+      ]
+    },
+    "sandwich": {
+      "line": "A sandwich is just two slices of bread guarding something that lacks the courage to stand alone.",
+      "facts": [
+        "The sandwich was named after an English nobleman who wanted to eat meat without leaving the card table.",
+        "Sliced bread was first sold in stores using a machine invented by Otto Frederick Rohwedder."
+      ]
+    },
+    "orange": {
+      "line": "An orange rolls too easily to be trusted on any incline steeper than a gentle meadow.",
+      "facts": [
+        "Oranges are a hybrid of pomelos and mandarins, which means they are not an original wild fruit.",
+        "Brazil is the country that grows the most oranges in the entire world."
+      ]
+    },
+    "broccoli": {
+      "line": "A broccoli looks like a tiny green pine tree that grew sideways and lost its ambition.",
+      "facts": [
+        "Broccoli belongs to the same family of plants as cabbage and kale.",
+        "The word broccoli comes from an Italian plural word meaning the flowering crest of a cabbage."
+      ]
+    },
+    "carrot": {
+      "line": "A carrot points straight down into the dirt instead of reaching upward toward the peaks.",
+      "facts": [
+        "Wild carrots used to be purple or yellow before farmers bred them to be orange.",
+        "The orange part of a carrot is its root, where the plant stores food underground."
+      ]
+    },
+    "hot dog": {
+      "line": "A hot dog is hiding inside a soft roll because it knows it cannot survive the open air.",
+      "facts": [
+        "Frankfurters or hot dogs originated in Germany, taking their name from a famous city there.",
+        "People in the United States eat billions of hot dogs every single year during summer holidays."
+      ]
+    },
+    "pizza": {
+      "line": "A pizza is flat and round, two traits I find deeply suspicious in any object whatsoever.",
+      "facts": [
+        "Modern pizza was invented in the city of Naples in Italy as a quick meal for workers.",
+        "Pizza with tomato sauce came after tomatoes reached Europe from the Americas."
+      ]
+    },
+    "donut": {
+      "line": "A donut has a hole in the middle because it lacks the solid center of a proper boulder.",
+      "facts": [
+        "Some bakers put holes in donuts so the center would cook evenly without staying raw.",
+        "Donuts were originally called olykoeks, which translates to oily cakes in Dutch."
+      ]
+    },
+    "cake": {
+      "line": "A cake is far too soft to withstand even a mild gust of wind above the timberline.",
+      "facts": [
+        "Ancient cakes were much more like bread and were sweetened with honey and dried fruit.",
+        "The ancient Greeks made round honey cakes and lit candles on them to glow like the moon."
+      ]
+    },
+    "chair": {
+      "line": "A chair stays rigidly in one spot instead of seeking out the highest vantage point.",
+      "facts": [
+        "Chairs used to be rare luxury items used only by important leaders and wealthy people.",
+        "Ancient Egyptians made some of the earliest known chairs out of ebony and ivory."
+      ]
+    },
+    "couch": {
+      "line": "A couch invites you to lie completely flat, which is a terrible way to admire the scenery.",
+      "facts": [
+        "Couches evolved from long benches that had cushions placed on them for extra comfort.",
+        "The word sofa comes from an Arabic word meaning a bench decorated with cushions."
+      ]
+    },
+    "potted plant": {
+      "line": "A potted plant is a mountain shrub that got scared and trapped itself inside pottery.",
+      "facts": [
+        "Plants grown in pots need holes in the bottom so their roots do not drown in water.",
+        "Indoor plants help clean the air inside buildings by absorbing certain gases through leaves."
+      ]
+    },
+    "bed": {
+      "line": "A bed is just a horizontal platform for wasting daylight hours that could be spent climbing.",
+      "facts": [
+        "Ancient Egyptians slept on raised wooden frames to keep away from scorpions and snakes.",
+        "Humans spend about one third of their entire lives sleeping in a bed."
+      ]
+    },
+    "dining table": {
+      "line": "A dining table is a flat wooden plateau completely devoid of interesting rocks or moss.",
+      "facts": [
+        "The ancient Romans used to recline on couches around their low dining tables to eat meals.",
+        "Rectangular dining tables became popular in medieval Europe in large castle halls."
+      ]
+    },
+    "toilet": {
+      "line": "A toilet is just an indoor puddle with too much ambition.",
+      "facts": [
+        "Toilets use a lot of clean water every single time they flush.",
+        "Indoor plumbing helps keep cities clean and healthy."
+      ]
+    },
+    "tv": {
+      "line": "A television is a window showing flat moving pictures of places without rocks.",
+      "facts": [
+        "Televisions use lots of tiny colored dots called pixels to make pictures.",
+        "The very first televisions only showed images in black and white."
+      ]
+    },
+    "laptop": {
+      "line": "A laptop is a metal clam that glows instead of making pearls.",
+      "facts": [
+        "Laptops have rechargeable batteries so you can use them without plugging them in.",
+        "The keyboard and screen are built into one folding piece."
+      ]
+    },
+    "mouse": {
+      "line": "A computer mouse is a plastic rodent that stays in one spot.",
+      "facts": [
+        "A computer mouse helps you point at things on the screen.",
+        "Older mice used a rolling rubber ball underneath to track movement."
+      ]
+    },
+    "remote": {
+      "line": "A remote control is a magic wand for people who hate walking across rooms.",
+      "facts": [
+        "Remote controls usually use invisible light beams to talk to the TV.",
+        "They are one of the most commonly lost items in a house."
+      ]
+    },
+    "keyboard": {
+      "line": "A keyboard. A hundred buttons and not one for climbing.",
+      "facts": [
+        "Most computer keyboards arrange their top letters in a pattern called QWERTY.",
+        "The longest word you can type using only the top row of letters is typewriter."
+      ]
+    },
+    "cell phone": {
+      "line": "A cell phone is a tiny glass brick that whispers secrets from far away.",
+      "facts": [
+        "Cell phones use invisible radio waves to send calls and messages through the air.",
+        "Modern phones are tiny computers that can fit right in your pocket."
+      ]
+    },
+    "microwave": {
+      "line": "A microwave is a small metal box that makes cold food hot in seconds.",
+      "facts": [
+        "Microwaves cook food by making water molecules inside it vibrate very fast.",
+        "They were invented by accident when a radar scientist melted a candy bar."
+      ]
+    },
+    "oven": {
+      "line": "An oven is a warm indoor cave used for baking flat things.",
+      "facts": [
+        "Ovens use high heat to cook food all the way through from the outside in.",
+        "They can get much hotter than a normal room ever gets."
+      ]
+    },
+    "toaster": {
+      "line": "A toaster is a metal box that turns soft bread into crunchy slices.",
+      "facts": [
+        "Toasters use glowing hot wires to toast bread very quickly.",
+        "Springs inside push the toast back up when it is finished."
+      ]
+    },
+    "sink": {
+      "line": "A sink is a stone basin where water appears and disappears on command.",
+      "facts": [
+        "Sinks have a curved pipe underneath called a trap to catch heavy dirt.",
+        "Running water in sinks helps people wash their hands to stay healthy."
+      ]
+    },
+    "refrigerator": {
+      "line": "A refrigerator is a giant metal cupboard that stays cold inside.",
+      "facts": [
+        "Refrigerators use special liquids and pumps to push heat out of the box.",
+        "Keeping food cold slows down germs and helps it stay fresh longer."
+      ]
+    },
+    "book": {
+      "line": "A book is a stack of dead tree leaves covered in tiny ink tracks.",
+      "facts": [
+        "Books let you explore imaginary worlds without leaving your chair.",
+        "The spine holds all the paper pages together so they do not fall out."
+      ]
+    },
+    "clock": {
+      "line": "A clock is a round metal face that worries about the time constantly.",
+      "facts": [
+        "Clocks use numbers from one to twelve to show the hours of the day.",
+        "The short hand points to the hour and the long hand points to the minute."
+      ]
+    },
+    "vase": {
+      "line": "A vase is a hollow stone pot meant to hold headless plants.",
+      "facts": [
+        "Vases are usually made of glass, clay, or ceramic materials.",
+        "They hold water to keep cut flowers looking fresh for a few days."
+      ]
+    },
+    "scissors": {
+      "line": "An absurd metal beak designed for people who cannot bite their own wool.",
+      "facts": [
+        "Scissors use two blades that slide past each other to slice things cleanly.",
+        "The oldest known scissors date back thousands of years to ancient Egypt."
+      ]
+    },
+    "teddy bear": {
+      "line": "A stuffed imitation of a predator that lacks the decency to stand on rocks.",
+      "facts": [
+        "Teddy bears were named after President Theodore Roosevelt after he refused to shoot a bear.",
+        "Early teddy bears were stuffed with wood shavings instead of soft fluff."
+      ]
+    },
+    "hair drier": {
+      "line": "A howling wind machine that completely fails to dry damp mountain fog.",
+      "facts": [
+        "Hair dryers use a fan and a heating element to speed up the evaporation of water.",
+        "The first home hair dryers were heavy and blew air through a metal hose."
+      ]
+    },
+    "toothbrush": {
+      "line": "A tiny plastic pine tree meant for scraping the moss off your grinding stones.",
+      "facts": [
+        "Toothbrushes help remove food bits and plaque from teeth to keep them strong.",
+        "Ancient people used twigs with frayed ends to clean their teeth long ago."
+      ]
+    },
+    "tree": {
+      "line": "A giant wooden ladder that refuses to let goats use its top rungs.",
+      "facts": [
+        "Trees make their own food using sunlight through a process called photosynthesis.",
+        "The rings inside a tree trunk can show how many years the tree has lived."
+      ]
+    },
+    "flower": {
+      "line": "A brightly colored snack signal that only bees are allowed to appreciate.",
+      "facts": [
+        "Flowers contain seeds or pollen to help new plants grow in the soil.",
+        "Bright colors and sweet smells attract insects and birds to visit flowers."
+      ]
+    },
+    "trash can": {
+      "line": "A smelly metal cave where humans hide all their discarded treasures.",
+      "facts": [
+        "Trash cans keep public areas clean by holding items people no longer need.",
+        "Many items placed in bins today are sorted out to be recycled into new things."
+      ]
+    },
+    "street lamp": {
+      "line": "A tall metal sun that stays awake long after the real sky goes to sleep.",
+      "facts": [
+        "Street lamps light up dark roads to help people walk safely at night.",
+        "Modern street lamps often use energy efficient bulbs to save power."
+      ]
+    },
+    "squirrel": {
+      "line": "A jittery fuzzball that treats every vertical surface like a personal race.",
+      "facts": [
+        "Squirrels bury nuts in the ground and sometimes forget where they put them.",
+        "A squirrel uses its bushy tail for balance when it leaps through the trees."
+      ]
+    },
+    "duck": {
+      "line": "A duck. Floats, flies and walks. A show-off, honestly.",
+      "facts": [
+        "Ducks have waterproof feathers that keep them dry when they swim.",
+        "Webbed feet help ducks paddle smoothly across the surface of the water."
+      ]
+    },
+    "goose": {
+      "line": "An aggressive grey feather bag with a very high opinion of itself.",
+      "facts": [
+        "Geese fly together in a large V shape when they migrate for the winter.",
+        "Geese are very loud and will hiss loudly to protect their territory."
+      ]
+    },
+    "rabbit": {
+      "line": "A twitchy ground jumper that has never attempted a proper mountain ridge.",
+      "facts": [
+        "Rabbits live in underground burrows to stay safe from larger animals."
+      ]
+    },
+    "deer": {
+      "line": "A tall gangly jumper that slips on scree because it lacks proper hooves.",
+      "facts": [
+        "Male deer grow antlers on their heads that fall off and grow back each year."
+      ]
+    },
+    "butterfly": {
+      "line": "A confused leaf scrap that flutters around without any sense of direction.",
+      "facts": [
+        "Butterflies start their lives as crawling caterpillars before changing shape."
+      ]
+    },
+    "mushroom": {
+      "line": "A suspicious rubbery umbrella sprouting straight out of the damp dirt.",
+      "facts": [
+        "Mushrooms are neither plants nor animals but belong to the fungus kingdom.",
+        "Many mushrooms grow very fast overnight after a good rain shower."
+      ]
+    }
+  },
+  "pools": {
+    "quest": [
+      "Not a bad incline. Decent footing.",
+      "Up is better than down. Well done.",
+      "The air is thinner here. Good.",
+      "You survived the gravity. Impressive.",
+      "Solid ledge work. I approve.",
+      "That slope gave us zero trouble."
+    ],
+    "new": [
+      "Hmm. Smells like old lichen.",
+      "Not a plant I would graze on.",
+      "Very distinct. What is its purpose?",
+      "A strange aroma for flat country."
+    ],
+    "again": [
+      "Still smells like yesterday.",
+      "We found this rock before.",
+      "It has not moved up the mountain.",
+      "A familiar scent on the wind.",
+      "You brought this back for a second look?",
+      "I remember this texture."
+    ],
+    "friend": [
+      "Good balance for a flatlander.",
+      "They kept up without sliding.",
+      "They can stay on my ridge.",
+      "A sturdy extra set of boots.",
+      "They smell like safe valley air."
+    ],
+    "napping": [
+      "Wake me when the ground tilts.",
+      "Resting my hooves. Very quiet.",
+      "Just sleeping off the flat miles.",
+      "No hurry. The peak stays put.",
+      "A good nap costs nothing.",
+      "Call me when the wind changes."
+    ],
+    "welcome_back": [
+      "You found your way up again.",
+      "The rocks were right where you left them.",
+      "Good to see your boots on the slope.",
+      "No time lost. Mountains wait.",
+      "Ready for another incline?",
+      "You returned before my wool grew long."
+    ],
+    "awake": [
+      "Point me at the high ground.",
+      "My hooves are dry and waiting.",
+      "Which way is the ridge?",
+      "I am looking at the horizon.",
+      "Show me some steep rock.",
+      "The morning air is crisp enough."
+    ]
+  },
+  "progress": {
+    "start": [
+      "We are heading to find {target} at {place}.",
+      "Up toward {target} in {place} we go.",
+      "We could look for {target} at {place}.",
+      "Time to seek {target} in {place}.",
+      "Let us check {place} for {target}."
+    ],
+    "today": [
+      "We logged {finds_today} so far.",
+      "That makes {finds_today} for our book.",
+      "You spotted {finds_today} nicely.",
+      "We collected {finds_today} today.",
+      "Our tally sits at {finds_today}.",
+      "We gathered {finds_today} on the rocks.",
+      "Counted {finds_today} since we set out."
+    ],
+    "almost": [
+      "Just {xp_left} until I become {next_stage}.",
+      "Only {xp_left} to reach {next_stage}.",
+      "We need {xp_left} to grow into {next_stage}.",
+      "Another {xp_left} makes me {next_stage}.",
+      "We are {xp_left} shy of {next_stage}.",
+      "A mere {xp_left} to be {next_stage}.",
+      "Soon I will be {next_stage} with {xp_left}.",
+      "Waiting on {xp_left} for {next_stage}."
+    ],
+    "guide": [
+      "Our book holds {guide}.",
+      "We have marked {guide} total.",
+      "Pages show {guide} so far.",
+      "Logged {guide} in the archives.",
+      "Our record stands at {guide}.",
+      "We know {guide} across the hills.",
+      "The ledger reads {guide}.",
+      "Noted {guide} in our travels."
+    ],
+    "encourage": [
+      "Any pace is the right pace.",
+      "Small rocks are worth a look.",
+      "The trail stays quiet right here.",
+      "A new path waits just over there.",
+      "Bring a friend if you like company.",
+      "Shoulders drop when we climb.",
+      "The grass is soft enough to sit."
+    ]
+  }
+}

@@ -85,7 +85,8 @@ the handheld; on a phone it fills the screen.
 | `src/sprites.js` | Gary's 32 x 32 sprite as text: one drawing, a few edits per stage, and the napping pose |
 | `src/places.js` | Where each place is, as latitude and longitude. Unknown places get a steady spot near downtown |
 | `src/pixel.js` | Turns text drawings into SVG, and the five colours |
-| `src/voice.js` | Gary's lines and the one-sentence recap |
+| `src/voice.js` | Gary's lines, a fact for each find, a quest's trail tidbit, and the one-sentence recap |
+| `src/gary_lines.json` | A line and two facts for each thing, and pools of everyday lines: written once by Gemini (`scout/gary_lines.py`), read and corrected by a person |
 | `src/things.js` | A picture for each of the 79 things |
 | `src/words.js` | Names for stage and badge ids |
 | `src/styles.css` | Every style, with the colours and faces at the top |
@@ -96,7 +97,7 @@ the handheld; on a phone it fills the screen.
   the patches add horns, the scarf and the beard per stage.
 - **A place on the map.** Add its name and `[lat, lng]` to `KNOWN` in `src/places.js`.
 - **The fog.** `FOG_COLOUR`, `CLEAR_METRES`, `FRONTIER` (the edge's colour) and `REVEAL_MS` (how long a new place takes to open) at the top of `src/screens/MapScreen.jsx`. With reduced motion on, places open at once.
-- **Gary's voice.** `src/voice.js`. A line tied to a thing goes in `BY_THING`.
+- **Gary's voice.** `src/gary_lines.json` (Gemini, read by a person): edit a line there, or run `scout/gary_lines.py` again and read the result.
   Keep him dry and kind: no nagging, no guilt, nothing about missed days.
 - **A picture for a thing.** `src/things.js`. A thing with no picture shows
   its initials.

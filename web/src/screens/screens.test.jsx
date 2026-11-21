@@ -12,6 +12,7 @@ import MapScreen from './MapScreen.jsx'
 import Settings from './Settings.jsx'
 import You, { suggestPhase } from './You.jsx'
 import CheckIn from '../components/CheckIn.jsx'
+import { factFor, garyLine, lineFor, progressLine } from '../voice.js'
 import { LONDON, away, isNear, layout, metresBetween, placeKey, realSpot } from '../places.js'
 
 afterEach(cleanup)
@@ -28,7 +29,11 @@ describe('Gary (issue #25)', () => {
     expect(screen.getByText('80 XP · 70 to Ibex')).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Find a water bottle at your table' })).toBeTruthy()
     expect(screen.getByText('Stage 2')).toBeTruthy()
-    expect(screen.getByText(/A bench\. I respect anything that holds still\./)).toBeTruthy()
+    // between sniffs Gary talks about you: today's finds, and growing or a nudge
+    const about = progressLine(example, at(example.journal[0].ts))
+    expect(about).toMatch(/1 find\b/)
+    expect(screen.getByText(about)).toBeTruthy()
+    expect(screen.queryByText(/💡/)).toBeNull() // facts only right after a sniff, or tapped in the journal
     // the home screen stays calm: the finds live in the journal
     expect(screen.queryByText('+80 XP')).toBeNull()
     expect(screen.queryByText(/What Gary sees/)).toBeNull() // no device address, no link
@@ -44,14 +49,14 @@ describe('Gary (issue #25)', () => {
     render(<Home state={step(0)} flash={NO_FLASH} now={at(story.steps[0].now)} />)
     expect(screen.getByRole('heading', { name: 'Kid' })).toBeTruthy()
     expect(screen.getByAltText('Gary the goat, Kid, napping')).toBeTruthy()
-    expect(screen.getByText(/Gary is napping\. No guilt/)).toBeTruthy()
+    expect(screen.getByText(garyLine(step(0).gary, step(0).journal[0]))).toBeTruthy()
     expect(screen.getByText('0 XP · 60 to Scrambler')).toBeTruthy()
     expect(document.body.textContent).not.toMatch(/streak|missed|lost|sad/i)
   })
 
   test('a welcome-back line after a nap, and a napping pose that keeps the XP', () => {
     render(<Home state={step(9)} flash={NO_FLASH} now={at(story.steps[9].now)} />)
-    expect(screen.getByText(/you are back\. Good\. I saved you a rock/)).toBeTruthy()
+    expect(screen.getByText(garyLine(step(9).gary, step(9).journal[0]))).toBeTruthy()
     cleanup()
     render(<Home state={step(7)} flash={NO_FLASH} now={at(story.steps[7].now)} />)
     expect(screen.getByAltText('Gary the goat, Scrambler, napping')).toBeTruthy()
@@ -83,7 +88,44 @@ describe('Gary (issue #25)', () => {
   })
 })
 
+describe('Gary on your progress, and facts at the right moment', () => {
+  test('right after a sniff: Gary on that thing, and a fact about it', () => {
+    const find = example.journal[0]
+    render(<Home state={example} flash={{ ...NO_FLASH, find }} now={at(find.ts)} />)
+    expect(screen.getByText(lineFor(find))).toBeTruthy()
+    expect(screen.getByText(`💡 ${factFor(find)}`)).toBeTruthy()
+  })
+
+  test('the line fills in your own numbers, and says when Gary is close to growing', () => {
+    const state = { ...example, gary: { ...example.gary, xp: 140, next_stage_xp: 150, stage_index: 1 } }
+    const line = progressLine(state, at(example.journal[0].ts))
+    expect(line).toMatch(/10 XP/)
+    expect(line).toMatch(/Ibex/)
+    expect(line).not.toMatch(/[{}]/)
+    const fresh = { ...example, journal: [], gary: { ...example.gary, xp: 0, next_stage_xp: 60, stage_index: 0 } }
+    const start = progressLine(fresh, at(example.journal[0].ts))
+    expect(start).toMatch(/a bottle/)
+    expect(start).toMatch(/Hack Western, your table/)
+  })
+
+  test('a find in the journal shows its fact when tapped', () => {
+    const { container } = render(<Guide guide={example.guide} journal={example.journal} now={at(example.journal[0].ts)} flash={NO_FLASH} />)
+    const fact = container.querySelector('details.find-fact')
+    expect(fact.querySelector('summary').textContent).toContain("Gary's fact")
+    expect(fact.textContent).toContain(factFor(example.journal[0]))
+  })
+})
+
 describe('Quest card (issue #28)', () => {
+  test('at the place the card adds one of Gary\'s trail tidbits, and the details list them all', () => {
+    const quest = { ...example.quest, tidbits: ['Sifton Bog is a real peat bog.', 'Mind the boardwalk.'] }
+    render(<QuestCard quest={quest} choice={null} options={{ short: quest }} where={{ near: true }} />)
+    expect(screen.getByText(/^Gary: (Sifton Bog is a real peat bog\.|Mind the boardwalk\.)$/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: quest.title }))
+    expect(screen.getByText('Gary, on the way:')).toBeTruthy()
+    expect(screen.getByText('Mind the boardwalk.')).toBeTruthy()
+  })
+
   const scoutQuest = step(2).quest // the scout's Springbank Park quest, chosen with "short"
 
   test('shows the place, the thing, and where the scout found it', () => {

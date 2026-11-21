@@ -250,6 +250,9 @@ def check_quest(raw):
         "source_url": web_address(raw.get("source_url")),
         "day": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else rules.local_day(now(), TZ),
         "lat": degrees(raw.get("lat"), 90), "lng": degrees(raw.get("lng"), 180),
+        # Gary's trail tidbits (the scout, with Gemini): plain lines only, at most three
+        "tidbits": [line for line in (one_line(t, 160) for t in raw.get("tidbits") or [] if isinstance(t, str))
+                    if line][:3] if isinstance(raw.get("tidbits"), list) else [],
     }, None
 
 

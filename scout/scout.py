@@ -417,6 +417,7 @@ def build_quests(places, source, day, allowed, limit=3, taken=None, count=0, loc
             "source_url": web_address(place.get("url")) or web_address(source.get("url")),
             "day": day,
         })
+        quests[-1]["_about"] = " ".join(sorted(abouts[key])).strip()  # for --voice; never posted
         spot = locate(name, clean_name(place.get("address"))) if locate else None
         if spot:
             quests[-1]["lat"], quests[-1]["lng"] = spot
@@ -637,8 +638,16 @@ def main(argv=None):
     if args.voice:
         import gary_voice
         changed = gary_voice.apply(quests, os.environ.get("GEMINI_API_KEY"), say=say)
-        say("Gemini put %d of %d titles in Gary's voice." % (changed, len(quests)))
+        say("Gemini put %d of %d titles in Gary's voice, and gave %d quests trail tidbits."
+            % (changed, len(quests), sum(1 for q in quests if q.get("tidbits"))))
+    for quest in quests:  # working notes, like the page text, stay here
+        for name in [k for k in quest if k.startswith("_")]:
+            del quest[name]
 
+    if args.cached and args.voice:
+        with open(args.cache, "w", encoding="utf-8") as f:
+            json.dump(dict(saved, quests=quests), f, indent=2)
+            f.write("\n")
     if live:
         with open(args.cache, "w", encoding="utf-8") as f:
             json.dump({"saved_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),

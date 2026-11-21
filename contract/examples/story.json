@@ -47,7 +47,8 @@
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21",
             "lat": 42.9655,
-            "lng": -81.3005
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -63,7 +64,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -253,7 +255,8 @@
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21",
             "lat": 42.9655,
-            "lng": -81.3005
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -269,7 +272,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -448,7 +452,8 @@
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21",
           "lat": 42.9655,
-          "lng": -81.3005
+          "lng": -81.3005,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -466,7 +471,8 @@
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21",
             "lat": 42.9655,
-            "lng": -81.3005
+            "lng": -81.3005,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -482,7 +488,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 6,
@@ -674,7 +681,8 @@
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21",
           "lat": 42.9995,
-          "lng": -81.2585
+          "lng": -81.2585,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -692,7 +700,8 @@
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21",
             "lat": 42.9995,
-            "lng": -81.2585
+            "lng": -81.2585,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -708,7 +717,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 5,
@@ -928,7 +938,8 @@
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21",
           "lat": 42.9995,
-          "lng": -81.2585
+          "lng": -81.2585,
+          "tidbits": []
         },
         "quest_choice": "short",
         "quest_options": {
@@ -946,7 +957,8 @@
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21",
             "lat": 42.9995,
-            "lng": -81.2585
+            "lng": -81.2585,
+            "tidbits": []
           },
           "long": {
             "id": "q-2026-11-21-kains-woods-bird",
@@ -962,7 +974,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 5,
@@ -1228,7 +1241,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1502,7 +1516,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -1785,7 +1800,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,
@@ -2042,7 +2058,8 @@
           "source_url": "https://www.londontourism.ca/best-of-london/hiking",
           "day": "2026-11-21",
           "lat": 42.975,
-          "lng": -81.358
+          "lng": -81.358,
+          "tidbits": []
         },
         "quest_choice": "long",
         "quest_options": {
@@ -2075,7 +2092,8 @@
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21",
             "lat": 42.975,
-            "lng": -81.358
+            "lng": -81.358,
+            "tidbits": []
           }
         },
         "quests_open": 4,

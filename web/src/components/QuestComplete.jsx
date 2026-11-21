@@ -3,6 +3,7 @@
 // from the state; this only celebrates it.
 import { useEffect } from 'react'
 import { ordinal } from '../format.js'
+import { factFor } from '../voice.js'
 import { STAGE_NAMES } from '../words.js'
 import Gary from './Gary.jsx'
 import ThingIcon from './ThingIcon.jsx'
@@ -39,6 +40,7 @@ export default function QuestComplete({ reward, onClose, onShowMap }) {
           {find.been_there && <span className="mark mark-there">📍 Been there</span>}
         </div>
         <p className="reward-xp">+{find.xp} XP</p>
+        {factFor(find) && <p className="fact">💡 {factFor(find)}</p>}
 
         <ul className="reward-list">
           {cleared.map((name) => (
