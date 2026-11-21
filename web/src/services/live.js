@@ -72,5 +72,25 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args)) {
     },
     /** Forget the passphrase on this device. */
     forgetKey: () => saveKey(''),
+    /**
+     * For testing: forget every sniff and check-in. The quests stay and are all
+     * open again. A server with an admin key wants it; it is sent, never kept.
+     * Throws an error with `needsKey` when the key is missing or wrong.
+     */
+    resetGary: async (adminKey = '') => {
+      const headers = { 'Content-Type': 'application/json' }
+      if (adminKey) headers['X-Admin-Key'] = adminKey
+      const reply = await fetchFn(`${base}/api/dev/reset`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ keep_quests: true }),
+      })
+      if (!reply.ok) {
+        const error = new Error(`HTTP ${reply.status}`)
+        error.needsKey = reply.status === 401
+        throw error
+      }
+      return reply.json()
+    },
   }
 }

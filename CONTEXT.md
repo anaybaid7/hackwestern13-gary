@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 1:04 pm, when Gary went live on Vultr (#22).
+Last updated: Sat 21 Nov 2026, 2:23 pm, with the Reset Gary button for testing.
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
 21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
@@ -433,6 +433,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 9:43 am | Phase 6 merged with the Pocket Pixel redesign. The passphrase form sits in the wellness view in Settings; the view wears "Private" only behind a passphrase and "Not locked" otherwise; a visitor without the passphrase is never shown the check-in pop-up. `docs/DEMO.md`, `docs/RUNBOOK.md` and the hints in `scripts/demo.py` still name the old tabs: left as they are until the page is final. Two layout rules that the new stylesheet had lost are back, in their own block: the spacing inside the wellness view (`.you`) and the small line under "Your herd" in the Cup table (`.cup-detail`). The highlight on the "Your herd" row and the rank-up animation (`.cup-row.moved`) are also gone from the stylesheet and were left for the web owner to decide |
 | 21 Nov, 11:30 am | Gary's detector is YOLOv8s trained on Open Images, for nature: on photos it names squirrels 88%, trees 88%, ducks 60%, where YOLO-World (tried first) and SSD named none. It is weaker on benches and dogs (25%), so the scout's quests are now trees, squirrels, ducks, birds and bicycles. float32, because int8 ruins the class scores |
 | 21 Nov, 1:04 pm | Gary's public address is http://149.248.50.153 (Vultr, Toronto), plain `http`, no domain. The server takes logins with one SSH key only; that key and the server's three keys are kept on Moe's Mac in `~/.gary-deploy/`, outside the repo |
+| 21 Nov, 2:23 pm | Settings has a "Reset Gary" button for testing: it forgets every sniff and check-in and keeps the quests, which all open again (`POST /api/dev/reset` with `{"keep_quests": true}`). It asks first, and on a server with `GARY_ADMIN_KEY` it asks for that key. Gary on the Pi keeps his own list of finished quests, so there `sh start_gary.sh --fresh` is still needed |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

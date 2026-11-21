@@ -616,4 +616,98 @@ describe('The check-in pop-up and Settings', () => {
     expect(screen.getByText("Check-ins never show in Gary's world or the herd.")).toBeTruthy()
     window.localStorage.clear()
   })
+
+  test('the Sound switch remembers its choice and says hello when it is turned on', () => {
+    const played = []
+    vi.stubGlobal('Audio', class {
+      constructor(url) {
+        this.url = url
+      }
+      play() {
+        played.push(this.url)
+        return Promise.resolve()
+      }
+    })
+    try {
+      window.localStorage.clear()
+      render(<Settings service={fakeService(exampleWellness)} stamp="a" status="live" />)
+      const box = screen.getByRole('checkbox', { name: "Play Gary's sounds on this device" })
+      expect(box.checked).toBe(true) // on unless switched off
+      fireEvent.click(box)
+      expect(box.checked).toBe(false)
+      expect(window.localStorage.getItem('gary.sound')).toBe('no')
+      expect(played).toEqual([]) // switching off is silent
+      fireEvent.click(box)
+      expect(window.localStorage.getItem('gary.sound')).toBe('yes')
+      expect(played.length).toBe(1)
+    } finally {
+      window.localStorage.clear()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test('Reset Gary asks first, then starts over and tells the page to look again', async () => {
+    const service = { ...fakeService(exampleWellness), resetGary: vi.fn(async () => ({ ok: true })) }
+    const onReset = vi.fn()
+    render(<Settings service={service} stamp="a" status="live" onReset={onReset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    expect(screen.getByText('Forget every sniff and check-in?')).toBeTruthy()
+    expect(service.resetGary).not.toHaveBeenCalled() // one tap is never enough
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('Forget every sniff and check-in?')).toBeNull()
+    expect(service.resetGary).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('Gary is reset.')).toBeTruthy()
+    expect(service.resetGary).toHaveBeenCalledTimes(1)
+    expect(service.resetGary).toHaveBeenCalledWith('')
+    expect(onReset).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/sh start_gary\.sh --fresh/)).toBeTruthy() // the Pi keeps its own list
+    expect(screen.queryByLabelText('This server wants its admin key')).toBeNull()
+  })
+
+  test('on a server with an admin key, Reset Gary asks for it and does nothing without it', async () => {
+    const service = {
+      ...fakeService(exampleWellness),
+      resetGary: vi.fn(async (key) => {
+        if (key !== 'open-sesame') throw Object.assign(new Error('HTTP 401'), { needsKey: true })
+        return { ok: true }
+      }),
+    }
+    const onReset = vi.fn()
+    render(<Settings service={service} stamp="a" status="live" onReset={onReset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    const field = await screen.findByLabelText('This server wants its admin key')
+    expect(field.type).toBe('password')
+    expect(screen.getByRole('button', { name: 'Yes, reset' }).disabled).toBe(true) // no key, no reset
+    expect(onReset).not.toHaveBeenCalled()
+
+    fireEvent.change(field, { target: { value: 'wrong' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('That admin key was not accepted.')).toBeTruthy()
+    expect(onReset).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('This server wants its admin key'), { target: { value: 'open-sesame' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('Gary is reset.')).toBeTruthy()
+    expect(onReset).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('That admin key was not accepted.')).toBeNull()
+  })
+
+  test('a reset that fails for another reason says so and leaves the choice open', async () => {
+    const service = {
+      ...fakeService(exampleWellness),
+      resetGary: vi.fn(async () => {
+        throw Object.assign(new Error('HTTP 500'), { needsKey: false })
+      }),
+    }
+    render(<Settings service={service} stamp="a" status="live" onReset={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('Gary could not be reset (HTTP 500).')
+    expect(screen.getByRole('button', { name: 'Yes, reset' }).disabled).toBe(false)
+  })
 })

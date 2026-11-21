@@ -1332,6 +1332,39 @@ button:disabled {
   background: var(--orange);
 }
 
+/* Settings: the reset for testing */
+.reset,
+.reset-sure {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.reset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reset-sure label {
+  font-family: var(--pixel);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.reset-sure input {
+  width: 100%;
+  padding: 10px;
+  border: var(--line);
+  border-radius: 0;
+  background: #fff;
+  font: inherit;
+}
+
+.reset [role='alert'] {
+  color: var(--coral-deep);
+}
+
 /* Two rules the page's markup still asks for, which the Pocket Pixel rewrite
    of this file left out: the spacing inside the wellness view (its body is
    sitting on ".cup-row.you" above), and the small line under "Your herd" in
