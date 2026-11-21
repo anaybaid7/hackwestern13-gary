@@ -41,7 +41,9 @@ def api(method, path, body=None):
 apis = api("get", "resource-servers")
 rs = next((a for a in apis if a.get("identifier") == AUD), None)
 rs_body = {"name": "Gary API", "signing_alg": "RS256", "enforce_policies": True,
-           "token_dialect": "access_token_authz", "allow_offline_access": True, "token_lifetime": 86400,
+           "token_dialect": "access_token_authz", "allow_offline_access": True,
+           "token_lifetime": 604800,  # a week: a paired Gary must last the weekend even if he cannot renew
+          
            "token_lifetime_for_web": 7200, "skip_consent_for_verifiable_first_party_clients": True,
            "scopes": [{"value": "write:quests", "description": "The scout may write today's quests"},
                       {"value": "reset:gary", "description": "Start Gary over, for testing"}]}
