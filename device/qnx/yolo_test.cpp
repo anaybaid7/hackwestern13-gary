@@ -27,6 +27,11 @@ int main() {
     assert(got[0].x0 > 0.39f && got[0].x0 < 0.41f && got[0].y1 > 0.69f && got[0].y1 < 0.71f);
     assert(got[1].label == "person");
   }
+  // the nature model's name wins for the same box; a box elsewhere is kept
+  const std::vector<Detection> ssd = {{"cat", 0.98f, 0.1f, 0.1f, 0.5f, 0.5f}, {"bottle", 0.9f, 0.6f, 0.6f, 0.9f, 0.9f}};
+  const std::vector<Detection> nature = {{"squirrel", 0.7f, 0.12f, 0.1f, 0.5f, 0.52f}};
+  const auto both = merge(ssd, nature);
+  assert(both.size() == 2 && both[0].label == "bottle" && both[1].label == "squirrel");
   std::puts("yolo_test ok");
   return 0;
 }

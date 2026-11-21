@@ -38,19 +38,19 @@ running on QNX on the Pi, and the scout working on live sites.
 | **Phase 1** | **Walking skeleton** | | |
 | #2 | Contract | **Done** | `contract/` |
 | #3 | Device: button-first Sniff Test | **Done** | Both versions. The QNX one is proven only against stand-ins |
-| #4 | QNX gate: build and run on the Pi | **Open** | Needs the Pi. Steps in `device/README.md` section 4 |
+| #4 | QNX gate: build and run on the Pi | **Done** | Built and run on the loaner Pi 5 (QNX 8.0), 21 Nov. Packages: `apk add opencv-dev tflite-runtime-dev tflite-runtime flatbuffers-dev qnx-sf-base-dev`. Logitech C270 = camera unit 5. Both models: 285 ms a frame (3.5 fps), a press answered in about 170 ms |
 | #5 | `sync.py`, `fake_sniff.py` | **Done** | |
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
 | #8 | Scout: one live TinyFish run | **Partly** | Code done, and tested against a stand-in for TinyFish. The live run needs `TINYFISH_API_KEY` |
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
-| #10 | Button triggers the Sniff Test | **Code done, needs the Pi** | `device/gary_io.py`, tested with stand-in pins. On the Pi: wire it, run `python3 gary_io.py`, press once, check for one journal line |
-| #11 | Buzzer reacts to each sniff | **Code done, needs the Pi** | `python3 gary_io.py --demo` plays the five patterns |
+| #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
+| #11 | Buzzer reacts to each sniff | **Done** | Socket D16: `GARY_BUZZER_PIN=16`. Right answers are quick beeps, a miss a slow "wah... wahhh" |
 | #12 | Mood tap and short or long: where | **Proposed: the web page** | Needs the team's yes. The knob is analog and the Pi has no analog input. `gary_io.py --mood before 3` is the hook if the knob comes later |
 | #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
-| #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: code done, needs the Pi** | YOLOv8s trained on Open Images (`device/models/make_model.py`): 90 things, the old 79 plus tree, flower, squirrel, duck, goose, rabbit, deer, butterfly, mushroom, trash can, street lamp. `device/bench_model.py` scores it on photos. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
+| #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: done on the Pi** | SSD (everyday things, people) plus YOLOv8s trained on Open Images, both on every frame (`device/models/make_model.py`): 90 things, the old 79 plus tree, flower, squirrel, duck, goose, rabbit, deer, butterfly, mushroom, trash can, street lamp. `device/bench_model.py` scores it on photos. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
 | **Phase 3** | **Backend, data, rules (B)** | | |
 | #16 | Tiger Data: events, quests, state in Postgres | **Done** | Verified on Tiger Data on 21 Nov: events hypertable, `time_bucket`, API writes, persistence across fresh backend processes, and duplicate handling. Connection stored in ignored `backend/.env` on the setup machine |
 | #17 | Rules: XP, stages, naps, welcome back | **Done** | `backend/rules.py` |

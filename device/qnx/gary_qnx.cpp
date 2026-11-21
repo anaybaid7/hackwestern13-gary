@@ -678,7 +678,9 @@ static void install_handler(int sig, void (*fn)(int)) {
   std::memset(&sa, 0, sizeof sa);
   sa.sa_handler = fn;
   sigemptyset(&sa.sa_mask);
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;  // interrupted reads and writes carry on
+#endif  // QNX has none; the journal write and the key poll retry on EINTR themselves
   sigaction(sig, &sa, nullptr);
 }
 
@@ -754,8 +756,12 @@ static double percentile(std::vector<double> v, double pct) {
 
 struct Options {
   int unit = 5;  // USB camera on a Raspberry Pi 5 (CAM/DISP 0 is 3, CAM/DISP 1 is 4)
-  std::string model = "models/gary_detector.tflite";  // old one: models/ssd_mobilenet_v2_coco_quant_postprocess.tflite
-  std::string labels = "models/gary_labels.txt";   //          models/coco_labels.txt
+  // Two models on every frame: SSD for everyday things and people, and an Open
+  // Images YOLO for nature (squirrel, tree, duck), which SSD cannot name.
+  std::string model = "models/ssd_mobilenet_v2_coco_quant_postprocess.tflite";
+  std::string labels = "models/coco_labels.txt";
+  std::string extra_model = "models/gary_detector.tflite";  // "none" = SSD alone, faster
+  std::string extra_labels = "models/gary_nature_labels.txt";
   std::string quests;  // empty = quests.tsv, or quests.seed.tsv until sync.py has run
   std::string log = "journal.jsonl";
   std::string device = "gary-01";
@@ -775,6 +781,9 @@ static void usage() {
       "  --image PATH      run the model once on a picture and exit (no camera needed)\n"
       "  --model PATH      TFLite detector\n"
       "  --labels PATH     label file, one name per line\n"
+      "  --extra-model P   a second detector, run on the same frames (default the\n"
+      "                    nature model; \"none\" for one model only)\n"
+      "  --extra-labels P  its label file (\"n/a\" lines are ignored)\n"
       "  --quests PATH     quests file (default quests.tsv, or quests.seed.tsv\n"
       "                    until sync.py has run)\n"
       "  --log PATH        the journal (default journal.jsonl)\n"
@@ -814,6 +823,8 @@ static bool parse(int argc, char** argv, Options& o) {
     else if (a == "--image") text = &o.image;
     else if (a == "--model") text = &o.model;
     else if (a == "--labels") text = &o.labels;
+    else if (a == "--extra-model") text = &o.extra_model;
+    else if (a == "--extra-labels") text = &o.extra_labels;
     else if (a == "--quests") text = &o.quests;
     else if (a == "--log") text = &o.log;
     else if (a == "--device") text = &o.device;
@@ -841,8 +852,10 @@ static bool parse(int argc, char** argv, Options& o) {
 // from "is it the camera" when something misbehaves.
 static int run_image(const Options& opt) {
 #ifdef GARY_HAS_IMGCODECS
-  Detector detector;
+  Detector detector, extra;
   if (!detector.load(opt.model, opt.labels, opt.threads)) return 1;
+  const bool has_extra = opt.extra_model != "none";
+  if (has_extra && !extra.load(opt.extra_model, opt.extra_labels, opt.threads)) return 1;
   const cv::Mat img = cv::imread(opt.image, cv::IMREAD_COLOR);
   if (img.empty()) {
     fprintf(stderr, "error: cannot read image %s\n", opt.image.c_str());
@@ -850,6 +863,7 @@ static int run_image(const Options& opt) {
   }
   const auto t0 = Clock::now();
   auto found = detector.detect(img, std::min(0.3f, opt.threshold));
+  if (has_extra) found = merge(std::move(found), extra.detect(img, std::min(0.3f, opt.threshold)));
   const double ms = ms_between(t0, Clock::now());
   std::sort(found.begin(), found.end(),
             [](const Detection& a, const Detection& b) { return a.score > b.score; });
@@ -896,8 +910,11 @@ int main(int argc, char** argv) {
   // From here on, new threads inherit the priority: the model's workers do.
   raise_priority(opt.priority);
 
-  Detector detector;
+  Detector detector, extra;
   if (!detector.load(opt.model, opt.labels, opt.threads)) return 1;
+  const bool has_extra = opt.extra_model != "none";
+  if (has_extra && !extra.load(opt.extra_model, opt.extra_labels, opt.threads)) return 1;
+  auto knows = [&](const std::string& label) { return detector.knows(label) || (has_extra && extra.knows(label)); };
 
   std::vector<Quest> quests = load_quests(quests_file(opt.quests));
   Journal journal(opt.log, opt.device);
@@ -906,7 +923,7 @@ int main(int argc, char** argv) {
   auto print_quests = [&] {
     int already = 0;
     for (const auto& q : quests) {
-      if (!detector.knows(q.label))
+      if (!knows(q.label))
         printf("WARNING: quest %s wants '%s', which this model cannot see.\n", q.id.c_str(),
                q.label.c_str());
       if (journal.done(q.id)) ++already;
@@ -932,10 +949,17 @@ int main(int argc, char** argv) {
 
   // Runs on the camera library's thread, so it stays short: shrink the frame
   // to the model's size (into memory we own) and leave it in the slot.
-  const int in_w = detector.in_w, in_h = detector.in_h;
+  // the larger of the two inputs, so neither model is fed an enlarged image
+  const int in_w = std::max(detector.in_w, has_extra ? extra.in_w : 0);
+  const int in_h = std::max(detector.in_h, has_extra ? extra.in_h : 0);
   auto on_frame = [in_w, in_h](const cv::Mat& bgr) {
     if (!g_run.load() || bgr.empty()) return;
     const auto arrived = Clock::now();
+#ifdef GARY_HAS_IMGCODECS
+    // GARY_SAVE_FRAME=frame.jpg: keep one camera frame, to check what the model is given
+    static std::atomic<int> seen{0};
+    if (const char* path = std::getenv("GARY_SAVE_FRAME"); path && seen.fetch_add(1) == 30) cv::imwrite(path, bgr);
+#endif
     cv::Mat small;
     cv::resize(bgr, small, cv::Size(in_w, in_h), 0, 0, cv::INTER_LINEAR);
     {
@@ -1092,7 +1116,8 @@ int main(int argc, char** argv) {
     empty_waits = 0;
 
     const auto t0 = Clock::now();
-    const auto detections = detector.detect(frame, std::min(0.3f, opt.threshold));
+    auto detections = detector.detect(frame, std::min(0.3f, opt.threshold));
+    if (has_extra) detections = merge(std::move(detections), extra.detect(frame, std::min(0.3f, opt.threshold)));
     const double model_ms = ms_between(t0, Clock::now());
 
     std::map<std::string, float> best;

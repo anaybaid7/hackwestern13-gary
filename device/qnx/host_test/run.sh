@@ -38,7 +38,7 @@ printf 't-bottle\tbottle\t10\tFind a bottle\nt-backpack\tbackpack\t10\tFind a ba
 #   15 bottle | 45 backpack, no friend | 50 backpack again | 75 nothing
 #   100 laptop + person | 115 laptop again
 # The stand-in model speaks SSD, with class ids from coco_labels.txt.
-SSD="--model models/ssd_mobilenet_v2_coco_quant_postprocess.tflite --labels models/coco_labels.txt"
+SSD="--model models/ssd_mobilenet_v2_coco_quant_postprocess.tflite --labels models/coco_labels.txt --extra-model none"
 echo "Running the scene..."
 cd "$DEVICE"
 GARY_FAKE_PRESSES=15,45,50,75,100,115 GARY_FAKE_QUIT=125 GARY_FAKE_MODEL_MS=2 GARY_FAKE_FRAME_MS=3 \

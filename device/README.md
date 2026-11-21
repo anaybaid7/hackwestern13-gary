@@ -17,8 +17,8 @@ records facts; XP, stages and the map belong to the backend.
 | `start_gary.sh`, `stop_gary.sh` | Run all of it in the background, with no keyboard or screen | Tested on Linux. **Not yet run on QNX** (issue #13) |
 | `gary_numbers.py`, `cpu_load.py` | The timing table for the judges | Tested on Linux (issue #14) |
 | `fake_sniff.py` | Posts a pretend sniff, for teammates with no device | Tested |
-| `models/gary_detector.tflite`, `gary_labels.txt` | The detector: YOLOv8s trained on Open Images V7 (600 kinds of thing; Gary names 90 of them plus `person`, the rest are `n/a` in the labels file). 320 x 320, float32, 46 MB. About 17 ms a frame on a laptop. Scores per thing: `bench_results.md` | Made by `models/make_model.py`. Tested on photos and in both decoders. **Not yet run on QNX** |
-| `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The old detector: SSD MobileNet v2, 80 COCO things, 6 MB. Still works: `--model models/ssd_mobilenet_v2_coco_quant_postprocess.tflite --labels models/coco_labels.txt` | From google-coral/test_data |
+| `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The main detector: SSD MobileNet v2, 80 everyday things and people. 57 ms a frame on the Pi | From google-coral/test_data |
+| `models/gary_detector.tflite`, `gary_nature_labels.txt` | The extra detector, run on the same frames: YOLOv8s trained on Open Images, of which Gary keeps only the nature names (tree, squirrel, duck, butterfly, rabbit, deer ...). 228 ms a frame on the Pi, float32, 46 MB. `--extra-model none` turns it off | Made by `models/make_model.py`. Scores: `bench_results.md` |
 | `bench_model.py` | How well the model names things: scores it on labelled photos (`--fetch` downloads about 10 per thing from Wikimedia Commons into `bench_photos/`, not committed). Writes `bench_results.md` | Run on the laptop |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
 | `sounds/` | Placeholder chimes | Replace with Gary's voice |
@@ -279,7 +279,7 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   stop `sync.py` and edit `quests.tsv` (or `quests.seed.tsv`): one quest per
   line, TAB-separated: `id  target  xp  text`, plus `herd` as a fifth column
   for a quest that needs a friend in frame. `target` must be a name in
-  `models/gary_labels.txt`. When two open quests want the same thing, the
+  `models/coco_labels.txt` or `models/gary_nature_labels.txt`. When two open quests want the same thing, the
   earlier line wins; `sync.py` puts the quest chosen on the web page first.
 - **Gary's voice:** replace the WAV files in `sounds/` (`hello`, `new`,
   `again`, `quest`, `herd`, `nothing`, `done`). Add `sounds/<label>.wav`, for

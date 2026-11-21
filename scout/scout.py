@@ -114,10 +114,15 @@ def load_labels():
     with open(os.path.join(ROOT, "contract", "labels.json"), "r", encoding="utf-8") as f:
         doc = json.load(f)
     allowed = {item["name"] for item in doc["labels"] if item["outdoor"]}
-    device = os.path.join(ROOT, "device", "models", "gary_labels.txt")
-    if os.path.exists(device):
-        with open(device, "r", encoding="utf-8") as f:
-            allowed &= {line.strip() for line in f}
+    # the device's two label files: SSD's everyday things, the nature model's
+    on_device = set()
+    for name in ("coco_labels.txt", "gary_nature_labels.txt"):
+        path = os.path.join(ROOT, "device", "models", name)
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                on_device |= {line.strip() for line in f}
+    if on_device:
+        allowed &= on_device
     return allowed
 
 

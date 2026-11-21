@@ -77,7 +77,7 @@ Other types: `miss` (sniffed, nothing nameable) and `mood` (`phase`: `before` or
  "source": "tinyfish", "source_url": "https://...", "day": "2026-11-21"}
 ```
 
-`target` must be a name in `device/models/gary_labels.txt`. That is what lets
+`target` must be a name in `device/models/coco_labels.txt` or `gary_nature_labels.txt`. That is what lets
 the Sniff Test confirm a quest. A `herd` quest completes only with a friend in frame.
 
 **State**: backend → web, `GET /api/state`. Everything the page draws.

@@ -137,7 +137,7 @@ def main():
     ap.add_argument("--fetch", action="store_true", help="download photos from Wikimedia Commons first")
     ap.add_argument("--per-thing", type=int, default=10)
     ap.add_argument("--model", default=os.path.join(HERE, "models", "gary_detector.tflite"))
-    ap.add_argument("--labels", default=os.path.join(HERE, "models", "gary_labels.txt"))
+    ap.add_argument("--labels", default=os.path.join(HERE, "models", "gary_nature_labels.txt"))
     ap.add_argument("--compare-ssd", action="store_true", help="also score the old SSD model")
     args = ap.parse_args()
     if args.fetch:

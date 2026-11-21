@@ -166,8 +166,10 @@ def test_the_same_place_always_gets_the_same_quest():
 
 # --- the checks (issue #32) ---------------------------------------------------------
 def test_every_target_is_one_garys_model_can_name():
-    with open(os.path.join(ROOT, "device", "models", "gary_labels.txt"), "r", encoding="utf-8") as f:
-        on_device = {line.strip() for line in f}
+    on_device = set()
+    for name in ("coco_labels.txt", "gary_nature_labels.txt"):
+        with open(os.path.join(ROOT, "device", "models", name), "r", encoding="utf-8") as f:
+            on_device |= {line.strip() for line in f}
     assert ALLOWED and ALLOWED <= on_device, "every allowed target is in the device's own label file"
     assert "person" not in ALLOWED, "a person is the friend, never a target"
     for words, targets in scout.TARGET_RULES:

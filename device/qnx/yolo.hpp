@@ -20,6 +20,20 @@ inline float overlap(const Detection& a, const Detection& b) {
   return both / ((a.x1 - a.x0) * (a.y1 - a.y0) + (b.x1 - b.x0) * (b.y1 - b.y0) - both);
 }
 
+// Both detectors' finds. Where they box the same thing, the extra (nature)
+// model's name wins: SSD calls a squirrel a cat.
+inline std::vector<Detection> merge(std::vector<Detection> main, const std::vector<Detection>& extra,
+                                    float iou = 0.5f) {
+  std::vector<Detection> out;
+  for (auto& m : main) {
+    bool covered = false;
+    for (const auto& e : extra) covered = covered || overlap(m, e) > iou;
+    if (!covered) out.push_back(std::move(m));
+  }
+  out.insert(out.end(), extra.begin(), extra.end());
+  return out;
+}
+
 // out: [4+K, A] row-major (rows = cx, cy, w, h in 0..1, then one score per
 // class), or [A, 4+K] when anchors_first. Keeps each anchor's best class if it
 // scores at least min_score, then drops any box that overlaps a stronger box
