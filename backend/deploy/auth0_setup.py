@@ -98,7 +98,8 @@ tenant = json.loads(subprocess.run([A0, "tenants", "list", "--json"], capture_ou
 domain = next(t["name"] for t in tenant if t.get("active"))
 
 # the scout's secret: from Auth0 into scout/.env, never onto the screen
-secret = api("get", "clients/%s?fields=client_secret&include_fields=true" % scout)["client_secret"]
+shown = subprocess.run([A0, "apps", "show", scout, "--reveal-secrets", "--json"], capture_output=True, text=True)
+secret = json.loads(shown.stdout)["client_secret"]
 env = os.path.join(ROOT, "scout", ".env")
 lines = open(env).read().splitlines() if os.path.exists(env) else []
 lines = [l for l in lines if not re.match(r"AUTH0_(DOMAIN|AUDIENCE|SCOUT_CLIENT_ID|SCOUT_CLIENT_SECRET)=", l)]
