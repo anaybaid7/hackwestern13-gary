@@ -2,17 +2,29 @@
 // names, dimmed by fog everywhere except round the places you have cleared.
 // Each place from a quest is a pin. Your own position is a dot, read from
 // the browser and kept there: it is never sent anywhere.
+//
+// Everything here only draws what the state says. Which places are cleared,
+// and when, comes from the backend; the trail, the frontier and the reveal
+// are pictures of that.
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef, useState } from 'react'
 import { clock, dayName, dayKey } from '../format.js'
-import { LONDON, layout } from '../places.js'
+import { LONDON, away, layout } from '../places.js'
 
 const CLEAR_METRES = 350
 const START_ZOOM = 14
 // thick enough that a cleared place stands out; streets only just show through
 const FOG_COLOUR = 'rgba(44, 58, 78, 0.78)' // a dusky slate, like unexplored ground in a game
 const FOG_DITHER = 'rgba(255, 255, 255, 0.07)'
+const FRONTIER = 'rgba(200, 245, 107, 1)' // the LCD lime: the edge of what you have explored
+const REVEAL_MS = 1400 // a place that has just cleared opens up over this long
+const INK = '#14202b'
+const CREAM = '#fff4da'
+
+function stillPlease() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+}
 
 /** A 6 x 6 tile of two dither pixels, so the fog reads as fog and not as a tint. */
 function ditherTile() {
@@ -30,7 +42,9 @@ function ditherTile() {
 /**
  * The fog, painted on a canvas above the streets and below the pins. Each
  * cleared place rubs out a soft-edged circle; circles that overlap simply
- * merge. Redrawn whenever the map moves.
+ * merge. A dashed lime frontier runs round the edge of the explored ground,
+ * and a place that has just cleared opens up from nothing. Redrawn whenever
+ * the map moves.
  */
 function makeFog(map) {
   const pane = map.createPane('fog')
@@ -38,9 +52,11 @@ function makeFog(map) {
   pane.style.pointerEvents = 'none'
   // 'leaflet-zoom-animated' lets it glide through a zoom with the streets, like Leaflet's own overlays
   const canvas = L.DomUtil.create('canvas', 'fog-canvas leaflet-zoom-animated', pane)
-  let spots = []
+  let spots = [] // { key, at, born }: born is when its reveal started, 0 for none
   let dither = null
+  let frame = 0
   function draw() {
+    frame = 0
     const size = map.getSize()
     const ratio = window.devicePixelRatio || 1
     canvas.width = size.x * ratio
@@ -64,11 +80,19 @@ function makeFog(map) {
       ctx.fillRect(0, 0, size.x + 6, size.y + 6)
       ctx.restore()
     }
+    const now = performance.now()
+    let opening = false
+    const holes = spots.map(({ at, born }) => {
+      const centre = map.latLngToContainerPoint(at)
+      const edge = map.latLngToContainerPoint([at[0] + CLEAR_METRES / 111320, at[1]])
+      const full = Math.max(16, centre.y - edge.y) // never smaller than a pin, even zoomed out
+      const t = born ? Math.min(1, (now - born) / REVEAL_MS) : 1
+      if (t < 1) opening = true
+      return { centre, r: full * (1 - (1 - t) ** 3) } // eases out, so it bursts open then settles
+    })
     ctx.globalCompositeOperation = 'destination-out'
-    for (const [lat, lng] of spots) {
-      const centre = map.latLngToContainerPoint([lat, lng])
-      const edge = map.latLngToContainerPoint([lat + CLEAR_METRES / 111320, lng])
-      const r = Math.max(8, centre.y - edge.y)
+    for (const { centre, r } of holes) {
+      if (r < 1) continue
       const glow = ctx.createRadialGradient(centre.x, centre.y, r * 0.55, centre.x, centre.y, r)
       glow.addColorStop(0, 'rgba(0,0,0,1)')
       glow.addColorStop(1, 'rgba(0,0,0,0)')
@@ -77,8 +101,26 @@ function makeFog(map) {
       ctx.arc(centre.x, centre.y, r, 0, Math.PI * 2)
       ctx.fill()
     }
+    // the frontier: painted only where fog remains, so where clearings meet it vanishes
+    ctx.globalCompositeOperation = 'source-atop'
+    ctx.strokeStyle = FRONTIER
+    ctx.lineWidth = 3
+    ctx.setLineDash?.([4, 5])
+    for (const { centre, r } of holes) {
+      if (r < 6) continue
+      ctx.beginPath()
+      ctx.arc(centre.x, centre.y, r * 0.86, 0, Math.PI * 2)
+      ctx.stroke()
+    }
+    ctx.globalCompositeOperation = 'source-over'
+    if (opening) frame = requestAnimationFrame(draw)
   }
-  map.on('move zoomend resize viewreset', draw)
+  function redraw() {
+    if (frame) cancelAnimationFrame(frame)
+    draw()
+  }
+  map.on('move zoomend resize viewreset', redraw)
+  map.on('unload', () => frame && cancelAnimationFrame(frame))
   // during an animated zoom, scale the painted fog the same way the tiles are scaled
   map.on('zoomanim', (event) => {
     const scale = map.getZoomScale(event.zoom)
@@ -86,9 +128,13 @@ function makeFog(map) {
     L.DomUtil.setTransform(canvas, offset, scale)
   })
   return {
+    /** next: [{ key, at, fresh }]. A fresh place keeps its reveal going across redraws. */
     set(next) {
-      spots = next
-      draw()
+      const was = new Map(spots.map((spot) => [spot.key, spot.born]))
+      const now = performance.now()
+      const still = stillPlease()
+      spots = next.map(({ key, at, fresh }) => ({ key, at, born: fresh && !still ? was.get(key) || now : 0 }))
+      redraw()
     },
   }
 }
@@ -101,6 +147,15 @@ function pinHtml(tile, here) {
 
 function escape(text) {
   return String(text).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
+}
+
+/** Cleared places in the order they were uncovered: the route of your week so far. */
+function trailOf(map, spots) {
+  return map
+    .filter((tile) => tile.cleared)
+    .map((tile, n) => ({ at: spots.get(tile.place), when: Date.parse(tile.cleared_at ?? '') || 0, n }))
+    .sort((a, b) => a.when - b.when || a.n - b.n)
+    .map((stop) => stop.at)
 }
 
 /** Follows the browser's location while the map is open. */
@@ -122,6 +177,7 @@ function useWhereAmI() {
 
 export default function MapScreen({ map, flash, quest = null, focusPlace = null }) {
   const [picked, setPicked] = useState(focusPlace)
+  const [streets, setStreets] = useState('loading') // 'loading' | 'on' | 'off': whether street tiles arrive
   const box = useRef(null)
   const leaflet = useRef(null)
   const me = useWhereAmI()
@@ -129,18 +185,35 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
   const cleared = map.filter((tile) => tile.cleared)
   const chosen = map.find((tile) => tile.place === picked) ?? null
   const questPlace = quest?.place
-  const first = spots.get(focusPlace) ?? spots.get(questPlace) ?? spots.get(cleared[0]?.place) ?? LONDON
+  const questAt = questPlace ? spots.get(questPlace) : null
+  const first = spots.get(focusPlace) ?? questAt ?? spots.get(cleared[0]?.place) ?? LONDON
 
   // the map itself, once
   useEffect(() => {
     const m = L.map(box.current, { zoomControl: false, minZoom: 11, maxBounds: [[42.7, -81.7], [43.25, -80.8]] })
     m.setView(first, START_ZOOM)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(m)
+    // no network: say so once, and keep the fog and pins working
+    let loaded = false
+    tiles.on('tileload', () => {
+      loaded = true
+      setStreets('on')
+    })
+    tiles.on('tileerror', () => !loaded && setStreets('off'))
     L.control.zoom({ position: 'bottomright' }).addTo(m)
-    leaflet.current = { map: m, fog: makeFog(m), layers: L.layerGroup().addTo(m), me: L.layerGroup().addTo(m) }
+    const trailPane = m.createPane('trail')
+    trailPane.style.zIndex = 460 // above the fog, below the pins
+    trailPane.style.pointerEvents = 'none'
+    leaflet.current = {
+      map: m,
+      fog: makeFog(m),
+      trail: L.layerGroup().addTo(m),
+      layers: L.layerGroup().addTo(m),
+      me: L.layerGroup().addTo(m),
+    }
     // the box can change size without the window doing so (the handheld frame, a rotated phone)
     const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => m.invalidateSize())
     watch?.observe(box.current)
@@ -152,12 +225,19 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- made once; the effects below keep it current
   }, [])
 
-  // the fog and the pins, whenever the state changes
-  const signature = JSON.stringify([map.map((t) => [t.place, t.cleared]), questPlace, flash.cleared, picked])
+  // the fog, the trail and the pins, whenever the state changes
+  const signature = JSON.stringify([map.map((t) => [t.place, t.cleared, t.cleared_at ?? null]), questPlace, flash.cleared, picked])
   useEffect(() => {
-    const { layers, fog } = leaflet.current
+    const { layers, fog, trail } = leaflet.current
     layers.clearLayers()
-    fog.set(cleared.map((tile) => spots.get(tile.place)))
+    trail.clearLayers()
+    fog.set(cleared.map((tile) => ({ key: tile.place, at: spots.get(tile.place), fresh: flash.cleared.includes(tile.place) })))
+    const route = trailOf(map, spots)
+    if (route.length > 1) {
+      const line = { pane: 'trail', interactive: false, lineCap: 'square', lineJoin: 'miter' }
+      L.polyline(route, { ...line, className: 'trail-under', color: CREAM, weight: 9, opacity: 0.85 }).addTo(trail)
+      L.polyline(route, { ...line, className: 'trail', color: INK, weight: 4, dashArray: '2 9' }).addTo(trail)
+    }
     for (const tile of map) {
       const here = !tile.cleared && questPlace === tile.place
       const fresh = flash.cleared.includes(tile.place)
@@ -178,6 +258,14 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `signature` is everything these layers draw
   }, [signature])
+
+  // a place that has just cleared: bring it into view so its reveal is seen
+  const freshPlace = flash.cleared.find((place) => spots.has(place)) ?? null
+  useEffect(() => {
+    if (!freshPlace || focusPlace || !leaflet.current) return
+    leaflet.current.map.panTo(spots.get(freshPlace), { animate: !stillPlease() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new place clears
+  }, [freshPlace])
 
   // you
   useEffect(() => {
@@ -202,6 +290,21 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
     if (me.at) leaflet.current.map.setView(me.at, Math.max(leaflet.current.map.getZoom(), 15))
   }
 
+  function goToQuest() {
+    if (!questAt) return
+    setPicked(questPlace)
+    leaflet.current.map.setView(questAt, Math.max(leaflet.current.map.getZoom(), 15))
+  }
+
+  function showAll() {
+    const all = [...spots.values()]
+    if (me.at) all.push(me.at)
+    if (all.length === 0) return
+    leaflet.current.map.fitBounds(L.latLngBounds(all), { padding: [36, 36], maxZoom: 15 })
+  }
+
+  const chosenAway = chosen && me.at ? away(me.at, spots.get(chosen.place)) : null
+
   return (
     <div className="screen map-screen">
       <div className="map-head">
@@ -210,15 +313,34 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
           {cleared.length}/{map.length} uncovered
         </span>
       </div>
+      {map.length > 0 && (
+        <div className="explored" aria-hidden="true">
+          {map.map((_, n) => (
+            <span key={n} className={`explored-cell${n < cleared.length ? ' on' : ''}${n < cleared.length && n >= cleared.length - flash.cleared.length ? ' fresh' : ''}`} />
+          ))}
+        </div>
+      )}
 
       <div className="world">
         <div className="world-map" ref={box} aria-label="Map of London, Ontario" />
+        <div className="map-tools">
+          <button type="button" onClick={goToQuest} disabled={!questAt}>Quest</button>
+          <button type="button" onClick={showAll} disabled={map.length === 0 && !me.at}>All places</button>
+        </div>
         <button type="button" className="locate" onClick={findMe} disabled={!me.at}
                 aria-label={me.at ? 'Show where I am' : me.state === 'denied' ? 'Location is off' : 'Finding you'}>
           ◎
         </button>
+        {streets === 'off' && <p className="map-note" role="status">No street map right now. The fog and the pins still work.</p>}
       </div>
       {me.state === 'denied' && <p className="small">Location is off. Allow it to see yourself on the map.</p>}
+
+      <ul className="map-key">
+        <li><span className="key-mark key-fog">?</span>Fog</li>
+        <li><span className="key-mark key-quest">!</span>Your quest</li>
+        <li><span className="key-mark key-flag" />Uncovered</li>
+        <li><span className="key-mark key-trail" />Your trail</li>
+      </ul>
 
       <div className="sheet" aria-live="polite">
         {!chosen && <p className="empty">Tap a pin.</p>}
@@ -246,6 +368,7 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
             </ul>
           </>
         )}
+        {chosenAway && <p className="small away">{chosenAway}</p>}
       </div>
     </div>
   )

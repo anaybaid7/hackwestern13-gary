@@ -12,7 +12,7 @@ import MapScreen from './MapScreen.jsx'
 import Settings from './Settings.jsx'
 import You, { suggestPhase } from './You.jsx'
 import CheckIn from '../components/CheckIn.jsx'
-import { LONDON, layout, placeKey } from '../places.js'
+import { LONDON, away, layout, metresBetween, placeKey } from '../places.js'
 
 afterEach(cleanup)
 
@@ -227,6 +227,45 @@ describe('Map (issue #26)', () => {
     expect(screen.getByRole('button', { name: 'Location is off' }).disabled).toBe(true)
   })
 
+  test('the cleared places are joined by a trail, in the order they were uncovered', () => {
+    const one = render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(one.container.querySelector('path.trail')).toBeNull() // one place is not a trail
+    one.unmount()
+    const { container } = render(<MapScreen map={step(9).map} flash={NO_FLASH} quest={step(9).quest} />)
+    expect(container.querySelectorAll('path.trail').length).toBe(1)
+    expect(container.querySelectorAll('path.trail-under').length).toBe(1)
+    expect(container.querySelectorAll('.tile').length).toBe(step(9).map.length) // the trail is not a pin
+  })
+
+  test('one cell per place, lit for each uncovered one', () => {
+    const { container } = render(<MapScreen map={step(9).map} flash={NO_FLASH} />)
+    expect(container.querySelectorAll('.explored-cell').length).toBe(step(9).map.length)
+    expect(container.querySelectorAll('.explored-cell.on').length).toBe(step(9).map.filter((t) => t.cleared).length)
+  })
+
+  test('"Quest" jumps to the quest\'s place; with no quest it is off', () => {
+    const { unmount } = render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(screen.getByRole('button', { name: 'Quest' }).disabled).toBe(true)
+    unmount()
+    render(<MapScreen map={example.map} flash={NO_FLASH} quest={example.quest} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Quest' }))
+    expect(screen.getByRole('heading', { name: 'Hack Western, your table' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'All places' })) // fits every pin; nothing to assert but that it does not throw
+    expect(screen.getByText('Fog')).toBeTruthy() // the key says what the marks mean
+    expect(screen.getByText('Your trail')).toBeTruthy()
+  })
+
+  test('how far a place is, worked out from your own location in the browser', () => {
+    navigator.geolocation = {
+      watchPosition: (ok) => (ok({ coords: { latitude: 42.9849, longitude: -81.2453, accuracy: 20 } }), 9),
+      clearWatch: () => {},
+    }
+    render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(screen.queryByText(/from you/)).toBeNull() // nothing picked, nothing said
+    fireEvent.click(screen.getByRole('button', { name: 'Harris Park, uncovered' }))
+    expect(screen.getByText('About 900 m from you, as the crow flies.')).toBeTruthy()
+  })
+
   test('many places still draw', () => {
     const many = Array.from({ length: 25 }, (_, i) => ({ place: `Place ${i}`, quest_id: `q-${i}`, cleared: i % 2 === 0, finds: [] }))
     const { container } = render(<MapScreen map={many} flash={NO_FLASH} />)
@@ -243,6 +282,15 @@ describe('Where places sit on the map', () => {
     const [a, b] = [spots.get('Hack Western, your table'), spots.get('Hack Western, the next table')]
     expect(a).not.toEqual(b)
     expect(Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])).toBeLessThan(0.008)
+  })
+
+  test('distances read plainly', () => {
+    expect(Math.round(metresBetween([42.9849, -81.2453], [42.9849, -81.2453]))).toBe(0)
+    expect(Math.round(metresBetween([43, -81], [43.01, -81]))).toBe(1112) // a hundredth of a degree north
+    expect(away(null, [43, -81])).toBeNull()
+    expect(away([43, -81], [43.0001, -81])).toBe('You are here.')
+    expect(away([43, -81], [43.003, -81])).toBe('About 350 m from you, as the crow flies.')
+    expect(away([43, -81], [43.02, -81])).toBe('About 2.2 km from you, as the crow flies.')
   })
 
   test('a place nobody has placed lands near downtown, always in the same spot', () => {
