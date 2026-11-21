@@ -47,7 +47,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
 | #11 | Buzzer reacts to each sniff | **Done** | Socket D16: `GARY_BUZZER_PIN=16`. One quick beep for good (the quest's thing, or a find with no quest open), three for bad (something else while a quest is open), a puzzled two for nothing named. The speaker matches (a check, an X, or a puzzled "hmm?"), and Gary's voice starts as the cue ends |
 | #12 | Mood tap and short or long: where | **Proposed: the web page** | Needs the team's yes. The knob is analog and the Pi has no analog input. `gary_io.py --mood before 3` is the hook if the knob comes later |
-| #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
+| #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat. The proposed build (cap, pack, cables) is `docs/design.md` |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
 | #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: done on the Pi** | SSD (everyday things, people) plus YOLOv8s trained on Open Images, both on every frame (`device/models/make_model.py`): 90 things, the old 79 plus tree, flower, squirrel, duck, goose, rabbit, deer, butterfly, mushroom, trash can, street lamp. `device/bench_model.py` scores it on photos. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
 | **Phase 3** | **Backend, data, rules (B)** | | |
@@ -149,7 +149,7 @@ Who decides what. Do not move logic across these lines:
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests, the checks, the evidence page), `sources.json` (the pages), `gary_voice.py` (optional Gemini step), tests |
-| `docs/` | D | `PLAN.md`, `RUNBOOK.md` (from now to the submission), `DEMO.md` (the three-minute script), `DEVPOST.md` (the page, as a draft), `TINYFISH_POST.md`, `qnx-numbers.md`, `img/` (screenshots for the README) |
+| `docs/` | D | `PLAN.md`, `RUNBOOK.md` (from now to the submission), `DEMO.md` (the three-minute script), `DEVPOST.md` (the page, as a draft), `TINYFISH_POST.md`, `qnx-numbers.md`, `design.md` (the field kit: camera on a hat, Pi in a pack), `img/` (screenshots for the README) |
 | `scripts/` | shared | `demo.py` (is the demo ready, reset it, replay it with no device), `check_secrets.sh` (keys in git, before the repo goes public), `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
 
 Each folder has its own README with run commands and file notes.
