@@ -42,9 +42,13 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}`, header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | `{"ok": true}`. `401` without the passphrase |
 | `GET /api/wellness` | web | header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | Wellness. `401` without the passphrase |
 | `POST /api/dev/reset` | demos, tests, the page's "Reset Gary" button | optional `{"keep_quests": true}`; header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | with `keep_quests`: forgets events and moods, keeps every quest and opens them all again. Without it: forgets events and moods, reloads seed quests |
+| `GET /api/auth/config` | web, device (`pair.py`) | | `{"enabled", "domain", "audience", "client_id", "device_client_id"}`. `enabled` is false when the server has no Auth0 tenant |
+| `GET /api/me` | web | header `Authorization: Bearer <token>` | `{"signed_in": false}`, or `{"signed_in": true, "fingerprint", "paired", "permissions"}` |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.
+
+**Auth0 (optional, additive).** When the server sets `AUTH0_DOMAIN`, every route above also accepts `Authorization: Bearer <token>` beside its key: a person's token opens their own check-ins, a token with `write:quests` may post quests, one with `reset:gary` may reset, and a paired device's token signs its events. Wellness gains `"signed_in"`. A token that is sent and is wrong gets `401`. See `docs/AUTH0.md`.
 
 `sent_at` is what the device's clock reads when it uploads. A Pi that starts
 with no network may not know the time; the backend uses `sent_at` to move the

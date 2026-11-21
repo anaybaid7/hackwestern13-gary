@@ -33,8 +33,9 @@ def load_seed(path):
 
 
 def mood_row(event):
+    # owner: the fingerprint of the signed-in person, or None (see auth.py)
     return {"ts": event["ts"], "phase": event["phase"], "value": event["value"],
-            "source": event.get("source", "device")}
+            "source": event.get("source", "device"), "owner": event.get("owner")}
 
 
 class MemoryStore:
@@ -240,6 +241,8 @@ class PostgresStore:
     def _migrate(self):
         with self.conn.transaction(), self.conn.cursor() as cur:
             cur.execute((HERE / "schema.sql").read_text(encoding="utf-8"))
+            # added with the Auth0 login: whose check-in it is, as a fingerprint
+            cur.execute("ALTER TABLE mood_checkins ADD COLUMN IF NOT EXISTS owner TEXT")
         # Tiger Data: make events a hypertable on ts. On a plain Postgres these
         # steps fail quietly and events stays an ordinary table.
         self._try("CREATE EXTENSION IF NOT EXISTS timescaledb")
@@ -276,8 +279,9 @@ class PostgresStore:
                 when = rules.parse_ts(event["ts"])
                 if event["type"] == "mood":
                     row = mood_row(event)
-                    cur.execute("INSERT INTO mood_checkins (ts, phase, value, source) VALUES (%s, %s, %s, %s)",
-                                (when, row["phase"], row["value"], row["source"]))
+                    cur.execute("INSERT INTO mood_checkins (ts, phase, value, source, owner) "
+                                "VALUES (%s, %s, %s, %s, %s)",
+                                (when, row["phase"], row["value"], row["source"], row["owner"]))
                 else:
                     cur.execute(
                         "INSERT INTO events (ts, id, type, device, label, friend, body) "
@@ -296,10 +300,10 @@ class PostgresStore:
     @_retry
     def moods(self):
         with self.conn.cursor() as cur:
-            cur.execute("SELECT ts, phase, value, source FROM mood_checkins ORDER BY seq")
+            cur.execute("SELECT ts, phase, value, source, owner FROM mood_checkins ORDER BY seq")
             return [{"ts": ts.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                     "phase": phase, "value": value, "source": source}
-                    for ts, phase, value, source in cur.fetchall()]
+                     "phase": phase, "value": value, "source": source, "owner": owner}
+                    for ts, phase, value, source, owner in cur.fetchall()]
 
     @_retry
     def quests(self):

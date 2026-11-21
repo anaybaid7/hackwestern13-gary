@@ -270,6 +270,15 @@ python3 gary_numbers.py --check-journal   # after pulling the power: is the jour
 "Frame" means the frame reaching the program. Time inside the camera and the
 USB link is not included. The page to fill in is `../docs/qnx-numbers.md`.
 
+## Pairing Gary with a person (optional)
+
+`python3 pair.py` pairs this Gary with whoever approves the code it shows
+(Auth0's device flow; see `docs/AUTH0.md`). The token is kept in `gary.token`,
+which git ignores, and `sync.py` sends it with each upload. `pair.py --status`
+says whether he is paired, `pair.py --forget` unpairs him. An unpaired Gary
+works exactly as before. If the Pi's Python has no `https`, run `pair.py` on a
+laptop and copy `gary.token` to the Pi.
+
 ## 8. Hooks for other programs
 
 | Do this | Effect |

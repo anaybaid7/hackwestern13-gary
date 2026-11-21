@@ -30,13 +30,32 @@ BATCH = 100
 TIMEOUT = 5
 
 
-def call(api, path, body=None):
-    """One JSON request. Returns the decoded reply, or raises OSError."""
+def pairing_token():
+    """The token of a paired Gary (see pair.py), or None. Never raises."""
+    try:
+        import pair
+        return pair.current_token()
+    except Exception:  # pairing is optional; an upload must never fail over it
+        return None
+
+
+def call(api, path, body=None, token=None):
+    """One JSON request. Returns the decoded reply, or raises OSError.
+    `token`: sent as proof of who this Gary is paired with. If the backend
+    refuses it, the request is sent once more without it: the sniffs matter
+    more than the signature."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(api.rstrip("/") + path, data=data,
-                                 headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as reply:
-        return json.loads(reply.read().decode("utf-8"))
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = "Bearer " + token
+    req = urllib.request.Request(api.rstrip("/") + path, data=data, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as reply:
+            return json.loads(reply.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        if token and err.code == 401:
+            return call(api, path, body)
+        raise
 
 
 def clock():
@@ -90,7 +109,7 @@ def upload_journal(api, journal_path, state_path, say):
                 break
             if events:
                 try:
-                    call(api, "/api/events", {"events": events, "sent_at": clock()})
+                    call(api, "/api/events", {"events": events, "sent_at": clock()}, pairing_token())
                 except urllib.error.HTTPError as exc:
                     if exc.code >= 500:
                         raise
@@ -98,7 +117,7 @@ def upload_journal(api, journal_path, state_path, say):
                     # bad line cannot block the rest for ever.
                     for event in events:
                         try:
-                            call(api, "/api/events", {"events": [event], "sent_at": clock()})
+                            call(api, "/api/events", {"events": [event], "sent_at": clock()}, pairing_token())
                         except urllib.error.HTTPError as one:
                             say("server refused event %s: HTTP %d" % (event.get("id"), one.code))
             state["offset"] = state.get("offset", 0) + size
