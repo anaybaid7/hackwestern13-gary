@@ -1,20 +1,30 @@
 #!/usr/bin/env python3
 """scout.py - Gary's scout.
 
-A TinyFish web agent reads live local pages and comes back with real places.
-This script turns each place into a quest Gary can confirm with a Sniff Test,
-and sends the quests to the backend. Standard library only.
+A TinyFish web agent reads live local pages (parks, trails, events) and comes
+back with real places. This script turns each place into a quest that Gary can
+confirm with a Sniff Test, checks it, and sends the quests to the backend.
+Standard library only.
 
     export TINYFISH_API_KEY=...            # free student credits: tinyfish.ai/students
-    python3 scout/scout.py --dry-run       # live run on the first source, print the quests
-    python3 scout/scout.py                 # live run, then POST the quests to the backend
-    python3 scout/scout.py --all           # every source in sources.json
+    python3 scout/scout.py --one --dry-run # one live run on the first source; print, send nothing
+    python3 scout/scout.py                 # the day's quests: every source, then POST to the backend
+    python3 scout/scout.py --source events # only the sources whose name contains "events"
+    python3 scout/scout.py --report        # write scout/EVIDENCE.md from the recorded runs
 
-    # No key? Build quests from a saved agent reply instead:
+    # No key, or TinyFish is slow during judging:
+    python3 scout/scout.py --cached        # post the quests from the last good live run
     python3 scout/scout.py --from-file scout/sample_result.json --dry-run
 
-Every live run is written to scout/runs.jsonl (run id, page, live-view link,
-quests). That file is the evidence that the agent worked on live sites.
+Every live run is written to scout/runs.jsonl: the TinyFish run id, the page,
+the live-view link, what the agent did, the quests, and what was dropped and
+why. That file is the evidence that the agent worked on live sites.
+
+Checks every quest passes before it is sent (issue #32):
+  - its target is a thing Gary's on-device model can name
+  - one quest per place
+  - no place that is closed, private, under construction or on risky ground
+  - a note that says where to stand: "any safe, accessible spot"
 """
 import argparse
 import datetime
@@ -22,6 +32,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -32,34 +43,71 @@ TINYFISH_URL = "https://agent.tinyfish.ai/v1/automation/run-sse"
 # What to look for at a place. The first rule whose words appear in the place's
 # name or description wins. Every target must be an outdoor name in
 # contract/labels.json, because the Sniff Test is what confirms the quest.
+# Only things that are there in any season: a quest nobody can finish is no
+# fun. So no "sports ball" for a tennis court: in November there is none.
 TARGET_RULES = [
     (("off-leash", "off leash", "dog park", "dogs"), "dog"),
-    (("skate",), "skateboard"),
-    (("soccer", "baseball", "tennis", "cricket", "volleyball", "sports field", "diamond", "courts"), "sports ball"),
-    (("boat", "canoe", "kayak", "rowing", "dock", "reservoir", "marina"), "boat"),
+    (("skate park", "skatepark", "skateboard"), "skateboard"),
+    (("boat launch", "boathouse", "rowing club", "canoe club", "marina"), "boat"),
     (("bike", "bicycle", "cycling", "parkway", "paved path", "multi-use"), "bicycle"),
-    (("bird", "pond", "wetland", "marsh", "bog", "woods", "forest", "meadow", "natural area", "trail"), "bird"),
-    (("garden", "playground", "picnic", "seating", "accessible", "plaza"), "bench"),
+    (("bird", "pond", "wetland", "marsh", "bog", "woods", "forest", "meadow", "natural area", "trail", "valley"), "bird"),
+    (("garden", "playground", "picnic", "seating", "accessible", "plaza", "market", "square", "festival", "lights"), "bench"),
 ]
 FALLBACK_TARGETS = ["bench", "bird", "dog", "bicycle"]
 LONG_WORDS = ("trail", "hike", "hiking", "woods", "forest", "conservation", "bog", "ponds", "meadow", "valley")
 HERD_EVERY = 3  # every third quest is a co-op quest: it needs a friend in frame
 
+# A place is dropped when its name or description says any of this. Gary must
+# never send anyone somewhere closed, private or risky.
+RISKS = [
+    (r"\bclosed\b|\bclosure\b|\bnot open\b", "it is closed"),
+    (r"\bprivate (property|land|road|club|residence|event)\b|\bmembers only\b|\bno public access\b|\brestricted\b"
+     r"|\bby permit\b|\bpermit only\b|\btrespass|\bkeep out\b|\bno entry\b", "it is not open to everyone"),
+    (r"\bconstruction\b|\bunder repair\b|\bdetour\b", "there is construction"),
+    (r"\bcancell?ed\b|\bpostponed\b|\bsold out\b", "the event is off or full"),
+    (r"\bunsafe\b|\bdanger|\bhazard|\bthin ice\b|\bflooded\b|\bflooding\b|\bcliff|\bquarry\b|\bspillway\b"
+     r"|\bweir\b|\brail ?yard\b|\brailway track|\brooftop\b|\bwashed out\b", "the ground may be risky"),
+]
+
+# Every quest carries a note that says where to stand (issue #32).
+NOTES = {
+    "parks": "Any safe, accessible spot in the park counts. Stay on public paths.",
+    "trails": "Stay on the marked trail. Any safe, accessible spot counts.",
+    "events": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
+}
+DEFAULT_NOTE = "Any safe, accessible spot counts. Stay on public paths."
+
 
 def load_labels():
-    """Names Gary can recognise outdoors, from the contract."""
+    """The things a quest may ask for: outdoor names in the contract that the
+    device's own label file also has. A quest for anything else could never be
+    confirmed, so it is dropped."""
     with open(os.path.join(ROOT, "contract", "labels.json"), "r", encoding="utf-8") as f:
         doc = json.load(f)
-    return {item["name"] for item in doc["labels"] if item["outdoor"]}
+    allowed = {item["name"] for item in doc["labels"] if item["outdoor"]}
+    device = os.path.join(ROOT, "device", "models", "coco_labels.txt")
+    if os.path.exists(device):
+        with open(device, "r", encoding="utf-8") as f:
+            allowed &= {line.strip() for line in f}
+    return allowed
 
 
 # --------------------------------------------------------------------------
 # TinyFish
 # --------------------------------------------------------------------------
+def field(event, *names):
+    """The first of these fields the event has. TinyFish's documents spell them
+    run_id and streaming_url; this also reads runId and streamingUrl."""
+    for name in names:
+        if event.get(name):
+            return event[name]
+    return None
+
+
 def parse_sse(lines, on_event=None):
     """Read a TinyFish event stream. Returns the final COMPLETE event, with the
-    live-view link added as 'streaming_url' when the stream carried one."""
-    final, streaming_url = None, None
+    run id and the live-view link added when an earlier event carried them."""
+    final, streaming_url, run_id = None, None, None
     for raw in lines:
         line = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw
         line = line.strip()
@@ -69,43 +117,71 @@ def parse_sse(lines, on_event=None):
             event = json.loads(line[5:].strip())
         except ValueError:
             continue
+        if not isinstance(event, dict):
+            continue
         if on_event:
             on_event(event)
-        if event.get("type") == "STREAMING_URL":
-            streaming_url = event.get("streaming_url")
+        run_id = field(event, "run_id", "runId") or run_id
+        streaming_url = field(event, "streaming_url", "streamingUrl") or streaming_url
         if event.get("type") == "COMPLETE":
             final = event
             break
-    if final is not None and streaming_url:
-        final.setdefault("streaming_url", streaming_url)
+    if final is not None:
+        if run_id:
+            final["run_id"] = run_id
+        if streaming_url:
+            final["streaming_url"] = streaming_url
     return final
 
 
-def run_agent(url, goal, api_key, say):
+class Refused(RuntimeError):
+    """TinyFish would not start the run because of the key or the account. Every
+    other page would be refused the same way, so the scout stops asking."""
+
+
+def run_agent(url, goal, api_key, say, steps=None, seen=None, endpoint=TINYFISH_URL, wait=300):
     """One TinyFish run. Returns the COMPLETE event. Raises RuntimeError with a
-    plain message when the run cannot start or does not finish."""
+    plain message when the run cannot start, does not finish, or takes longer
+    than `wait` seconds. What the agent says it is doing is added to `steps`;
+    the run id and the live-view link are put in `seen` as soon as they arrive,
+    so a run that fails later still has them."""
     body = json.dumps({"url": url, "goal": goal}).encode("utf-8")
-    req = urllib.request.Request(TINYFISH_URL, data=body, headers={
+    req = urllib.request.Request(endpoint, data=body, headers={
         "X-API-Key": api_key, "Content-Type": "application/json", "Accept": "text/event-stream"})
+    give_up_at = time.monotonic() + wait
 
     def show(event):
         kind = event.get("type")
+        run_id, live = field(event, "run_id", "runId"), field(event, "streaming_url", "streamingUrl")
+        if seen is not None:
+            if run_id:
+                seen["run_id"] = run_id
+            if live:
+                seen["streaming_url"] = live
         if kind == "STARTED":
-            say("  agent started, run %s" % event.get("run_id"))
+            say("  agent started, run %s" % run_id)
         elif kind == "STREAMING_URL":
-            say("  watch it live: %s" % event.get("streaming_url"))
+            say("  watch it live: %s" % live)
         elif kind == "PROGRESS" and event.get("purpose"):
             say("  ... %s" % event["purpose"])
+            if steps is not None and len(steps) < 15:
+                steps.append(str(event["purpose"])[:160])
+        if kind != "COMPLETE" and time.monotonic() > give_up_at:
+            raise RuntimeError("no answer after %d seconds, so the scout stopped waiting" % wait)
 
+    quiet = max(1, min(wait, 180))
     try:
-        with urllib.request.urlopen(req, timeout=180) as reply:
+        with urllib.request.urlopen(req, timeout=quiet) as reply:
             final = parse_sse(reply, show)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:300]
         hints = {401: "the API key is missing or wrong", 402: "the account has no balance",
                  403: "no credits or no active plan"}
-        raise RuntimeError("TinyFish refused the run: HTTP %d (%s). %s"
-                           % (exc.code, hints.get(exc.code, "see the reply"), detail))
+        kind = Refused if exc.code in hints else RuntimeError
+        raise kind("TinyFish refused the run: HTTP %d (%s). %s"
+                   % (exc.code, hints.get(exc.code, "see the reply"), detail))
+    except TimeoutError:
+        raise RuntimeError("TinyFish sent nothing for %d seconds, so the scout stopped waiting" % quiet)
     except OSError as exc:
         raise RuntimeError("could not reach TinyFish: %s" % exc)
     if final is None:
@@ -127,7 +203,9 @@ def find_places(result):
         except ValueError:
             return []
     if isinstance(result, list):
-        if result and all(isinstance(item, dict) and item.get("name") for item in result):
+        # A list of objects where at least one has a name is the list of places.
+        # (An entry with no name is skipped later; it must not hide the others.)
+        if result and all(isinstance(item, dict) for item in result) and any(item.get("name") for item in result):
             return result
         for item in result:
             found = find_places(item)
@@ -142,40 +220,115 @@ def find_places(result):
 
 
 def slug(text):
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:40]
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:48]
 
 
 def article(word):
     return "an" if word[:1] in "aeiou" else "a"
 
 
-def pick_target(text, index, allowed):
+NAME_MAX = 70  # longer than this is a sentence, not the name of a place
+
+
+def web_address(value):
+    """An http or https address, or None. What the agent copied from a page is
+    not trusted: the web page turns this into a link."""
+    text = str(value or "").strip()
+    return text if len(text) <= 300 and re.match(r"https?://[^\s<>\"']+$", text, flags=re.I) else None
+
+
+def today():
+    """Today's date where Gary lives (GARY_TZ, default America/Toronto), so the
+    scout and the backend agree on which quests are today's."""
+    try:
+        import zoneinfo
+        zone = zoneinfo.ZoneInfo(os.environ.get("GARY_TZ") or "America/Toronto")
+        return datetime.datetime.now(zone).date().isoformat()
+    except Exception:  # no time zone data on this machine: its own date will do
+        return datetime.date.today().isoformat()
+
+
+def clean_name(name):
+    """'  Kains Woods ESA ' -> 'Kains Woods', so two sites' spellings of one
+    place end up as one place. Line breaks and control characters go too."""
+    name = "".join(ch if ch.isprintable() else " " for ch in str(name or ""))
+    name = " ".join(name.split())
+    name = re.sub(r"\s*\((esa|environmentally significant area)\)\s*$", "", name, flags=re.I)
+    name = re.sub(r"\s+(esa|environmentally significant area)$", "", name, flags=re.I)
+    return name.strip(" ,.;:-")
+
+
+def place_key(name):
+    return re.sub(r"[^a-z0-9]+", " ", clean_name(name).lower()).strip()
+
+
+def risk_in(text):
+    """Why this place must not become a quest, or None if nothing says so."""
+    lowered = str(text).lower()
+    for pattern, why in RISKS:
+        if re.search(pattern, lowered):
+            return why
+    return None
+
+
+def pick_target(name, text, allowed):
+    """The thing to look for at a place. The same place always gets the same
+    thing, so running the scout twice does not change today's quests."""
     lowered = text.lower()
     for words, target in TARGET_RULES:
         if target in allowed and any(word in lowered for word in words):
             return target
     choices = [t for t in FALLBACK_TARGETS if t in allowed] or sorted(allowed)
-    return choices[index % len(choices)]
+    if not choices:
+        return None
+    return choices[sum(ord(ch) for ch in place_key(name)) % len(choices)]
 
 
-def build_quests(places, source, day, allowed, limit=3):
-    """Turn agent places into contract Quests. One quest per place, at most `limit`."""
-    quests, seen = [], set()
+def build_quests(places, source, day, allowed, limit=3, taken=None, count=0):
+    """Turn agent places into contract Quests.
+
+    places   what the agent returned: [{"name", "about", ...}]
+    source   the entry from sources.json (url, time, kind). With "sample": True
+             the quests are marked source "sample" and not "tinyfish": they
+             were not found by an agent, and the page must not say they were
+    taken    place keys already used in this run; a place gets one quest
+    count    quests built so far in this run (every third is a herd quest)
+    Returns (quests, dropped). dropped is [{"name", "why"}].
+    """
+    taken = set() if taken is None else taken
+    quests, dropped = [], []
     for place in places:
-        name = str(place.get("name") or "").strip()
-        if not name or name.lower() in seen:
+        if len(quests) >= limit:
+            break
+        name = clean_name(place.get("name"))
+        if not name:
             continue
-        seen.add(name.lower())
-        about = " ".join(str(place.get(key) or "") for key in ("about", "description", "features", "address"))
+        if len(name) > NAME_MAX:
+            dropped.append({"name": name[:NAME_MAX] + "...", "why": "that is too long to be the name of a place"})
+            continue
+        about = " ".join(str(place.get(key) or "") for key in ("about", "description", "features", "address", "status"))
         text = name + " " + about
-        target = pick_target(text, len(quests), allowed)
-        is_long = source.get("time") == "long" or any(word in text.lower() for word in LONG_WORDS)
-        herd = (len(quests) + 1) % HERD_EVERY == 0
+        key = place_key(name)
+        if key in taken:
+            dropped.append({"name": name, "why": "another quest is already at this place"})
+            continue
+        why = risk_in(text)
+        if why:
+            dropped.append({"name": name, "why": why})
+            continue
+        target = pick_target(name, text, allowed)
+        if target is None or target not in allowed:
+            dropped.append({"name": name, "why": "nothing Gary can recognise fits this place"})
+            continue
+        taken.add(key)
+        is_long = source.get("time") == "long" or (
+            source.get("time") is None and any(word in text.lower() for word in LONG_WORDS))
+        herd = (count + len(quests) + 1) % HERD_EVERY == 0
         title = "Find %s %s at %s" % (article(target), target, name)
         if herd:
             title += ", with a friend"
         quests.append({
-            "id": "q-%s-%s-%s" % (day, slug(name), slug(target)),
+            "id": "q-%s-%s" % (day, slug(name)),
             "title": title,
             "place": name,
             "time": "long" if is_long else "short",
@@ -183,13 +336,30 @@ def build_quests(places, source, day, allowed, limit=3):
             "target": target,
             "xp": 40 if is_long else 20,
             "herd": herd,
-            "source": "tinyfish",
-            "source_url": place.get("url") or source.get("url"),
+            "note": NOTES.get(source.get("kind"), DEFAULT_NOTE),
+            "source": "sample" if source.get("sample") else "tinyfish",
+            "source_url": web_address(place.get("url")) or web_address(source.get("url")),
             "day": day,
         })
-        if len(quests) >= limit:
-            break
-    return quests
+    return quests, dropped
+
+
+def check_quests(quests, allowed):
+    """A last look at every quest before it leaves. -> (good, [(quest, why)])"""
+    good, bad, places = [], [], set()
+    for quest in quests:
+        if quest.get("target") not in allowed:
+            bad.append((quest, "Gary cannot recognise '%s'" % quest.get("target")))
+        elif place_key(quest.get("place")) in places:
+            bad.append((quest, "a second quest at %s" % quest.get("place")))
+        elif risk_in("%s %s" % (quest.get("title"), quest.get("place"))):
+            bad.append((quest, risk_in("%s %s" % (quest.get("title"), quest.get("place")))))
+        elif "safe, accessible spot" not in str(quest.get("note", "")):
+            bad.append((quest, "its note does not say where it is safe to stand"))
+        else:
+            places.add(place_key(quest["place"]))
+            good.append(quest)
+    return good, bad
 
 
 def post_quests(api, quests):
@@ -202,70 +372,190 @@ def post_quests(api, quests):
         return json.loads(reply.read().decode("utf-8"))
 
 
-def main():
+# --------------------------------------------------------------------------
+# Evidence: what the agent read, for the judges (issue #33)
+# --------------------------------------------------------------------------
+def read_runs(path):
+    runs = []
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    runs.append(json.loads(line))
+                except ValueError:
+                    continue
+    return runs
+
+
+def evidence_markdown(runs):
+    """scout/EVIDENCE.md: every recorded live run, newest day first."""
+    out = ["# What the scout read", "",
+           "Each row is one run of a TinyFish web agent on a live page. This file is written by",
+           "`python3 scout/scout.py --report` from `scout/runs.jsonl`. Do not edit it by hand.", ""]
+    live = [r for r in runs if r.get("status")]
+    if not live:
+        out += ["**No live runs are recorded yet.** Set `TINYFISH_API_KEY`, run `python3 scout/scout.py`,",
+                "then `python3 scout/scout.py --report`.", ""]
+        return "\n".join(out)
+    done = [r for r in live if r.get("status") == "COMPLETED"]
+    out += ["%d runs, %d completed, %d quests made, on %d different pages."
+            % (len(live), len(done), sum(len(r.get("quests", [])) for r in done),
+               len({r.get("url") for r in done})), ""]
+    days = sorted({str(r.get("ts", ""))[:10] for r in live}, reverse=True)
+    for day in days:
+        out += ["## %s" % day, "", "| Time (UTC) | Page the agent read | Result | TinyFish run | Quests |",
+                "| --- | --- | --- | --- | --- |"]
+        todays = [r for r in live if str(r.get("ts", ""))[:10] == day]
+        for r in todays:
+            run = r.get("run_id") or "none"
+            if r.get("streaming_url"):
+                run = "%s ([live view](%s))" % (run, r["streaming_url"])
+            if r.get("status") == "COMPLETED":
+                result = "%d places read in %s s" % (r.get("places", 0), r.get("seconds", "?"))
+                quests = "<br>".join(q["title"] if isinstance(q, dict) else str(q) for q in r.get("quests", [])) or "none"
+            else:
+                result = "failed: %s" % str(r.get("error", "")).replace("|", "/")[:120]
+                quests = "none"
+            out.append("| %s | [%s](%s) | %s | %s | %s |"
+                       % (str(r.get("ts", ""))[11:16], r.get("source"), r.get("url"), result, run, quests))
+        out.append("")
+        for r in todays:
+            if r.get("steps") or r.get("dropped"):
+                out.append("**%s, %s**" % (r.get("source"), str(r.get("ts", ""))[11:16]))
+                out.append("")
+                if r.get("steps"):
+                    out.append("What the agent did: " + "; ".join(r["steps"]) + ".")
+                    out.append("")
+                for d in r.get("dropped", []):
+                    out.append("- Left out %s: %s." % (d.get("name"), d.get("why")))
+                if r.get("dropped"):
+                    out.append("")
+    return "\n".join(out)
+
+
+# --------------------------------------------------------------------------
+def main(argv=None):
     ap = argparse.ArgumentParser(description="Gary's scout: live pages in, quests out")
     ap.add_argument("--dry-run", action="store_true", help="print the quests, send nothing")
-    ap.add_argument("--all", action="store_true", help="run every source, not only the first")
-    ap.add_argument("--source", help="run only the source with this name")
+    ap.add_argument("--one", action="store_true", help="run only the first source (a quick test of the key)")
+    ap.add_argument("--source", help="run only the sources whose name contains this")
     ap.add_argument("--max", type=int, default=3, help="quests per source (default 3)")
-    ap.add_argument("--from-file", help="use a saved agent reply in place of a live run")
+    ap.add_argument("--from-file", help="build sample quests from a file of places. No agent run; marked as sample")
+    ap.add_argument("--wait", type=int, default=300, help="seconds to wait for one page before giving up (default 300)")
+    ap.add_argument("--tinyfish-url", default=TINYFISH_URL, help=argparse.SUPPRESS)  # tests point this at a stand-in
+    ap.add_argument("--cached", action="store_true", help="post the quests saved by the last good live run")
+    ap.add_argument("--report", action="store_true", help="write EVIDENCE.md from runs.jsonl, then stop")
+    ap.add_argument("--voice", action="store_true", help="stretch: let Gemini put each title in Gary's voice (GEMINI_API_KEY)")
     ap.add_argument("--sources", default=os.path.join(HERE, "sources.json"))
     ap.add_argument("--api", default=os.environ.get("GARY_API", "http://localhost:8000"), help="backend address")
     ap.add_argument("--runs", default=os.path.join(HERE, "runs.jsonl"), help="where live runs are recorded")
-    args = ap.parse_args()
+    ap.add_argument("--cache", default=os.path.join(HERE, "cached_quests.json"), help="the last good set of quests")
+    ap.add_argument("--evidence", default=os.path.join(HERE, "EVIDENCE.md"))
+    ap.add_argument("--all", action="store_true", help=argparse.SUPPRESS)  # every source is now the default
+    args = ap.parse_args(argv)
 
     def say(text):
         print(text, flush=True)
 
-    allowed = load_labels()
-    day = datetime.date.today().isoformat()
-    with open(args.sources, "r", encoding="utf-8") as f:
-        sources = json.load(f)
-    if args.source:
-        sources = [s for s in sources if s["name"] == args.source]
-        if not sources:
-            sys.exit("no source named %r in %s" % (args.source, args.sources))
-    elif not args.all:
-        sources = sources[:1]
+    if args.report:
+        runs = read_runs(args.runs)
+        with open(args.evidence, "w", encoding="utf-8") as f:
+            f.write(evidence_markdown(runs) + "\n")
+        say("Wrote %s from %d recorded runs." % (args.evidence, len(runs)))
+        return 0
 
-    quests = []
-    if args.from_file:
+    allowed = load_labels()
+    day = today()
+    quests, live = [], False
+
+    if args.cached:
+        try:
+            with open(args.cache, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+        except (OSError, ValueError):
+            sys.exit("No cached quests yet (%s). They are saved by the first good live run." % args.cache)
+        quests = saved.get("quests", [])
+        say("%d quests from the live run saved at %s. No new agent run was made." % (len(quests), saved.get("saved_at")))
+    elif args.from_file:
         with open(args.from_file, "r", encoding="utf-8") as f:
             saved = json.load(f)
         places = find_places(saved.get("result", saved) if isinstance(saved, dict) else saved)
-        say("%d places from %s (a saved reply, not a live run)" % (len(places), args.from_file))
-        quests = build_quests(places, {"url": None}, day, allowed, args.max)
+        say("%d places from %s. This is not a live run: the quests are marked as sample quests,\n"
+            "and the page will not say the scout found them." % (len(places), args.from_file))
+        source = {"url": None, "kind": saved.get("kind") if isinstance(saved, dict) else None, "sample": True}
+        quests, dropped = build_quests(places, source, day, allowed, args.max)
+        for d in dropped:
+            say("  left out %s: %s" % (d["name"], d["why"]))
     else:
+        with open(args.sources, "r", encoding="utf-8") as f:
+            sources = json.load(f)
+        if args.source:
+            sources = [s for s in sources if args.source.lower() in s["name"].lower()]
+            if not sources:
+                sys.exit("no source with %r in its name in %s" % (args.source, args.sources))
+        elif args.one:
+            sources = sources[:1]
         key = os.environ.get("TINYFISH_API_KEY")
         if not key:
-            sys.exit("Set TINYFISH_API_KEY first (free student credits: tinyfish.ai/students),\n"
-                     "or try: python3 scout/scout.py --from-file scout/sample_result.json --dry-run")
+            sys.exit("Set TINYFISH_API_KEY first (free student credits: tinyfish.ai/students).\n"
+                     "With no key: python3 scout/scout.py --cached   (the last good live run)\n"
+                     "         or: python3 scout/scout.py --from-file scout/sample_result.json --dry-run")
+        live, taken = True, set()
         for source in sources:
             say("Scouting %s\n  %s" % (source["name"], source["url"]))
+            started, steps, seen, key_refused = time.monotonic(), [], {}, False
             record = {"ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                      "source": source["name"], "url": source["url"]}
+                      "source": source["name"], "kind": source.get("kind"), "url": source["url"]}
             try:
-                final = run_agent(source["url"], source["goal"], key, say)
+                final = run_agent(source["url"], source["goal"], key, say, steps, seen, args.tinyfish_url, args.wait)
             except RuntimeError as exc:
                 say("  FAILED: %s" % exc)
-                record.update(status="FAILED", error=str(exc))
+                record.update(status="FAILED", error=str(exc), steps=steps, run_id=seen.get("run_id"),
+                              streaming_url=seen.get("streaming_url"))
+                key_refused = isinstance(exc, Refused)
             else:
-                places = find_places(final.get("result"))
-                found = build_quests(places, source, day, allowed, args.max)
+                # The reply is documented as "result"; look through the whole event if it is elsewhere.
+                places = find_places(final.get("result")) or find_places(
+                    {k: v for k, v in final.items() if k not in ("type", "status", "run_id", "streaming_url")})
+                found, dropped = build_quests(places, source, day, allowed, args.max, taken, len(quests))
                 say("  %d places -> %d quests" % (len(places), len(found)))
+                for d in dropped:
+                    say("  left out %s: %s" % (d["name"], d["why"]))
                 quests.extend(found)
                 record.update(status="COMPLETED", run_id=final.get("run_id"),
-                              streaming_url=final.get("streaming_url"), places=len(places),
-                              quests=[q["id"] for q in found])
+                              streaming_url=final.get("streaming_url"), steps=steps, places=len(places),
+                              place_names=[clean_name(p.get("name")) for p in places][:20],
+                              quests=[{"id": q["id"], "title": q["title"], "place": q["place"],
+                                       "target": q["target"]} for q in found],
+                              dropped=dropped)
+            record["seconds"] = round(time.monotonic() - started, 1)
             with open(args.runs, "a", encoding="utf-8") as f:
                 f.write(json.dumps(record) + "\n")
+            if key_refused:
+                say("  Not trying the other pages: they would be refused the same way.")
+                break
 
+    quests, refused = check_quests(quests, allowed)
+    for quest, why in refused:
+        say("  dropped %s: %s" % (quest.get("id"), why))
     if not quests:
-        sys.exit("No quests came out of this run.")
+        sys.exit("No quests came out of this run. To post the last good ones: python3 scout/scout.py --cached")
+
+    if args.voice:
+        import gary_voice
+        changed = gary_voice.apply(quests, os.environ.get("GEMINI_API_KEY"), say=say)
+        say("Gemini put %d of %d titles in Gary's voice." % (changed, len(quests)))
+
+    if live:
+        with open(args.cache, "w", encoding="utf-8") as f:
+            json.dump({"saved_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                       "day": day, "quests": quests}, f, indent=2)
+            f.write("\n")
+
     if args.dry_run:
         say(json.dumps({"quests": quests}, indent=2))
         say("\n%d quests. Dry run: nothing was sent." % len(quests))
-        return
+        return 0
     try:
         out = post_quests(args.api, quests)
     except urllib.error.HTTPError as exc:
@@ -275,7 +565,9 @@ def main():
     say("Backend accepted %d quests: %s" % (len(out.get("accepted", [])), ", ".join(out.get("accepted", []))))
     for bad in out.get("rejected", []):
         say("  refused %s: %s" % (bad.get("id"), bad.get("why")))
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.path.insert(0, HERE)
+    sys.exit(main())

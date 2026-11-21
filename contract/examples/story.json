@@ -40,6 +40,7 @@
             "target": "bicycle",
             "xp": 20,
             "herd": false,
+            "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21"
@@ -53,6 +54,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -217,6 +219,7 @@
             "target": "bicycle",
             "xp": 20,
             "herd": false,
+            "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21"
@@ -230,6 +233,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -385,6 +389,7 @@
           "target": "bicycle",
           "xp": 20,
           "herd": false,
+          "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21"
@@ -400,6 +405,7 @@
             "target": "bicycle",
             "xp": 20,
             "herd": false,
+            "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21"
@@ -413,6 +419,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -581,6 +588,7 @@
           "target": "dog",
           "xp": 20,
           "herd": true,
+          "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21"
@@ -596,6 +604,7 @@
             "target": "dog",
             "xp": 20,
             "herd": true,
+            "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21"
@@ -609,6 +618,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -804,6 +814,7 @@
           "target": "dog",
           "xp": 20,
           "herd": true,
+          "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
           "source": "tinyfish",
           "source_url": "https://london.ca/parks-london",
           "day": "2026-11-21"
@@ -819,6 +830,7 @@
             "target": "dog",
             "xp": 20,
             "herd": true,
+            "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
             "source": "tinyfish",
             "source_url": "https://london.ca/parks-london",
             "day": "2026-11-21"
@@ -832,6 +844,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -1068,6 +1081,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -1311,6 +1325,7 @@
             "target": "bird",
             "xp": 40,
             "herd": false,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
             "source": "tinyfish",
             "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
@@ -1555,16 +1570,17 @@
             "day": "2026-11-21"
           },
           "long": {
-            "id": "q-harris-bench",
-            "title": "Find a bench by the river at Harris Park",
-            "place": "Harris Park",
+            "id": "q-2026-11-21-kains-woods-bird",
+            "title": "Find a bird at Kains Woods",
+            "place": "Kains Woods",
             "time": "long",
             "minutes": 40,
-            "target": "bench",
+            "target": "bird",
             "xp": 40,
             "herd": false,
-            "source": "seed",
-            "source_url": null,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
+            "source": "tinyfish",
+            "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
           }
         },
@@ -1765,7 +1781,7 @@
     },
     {
       "title": "Pick a long quest",
-      "note": "A longer walk today.",
+      "note": "A longer walk today. The scout has not been out yet this morning, so Gary offers the trail it found yesterday.",
       "now": "2026-11-22T14:10:00Z",
       "request": {
         "method": "POST",
@@ -1785,16 +1801,17 @@
           "welcome_back": false
         },
         "quest": {
-          "id": "q-harris-bench",
-          "title": "Find a bench by the river at Harris Park",
-          "place": "Harris Park",
+          "id": "q-2026-11-21-kains-woods-bird",
+          "title": "Find a bird at Kains Woods",
+          "place": "Kains Woods",
           "time": "long",
           "minutes": 40,
-          "target": "bench",
+          "target": "bird",
           "xp": 40,
           "herd": false,
-          "source": "seed",
-          "source_url": null,
+          "note": "Stay on the marked trail. Any safe, accessible spot counts.",
+          "source": "tinyfish",
+          "source_url": "https://www.londontourism.ca/best-of-london/hiking",
           "day": "2026-11-21"
         },
         "quest_choice": "long",
@@ -1813,16 +1830,17 @@
             "day": "2026-11-21"
           },
           "long": {
-            "id": "q-harris-bench",
-            "title": "Find a bench by the river at Harris Park",
-            "place": "Harris Park",
+            "id": "q-2026-11-21-kains-woods-bird",
+            "title": "Find a bird at Kains Woods",
+            "place": "Kains Woods",
             "time": "long",
             "minutes": 40,
-            "target": "bench",
+            "target": "bird",
             "xp": 40,
             "herd": false,
-            "source": "seed",
-            "source_url": null,
+            "note": "Stay on the marked trail. Any safe, accessible spot counts.",
+            "source": "tinyfish",
+            "source_url": "https://www.londontourism.ca/best-of-london/hiking",
             "day": "2026-11-21"
           }
         },
@@ -2023,7 +2041,7 @@
     },
     {
       "title": "Welcome back",
-      "note": "A bench by the river at Harris Park. The first sniff after a nap earns a small welcome-back bonus.",
+      "note": "A bird in Kains Woods. The first sniff after a nap earns a small welcome-back bonus.",
       "now": "2026-11-22T14:40:00Z",
       "request": {
         "method": "POST",
@@ -2035,11 +2053,11 @@
               "ts": "2026-11-22T14:40:00Z",
               "type": "discovery",
               "device": "gary-01",
-              "label": "bench",
-              "score": 0.93,
+              "label": "bird",
+              "score": 0.88,
               "friend": false,
               "new": true,
-              "quest_id": "q-harris-bench",
+              "quest_id": "q-2026-11-21-kains-woods-bird",
               "latency_ms": 41.0
             }
           ]
@@ -2056,16 +2074,16 @@
           "welcome_back": true
         },
         "quest": {
-          "id": "q-2026-11-21-kains-woods-bird",
-          "title": "Find a bird at Kains Woods",
-          "place": "Kains Woods",
+          "id": "q-harris-bench",
+          "title": "Find a bench by the river at Harris Park",
+          "place": "Harris Park",
           "time": "long",
           "minutes": 40,
-          "target": "bird",
+          "target": "bench",
           "xp": 40,
           "herd": false,
-          "source": "tinyfish",
-          "source_url": "https://www.londontourism.ca/best-of-london/hiking",
+          "source": "seed",
+          "source_url": null,
           "day": "2026-11-21"
         },
         "quest_choice": "long",
@@ -2084,16 +2102,16 @@
             "day": "2026-11-21"
           },
           "long": {
-            "id": "q-2026-11-21-kains-woods-bird",
-            "title": "Find a bird at Kains Woods",
-            "place": "Kains Woods",
+            "id": "q-harris-bench",
+            "title": "Find a bench by the river at Harris Park",
+            "place": "Harris Park",
             "time": "long",
             "minutes": 40,
-            "target": "bird",
+            "target": "bench",
             "xp": 40,
             "herd": false,
-            "source": "tinyfish",
-            "source_url": "https://www.londontourism.ca/best-of-london/hiking",
+            "source": "seed",
+            "source_url": null,
             "day": "2026-11-21"
           }
         },
@@ -2102,14 +2120,14 @@
           {
             "id": "gary-01-1795358400000-4",
             "ts": "2026-11-22T14:40:00Z",
-            "label": "bench",
-            "score": 0.93,
+            "label": "bird",
+            "score": 0.88,
             "friend": false,
             "new": true,
-            "quest_id": "q-harris-bench",
+            "quest_id": "q-2026-11-21-kains-woods-bird",
             "latency_ms": 41.0,
             "xp": 55,
-            "place": "Harris Park"
+            "place": "Kains Woods"
           },
           {
             "id": "gary-01-1795275600000-3",
@@ -2154,7 +2172,7 @@
             "bicycle",
             "fire hydrant",
             "dog",
-            "bench"
+            "bird"
           ]
         },
         "map": [
@@ -2175,16 +2193,9 @@
           {
             "place": "Harris Park",
             "quest_id": "q-harris-bench",
-            "cleared": true,
-            "cleared_at": "2026-11-22T14:40:00Z",
-            "finds": [
-              {
-                "label": "bench",
-                "ts": "2026-11-22T14:40:00Z",
-                "friend": false,
-                "quest_id": "q-harris-bench"
-              }
-            ]
+            "cleared": false,
+            "cleared_at": null,
+            "finds": []
           },
           {
             "place": "Springbank Park",
@@ -2217,9 +2228,16 @@
           {
             "place": "Kains Woods",
             "quest_id": "q-2026-11-21-kains-woods-bird",
-            "cleared": false,
-            "cleared_at": null,
-            "finds": []
+            "cleared": true,
+            "cleared_at": "2026-11-22T14:40:00Z",
+            "finds": [
+              {
+                "label": "bird",
+                "ts": "2026-11-22T14:40:00Z",
+                "friend": false,
+                "quest_id": "q-2026-11-21-kains-woods-bird"
+              }
+            ]
           }
         ],
         "herd": {

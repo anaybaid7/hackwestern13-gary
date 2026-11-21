@@ -37,6 +37,11 @@ export function plural(n, one, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/** Only an http or https address may become a link. Anything else -> null. */
+export function webAddress(url) {
+  return typeof url === 'string' && /^https?:\/\/[^\s<>"']+$/i.test(url) ? url : null
+}
+
 /** "https://london.ca/parks-london" -> "london.ca". */
 export function host(url) {
   try {

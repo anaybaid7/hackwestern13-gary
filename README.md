@@ -13,6 +13,7 @@ A pocket mountain goat on a QNX handheld that only grows when you go outside, di
 | [`web/`](web/README.md) | The page that draws Gary's world |
 | [`scout/`](scout/README.md) | The TinyFish agent that turns live local pages into quests |
 | [`contract/`](contract/README.md) | The JSON shapes the four share |
+| [`docs/`](docs/) | The plan, the three-minute demo script, the Devpost draft, the TinyFish post, the QNX numbers |
 
 ## Try it in two minutes, with no hardware
 

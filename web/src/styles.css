@@ -383,6 +383,12 @@ button:disabled {
   font-weight: 600;
 }
 
+.sign-note {
+  margin-top: 6px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
 .sign-done {
   background: var(--ink-2);
 }

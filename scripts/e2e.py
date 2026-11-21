@@ -81,16 +81,22 @@ def main():
         check("starts with the seed quests", health["quests"] == 3)
         check("Gary starts as a napping kid", call(api, "/api/state")["gary"]["napping"] is True)
 
-        print("2. Scout (from the saved reply; a live run needs TINYFISH_API_KEY)")
+        print("2. Scout (sample places from a file; a live run needs TINYFISH_API_KEY)")
         out = run([PY, os.path.join("scout", "scout.py"), "--from-file",
                    os.path.join("scout", "sample_result.json"), "--api", api])
         check("the backend accepts the scout's quests", "accepted 3 quests" in out, out.strip().splitlines()[-1])
+        listed = call(api, "/api/quests")["quests"]
+        check("quests built from a file are marked as samples, never as the agent's finds",
+              sorted(q["source"] for q in listed) == ["sample"] * 3 + ["seed"] * 3
+              and all(q["note"] for q in listed if q["source"] == "sample"))
+        # A stand-in for a quest from a live agent run, to check the order of choice.
         call(api, "/api/quests", {"id": "q-e2e-dog", "title": "Find a dog at Gibbons Park", "place": "Gibbons Park",
-                                  "time": "short", "target": "dog", "xp": 20})
+                                  "time": "short", "target": "dog", "xp": 20, "source": "tinyfish",
+                                  "source_url": "https://example.org/parks"})
 
         chosen = call(api, "/api/quest/choose", {"time": "short"})
         check("short or long picks the active quest: today's scout quest first",
-              chosen["quest"] is not None and chosen["quest"]["source"] == "tinyfish"
+              chosen["quest"] is not None and chosen["quest"]["id"] == "q-e2e-dog"
               and chosen["state"]["quest"]["id"] == chosen["quest"]["id"])
 
         print("3. Sync brings the quests to the device")

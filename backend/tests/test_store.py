@@ -32,6 +32,56 @@ def test_a_replaced_quest_keeps_its_place_in_the_order(client):
     assert quests[0]["target"] == "cup" and quests[0]["place"] == "Somewhere else"
 
 
+def test_a_quest_keeps_the_scouts_note_about_where_to_stand(client):
+    noted = quest("q-note", "bird", "Kains Woods", note="  Stay on the marked trail. Any safe, accessible spot counts.  ")
+    plain = quest("q-plain", "dog", "Gibbons Park")
+    long = quest("q-long", "bench", "Harris Park West", note="x" * 500)
+    assert client.post("/api/quests", json={"quests": [noted, plain, long]}).json()["rejected"] == []
+    stored = {q["id"]: q for q in client.get("/api/quests").json()["quests"]}
+    assert stored["q-note"]["note"] == "Stay on the marked trail. Any safe, accessible spot counts."
+    assert stored["q-plain"]["note"] is None
+    assert len(stored["q-long"]["note"]) == 200
+
+
+def test_a_quests_words_are_cleaned_where_they_arrive(client):
+    # The scout's words come from web pages, and they end up in a link on the
+    # page and in the device's tab-separated quest file.
+    odd = quest("q odd\tid\n", "dog", " Gibbons\n Park ", title="Find a dog\tat\r\nGibbons   Park\x07",
+                source_url="javascript:alert(1)", minutes="soon", note=" Stay on\nthe path. ", herd="yes")
+    long = quest("q-long-words", "bench", "P" * 300, title="T" * 500, source_url="https://london.ca/parks-london",
+                 minutes=15, source="tinyfish\n" + "x" * 50, day="tomorrow")
+    out = client.post("/api/quests", json={"quests": [odd, long]}).json()
+    assert out == {"accepted": ["q-odd-id", "q-long-words"], "rejected": []}, out
+    stored = {q["id"]: q for q in client.get("/api/quests").json()["quests"]}
+    first = stored["q-odd-id"]
+    assert first["title"] == "Find a dog at Gibbons Park" and first["place"] == "Gibbons Park"
+    assert first["note"] == "Stay on the path." and first["source_url"] is None and first["minutes"] is None
+    assert first["herd"] is False, 'only a real true makes a quest a herd quest'
+    second = stored["q-long-words"]
+    assert len(second["title"]) == 140 and len(second["place"]) == 80 and len(second["source"]) == 20
+    assert second["source_url"] == "https://london.ca/parks-london" and second["minutes"] == 15
+    assert second["day"] == "2026-11-21", "a day that is not a date becomes today"
+    for q in stored.values():
+        for key in ("id", "title", "place", "source"):
+            assert "\t" not in q[key] and "\n" not in q[key] and "\r" not in q[key], (q["id"], key)
+
+
+def test_quests_that_make_no_sense_are_refused_with_a_reason(client):
+    bad = [
+        quest("q-rich", "dog", "Gibbons Park", xp=100000),
+        quest("q-free", "dog", "Gibbons Park", xp=0),
+        quest("   ", "dog", "Gibbons Park"),
+        quest("q-nowhere", "dog", " \n\t "),
+    ]
+    out = client.post("/api/quests", json={"quests": bad}).json()
+    assert out["accepted"] == []
+    why = [r["why"] for r in out["rejected"]]
+    assert why == ["xp must be between 1 and 100", "xp must be between 1 and 100", "missing id", "missing place"], why
+    # something that is not a quest at all refuses the whole request
+    assert client.post("/api/quests", json={"quests": [quest("q-ok", "dog", "Gibbons Park"), "not a quest"]}).status_code == 422
+    assert len(client.get("/api/quests").json()["quests"]) == 3, "only the built-in quests are there"
+
+
 def test_reset_can_be_locked_with_a_key(client, monkeypatch):
     post(client, sniff("dog"))
     monkeypatch.setenv("GARY_ADMIN_KEY", "open-sesame")

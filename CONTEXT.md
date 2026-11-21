@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 5:00 am, with the Phase 4 pull request (#45).
+Last updated: Sat 21 Nov 2026, 4:00 am, with the Phase 5 pull request (#46).
 
 ## 1. What Gary is
 
@@ -36,7 +36,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #5 | `sync.py`, `fake_sniff.py` | **Done** | |
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
-| #8 | Scout: one live TinyFish run | **Partly** | Code and tests done. The live run needs `TINYFISH_API_KEY` |
+| #8 | Scout: one live TinyFish run | **Partly** | Code done, and tested against a stand-in for TinyFish. The live run needs `TINYFISH_API_KEY` |
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Code done, needs the Pi** | `device/gary_io.py`, tested with stand-in pins. On the Pi: wire it, run `python3 gary_io.py`, press once, check for one journal line |
@@ -62,7 +62,14 @@ running on QNX on the Pi, and the scout working on live sites.
 | #28 | Quest card, short or long | **Done** | |
 | #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
 | #30 | Wellness view, private mood check-in | **Done** | |
-| **Phase 5** | **Scout and story (D)** | Open | #31 to #37 |
+| **Phase 5** | **Scout and story (D)** | | |
+| #31 | Scout on three or more live London sites | **Code done, needs the key** | Five pages in `scout/sources.json`: parks, two for trails, two for events. One command: `python3 scout/scout.py` |
+| #32 | Scout checks | **Done** | Gary can name the target, one quest per place, nothing closed or risky, a note on where to stand. The tests need no key |
+| #33 | Scout evidence for the judges | **Code done, needs the key** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. Empty until the first live run |
+| #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
+| #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Six claims in it are marked `[A]` to `[F]`: each is true only when its issue is closed |
+| #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. The video needs the real device |
+| #37 | Stretch: Gemini writes Gary's lines | **Code done, needs a key** | `python3 scout/scout.py --voice`. Never run against Gemini |
 | **Phase 6** | **Integration and demo** | Open | #38 to #40 |
 
 **State words.** *Done*: finished and tested here. *Code done, needs the Pi*
@@ -75,6 +82,13 @@ To finish Phase 1, three things need a person:
 1. **#4** Build and run `device/qnx/gary_qnx.cpp` on the Pi. Paste any build errors into the issue.
 2. **#8** `export TINYFISH_API_KEY=...`, then `python3 scout/scout.py --dry-run`, then run it without `--dry-run`. Commit `scout/runs.jsonl`.
 3. **#9** Run device, sync, backend and web together and record 20 seconds.
+
+To finish Phase 5, four things need a person:
+
+1. **#8, #31, #33** `export TINYFISH_API_KEY=...`, then `python3 scout/scout.py --one --dry-run`, then `python3 scout/scout.py`, then `python3 scout/scout.py --report`. Commit `scout/runs.jsonl`, `scout/EVIDENCE.md` and `scout/cached_quests.json`. If the first command fails, paste what it prints into #8.
+2. **#34** Film one run (`docs/TINYFISH_POST.md` has the shot list), post it, put the link in the Devpost page.
+3. **#35** In `docs/DEVPOST.md`, tick the claims table and fill in every square bracket.
+4. **#36** Put names in `docs/DEMO.md`, rehearse it twice on the device, record the backup video.
 
 To finish Phase 3, two accounts (steps in `backend/README.md`):
 
@@ -118,8 +132,8 @@ Who decides what. Do not move logic across these lines:
 | `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
-| `scout/` | D | `scout.py` (TinyFish call, places to quests), `sources.json`, tests |
-| `docs/` | D | `PLAN.md`, later the Devpost text and demo script |
+| `scout/` | D | `scout.py` (TinyFish call, places to quests, the checks, the evidence page), `sources.json` (the pages), `gary_voice.py` (optional Gemini step), tests |
+| `docs/` | D | `PLAN.md`, `DEVPOST.md` (the page, as a draft), `DEMO.md` (the three-minute script), `TINYFISH_POST.md`, `qnx-numbers.md` |
 | `scripts/` | shared | `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
 
 Each folder has its own README with run commands and file notes.
@@ -139,7 +153,7 @@ cd web && npm install && VITE_API_URL=http://localhost:8000 npm run dev
 python3 device/fake_sniff.py bottle
 python3 device/fake_sniff.py backpack --friend
 
-# 4. quests from the scout's saved reply (a live run needs TINYFISH_API_KEY)
+# 4. sample quests from hand-written places (a live scout run needs TINYFISH_API_KEY: see scout/README.md)
 python3 scout/scout.py --from-file scout/sample_result.json
 ```
 
@@ -180,8 +194,10 @@ Full detail: `contract/README.md`. In brief:
   `new`, `quest_id`, `latency_ms`. Sending the same `id` twice counts once.
 - **Quest** (scout → `POST /api/quests`; anyone reads `GET /api/quests`):
   `id`, `title`, `place`, `time` (`short` or `long`), `target`, `xp`, `herd`,
-  `source`, `source_url`, `day`. **`target` must be a name in
+  `note`, `source`, `source_url`, `day`. **`target` must be a name in
   `contract/labels.json`**, because the Sniff Test is what confirms a quest.
+  `source` is `tinyfish` only for a quest from a live agent run; the page says
+  "Found by the scout" for those and for nothing else.
 - **State** (`GET /api/state` → web): `gary`, `quest`, `quest_choice`,
   `quest_options`, `journal`, `guide`, `map`, `herd`. Mood is never in it.
 - **Choice** (`POST /api/quest/choose` with `{"time": "short"}`): makes a
@@ -209,6 +225,8 @@ removal needs all four owners to agree, in an issue.
    - A friend is "a person is in frame". Never identify anyone.
    - Quest targets come from `contract/labels.json`. Quest wording is safe:
      public, accessible places only.
+   - Only a quest from a live agent run is marked `tinyfish`. Never relabel a
+     sample or hand-made quest to make a demo look better.
    - Health wording is careful: "you reported feeling better after two
      walks", never "the walk fixed your mood". Gary never diagnoses.
    - Every stage must be reachable solo.
@@ -276,12 +294,23 @@ removal needs all four owners to agree, in an issue.
 
 **Phase 5, scout and story (D)**
 
-- #8 first: the live run, with your key.
-- #31: add pages to `scout/sources.json`. Each needs a `goal` that asks for
+- #8 first: the live run, with your key. Everything below it is written and
+  waits for that run.
+- #31: the pages are in `scout/sources.json`. To add one, add an entry with a
+  `kind`, a `time` and a `goal` that asks for
   `{"places": [{"name": ..., "about": ...}]}`.
-- #32: `TARGET_RULES` and `build_quests()` in `scout/scout.py`, with tests in
-  `scout/tests/`.
-- #33: `scout/runs.jsonl` is the evidence. Commit it after live runs.
+- #32: `TARGET_RULES` (which thing to find where), `RISKS` (what gets a place
+  left out) and `NOTES` (where to stand) in `scout/scout.py`. `check_quests()`
+  is the last look before anything is sent.
+- #33: `scout/runs.jsonl` is the evidence and `--report` turns it into
+  `scout/EVIDENCE.md`. Commit both after live runs.
+- If TinyFish answers in a shape the code does not expect, the two places to
+  look are `parse_sse()` and `find_places()`. `scout/tests/test_scout.py` has
+  a stand-in for TinyFish (`FakeTinyFish`): add the real shape there first.
+- #34 to #36 are documents in `docs/`. They are drafts: the claims in them
+  that are not true yet are marked.
+- #37: `scout/gary_voice.py`. `acceptable()` decides whether a reworded title
+  is kept.
 
 ## 10. What is verified, and what is not
 
@@ -303,8 +332,13 @@ removal needs all four owners to agree, in an issue.
   Python Gary on a video file, pressed through `gary_io.py`.
 - Start and stop scripts, on Linux, with a stand-in Gary: restart after a
   crash, survives a hangup, a clean stop, a fresh run.
-- Scout: stream parsing and quest building. A real call to TinyFish with a
-  wrong key gets a clean `401`.
+- Scout: the whole path from the call to the backend, the run log and the
+  evidence page, against a stand-in for TinyFish that sends the documented
+  event stream (a good run, a failed one, one that hangs up, one that goes
+  quiet, a refused key). A real call to TinyFish with a wrong key gets a
+  clean `401`.
+- Demo script: every "the screen shows" in `docs/DEMO.md` was replayed against
+  the real backend, with `fake_sniff.py` standing in for Gary.
 - Web: every screen drawn from the contract's example files, in mock and in
   live mode, with a stand-in service. The built page looked at in headless
   Chrome at 340, 390 and 1280 px, in mock mode and against the real backend.
@@ -313,7 +347,11 @@ removal needs all four owners to agree, in an issue.
 **Not verified**
 
 - The C++ program has never been built or run on QNX (#4).
-- No successful live TinyFish run (#8).
+- No successful live TinyFish run (#8). The stand-in follows TinyFish's
+  documents; the real service may differ.
+- The Gemini step (`--voice`) has never called Gemini.
+- The demo has not been rehearsed on the device or timed out loud.
+- `docs/DEVPOST.md` makes six claims that are not true yet. They are marked.
 - No real webcam, speaker, button or buzzer has been used.
 - `gary_io.py` has never touched real GPIO pins, on QNX or on Raspberry Pi OS.
 - `start_gary.sh` has not run under QNX's shell, and the power-on line in
@@ -341,12 +379,13 @@ removal needs all four owners to agree, in an issue.
 
 | When | Decision |
 | --- | --- |
-| 21 Nov, 12:50 am | Four pillars, one folder each, joined only by the contract |
-| 21 Nov, 1:20 am | XP rewards quests, outdoor finds and finds with a friend. Map tiles are real places. The journal is also a field guide. Herds compete weekly; individuals are never ranked |
-| 21 Nov, 2:00 am | Backend: Python with FastAPI, in memory for Phase 1. Web: React with Vite. Scout: standard library, TinyFish `run-sse`. The device talks only through `journal.jsonl` and `sync.py` |
-| 21 Nov, 3:00 am | The button script is `gary_io.py`, not `io.py`: that name hides Python's own `io` module. Buzzer patterns differ by rhythm, because the Grove buzzer is on/off. `sync.py` sends the device's clock with each upload |
-| 21 Nov, 4:00 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
-| 21 Nov, 5:00 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
+| 21 Nov, 12:35 am | Four pillars, one folder each, joined only by the contract |
+| 21 Nov, 1:15 am | XP rewards quests, outdoor finds and finds with a friend. Map tiles are real places. The journal is also a field guide. Herds compete weekly; individuals are never ranked |
+| 21 Nov, 1:40 am | Backend: Python with FastAPI, in memory for Phase 1. Web: React with Vite. Scout: standard library, TinyFish `run-sse`. The device talks only through `journal.jsonl` and `sync.py` |
+| 21 Nov, 2:40 am | The button script is `gary_io.py`, not `io.py`: that name hides Python's own `io` module. Buzzer patterns differ by rhythm, because the Grove buzzer is on/off. `sync.py` sends the device's clock with each upload |
+| 21 Nov, 2:55 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
+| 21 Nov, 3:20 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
+| 21 Nov, 4:00 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

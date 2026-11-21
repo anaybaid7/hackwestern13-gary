@@ -10,6 +10,7 @@
       "target": "bicycle",
       "xp": 20,
       "herd": false,
+      "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
       "day": "2026-11-21"
@@ -23,6 +24,7 @@
       "target": "dog",
       "xp": 20,
       "herd": true,
+      "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
       "day": "2026-11-21"
@@ -36,6 +38,7 @@
       "target": "bird",
       "xp": 40,
       "herd": false,
+      "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
       "day": "2026-11-21"

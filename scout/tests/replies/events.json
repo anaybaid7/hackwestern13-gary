@@ -1,0 +1,14 @@
+{
+  "_note": "Hand-written test data in the shape the agent is asked to return. NOT the output of a TinyFish run.",
+  "kind": "events",
+  "result": [
+    {"type": "summary", "text": "Found 4 public events with venues."},
+    {"places": [
+      {"name": "Victoria Park", "about": "Lighting of the Lights, Fri Dec 4, 6 to 7:30 pm"},
+      {"name": "Covent Garden Market", "about": "Outdoor holiday market, Sat Nov 28"},
+      {"name": "Harris Park", "about": "Guided river walk, Sun Nov 22"},
+      {"name": "", "about": "An event with no venue named"},
+      {"name": "Dundas Place", "about": "Street festival. Part of the road is under construction; follow the detour."}
+    ]}
+  ]
+}

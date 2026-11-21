@@ -507,6 +507,34 @@ def test_sniffs_with_no_network_are_uploaded_when_it_returns():
 # --------------------------------------------------------------------------
 # gary_numbers.py
 # --------------------------------------------------------------------------
+def test_odd_words_in_a_quest_cannot_break_the_quest_file():
+    sync = load("sync")
+    quests = [
+        {"id": "q-1", "target": "dog", "xp": 20, "title": "Find a dog\tat\nGibbons Park", "herd": True},
+        {"id": "q\t2\n", "target": "bench", "xp": 40, "title": None, "herd": "yes"},
+        {"id": "", "target": "bird", "xp": 20, "title": "No id"},
+        {"id": "q-4", "target": None, "xp": 20, "title": "No target"},
+        {"id": "#q-5", "target": "bird", "xp": 20, "title": "Would read as a comment"},
+    ]
+    lines = [line for line in sync.quests_as_tsv(quests, "http://test").splitlines() if not line.startswith("#")]
+    assert lines == ["q-1\tdog\t20\tFind a dog at Gibbons Park\therd", "q 2\tbench\t40\tFind a bench"], lines
+    # and Gary reads the file the same way
+    try:
+        device = load("gary_device")
+    except ImportError:
+        raise Skip("the quest file is written correctly; reading it back needs the device requirements")
+    folder = tempfile.mkdtemp(prefix="gary-tsv-")
+    try:
+        path = os.path.join(folder, "quests.tsv")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(sync.quests_as_tsv(quests, "http://test"))
+        loaded = [(q.id, q.label, q.xp, q.text, q.herd) for q in device.load_quests(path)]
+        assert loaded == [("q-1", "dog", 20, "Find a dog at Gibbons Park", True),
+                          ("q 2", "bench", 40, "Find a bench", False)], loaded
+    finally:
+        shutil.rmtree(folder)
+
+
 def test_numbers_turns_a_run_into_a_table_row():
     numbers = load("gary_numbers")
     folder = tempfile.mkdtemp(prefix="gary-numbers-")

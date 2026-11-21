@@ -1,6 +1,6 @@
 // The quest on the card, drawn as a trail sign, with the short or long
 // choice under it (issue #28).
-import { host, plural } from '../format.js'
+import { host, plural, webAddress } from '../format.js'
 
 export default function QuestCard({ quest, choice, options = {}, open = 0, onChoose, busy = false }) {
   return (
@@ -15,12 +15,17 @@ export default function QuestCard({ quest, choice, options = {}, open = 0, onCho
               {quest.minutes ? `, about ${quest.minutes} minutes` : ''}. Worth {quest.xp} XP.
             </p>
             {quest.herd && <p className="sign-herd-note">Needs a friend in the frame.</p>}
+            {quest.note && <p className="sign-note">{quest.note}</p>}
           </div>
           <p className="source">
-            {quest.source_url ? (
+            {quest.source === 'tinyfish' && webAddress(quest.source_url) ? (
               <>
                 Found by the scout on <a href={quest.source_url}>{host(quest.source_url)}</a>.
               </>
+            ) : quest.source === 'tinyfish' ? (
+              'Found by the scout.'
+            ) : quest.source === 'sample' ? (
+              'A sample quest, written by hand. The scout did not find this one.'
             ) : (
               'A starter quest. The scout did not find this one.'
             )}

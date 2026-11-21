@@ -77,7 +77,11 @@ export function withArticle(label) {
   return `${/^[aeiou]/.test(label) ? 'an' : 'a'} ${label}`
 }
 
-/** One sentence about today: "Today you and a friend found a bench and a dog at Harris Park." */
+/**
+ * One sentence about today: "Today you and a friend found a bench and a dog at
+ * Harris Park." It says "you and a friend" only when a friend was in the frame
+ * for every find; otherwise it says how many were shared.
+ */
 export function recap(journal, now) {
   const today = journal.filter((entry) => isToday(entry.ts, now))
   if (today.length === 0) return 'No finds yet today. Gary is in no hurry.'
@@ -86,6 +90,8 @@ export function recap(journal, now) {
   if (labels.length > 3) shown.push(`${labels.length - 3} more`)
   const places = [...new Set(today.map((entry) => entry.place).filter(Boolean))].reverse()
   const where = places.length === 0 ? '' : places.length <= 2 ? ` at ${list(places)}` : ` at ${places.length} places`
-  const who = today.some((entry) => entry.friend) ? 'you and a friend' : 'you'
-  return `Today ${who} found ${list(shown)}${where}.`
+  const shared = today.filter((entry) => entry.friend).length
+  if (shared === today.length) return `Today you and a friend found ${list(shown)}${where}.`
+  if (shared === 0) return `Today you found ${list(shown)}${where}.`
+  return `Today you found ${list(shown)}, ${shared === 1 ? 'one' : 'some'} of them with a friend${where ? `,${where}` : ''}.`
 }

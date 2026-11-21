@@ -107,15 +107,22 @@ def upload_journal(api, journal_path, state_path, say):
     return sent
 
 
+def one_line(value):
+    """A tab or a line break inside a column would break the file for Gary."""
+    return " ".join(str(value).split())
+
+
 def quests_as_tsv(quests, api):
     lines = [
         "# Written by sync.py from %s. Edit by hand only when sync.py is not running." % api,
         "# Columns are separated by TABs: id, target, xp, text, and optionally \"herd\".",
     ]
     for q in quests:
-        cols = [str(q["id"]), str(q["target"]), str(q.get("xp", 0)),
-                str(q.get("title") or "Find a " + q["target"]).replace("\t", " ")]
-        if q.get("herd"):
+        ident, target = one_line(q.get("id") or ""), one_line(q.get("target") or "")
+        if not ident or not target or ident.startswith("#"):
+            continue  # Gary could not use this line
+        cols = [ident, target, one_line(q.get("xp") or 0), one_line(q.get("title") or "Find a " + target)]
+        if q.get("herd") is True:
             cols.append("herd")
         lines.append("\t".join(cols))
     return "\n".join(lines) + "\n"

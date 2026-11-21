@@ -23,6 +23,7 @@ file (or in the repo root):
 """
 import datetime as dt
 import os
+import re
 import threading
 import uuid
 import zoneinfo
@@ -69,6 +70,7 @@ load_settings([HERE / ".env", ROOT / ".env"])
 FRIEND, OUTDOOR = rules.load_labels(CONTRACT / "labels.json")
 OUTDOOR_LABELS = sorted(name for name, is_outdoor in OUTDOOR.items() if is_outdoor)
 QUEST_REQUIRED = ("id", "title", "place", "time", "target", "xp")
+QUEST_XP_MAX = 100  # a posted quest cannot be worth more than this. The scout gives 20 or 40
 EVENT_TYPES = ("discovery", "miss", "mood")
 CLOCK_TOLERANCE = 2.0  # seconds. A device clock closer than this to ours is taken as right
 
@@ -163,25 +165,56 @@ def clean_event(raw, sent_at, received):
     return event
 
 
+def one_line(value, limit):
+    """Plain text on one line: line breaks, tabs and control characters become
+    spaces, runs of spaces become one, and it is cut at `limit`. A quest's words
+    can come from a web page (through the scout) and they end up in the device's
+    tab-separated quest file, so they are cleaned here, once, for everyone."""
+    text = "".join(ch if ch.isprintable() else " " for ch in str(value))
+    return " ".join(text.split())[:limit]
+
+
+def web_address(value):
+    """An http or https address, or None. The page makes a link of it, so
+    nothing else is let through."""
+    text = str(value or "").strip()
+    return text if len(text) <= 300 and re.match(r"https?://[^\s<>\"']+$", text, flags=re.I) else None
+
+
 def check_quest(raw):
     """-> (clean quest, None) or (None, why it was refused)."""
-    missing = [k for k in QUEST_REQUIRED if raw.get(k) in (None, "")]
+    if not isinstance(raw, dict):
+        return None, "a quest must be an object"
+    clean = {"id": one_line(raw.get("id") or "", 80).replace(" ", "-"),
+             "title": one_line(raw.get("title") or "", 140),
+             "place": one_line(raw.get("place") or "", 80)}
+    missing = [k for k in QUEST_REQUIRED if (clean[k] if k in clean else raw.get(k)) in (None, "")]
     if missing:
         return None, "missing " + ", ".join(missing)
     if raw["time"] not in ("short", "long"):
         return None, 'time must be "short" or "long"'
     target = str(raw["target"]).strip().lower()
     if target not in OUTDOOR:
-        return None, "Gary cannot recognise '%s'. Pick a name from contract/labels.json" % raw["target"]
+        return None, "Gary cannot recognise '%s'. Pick a name from contract/labels.json" % one_line(raw["target"], 40)
     try:
         xp = int(raw["xp"])
     except (TypeError, ValueError):
         return None, "xp must be a number"
+    if not 1 <= xp <= QUEST_XP_MAX:
+        return None, "xp must be between 1 and %d" % QUEST_XP_MAX
+    try:
+        minutes = int(raw["minutes"])
+        minutes = minutes if 1 <= minutes <= 600 else None
+    except (KeyError, TypeError, ValueError):
+        minutes = None
+    day = str(raw.get("day") or "")
     return {
-        "id": str(raw["id"]), "title": str(raw["title"]), "place": str(raw["place"]).strip(),
-        "time": raw["time"], "minutes": raw.get("minutes"), "target": target, "xp": xp,
-        "herd": bool(raw.get("herd", False)), "source": raw.get("source", "manual"),
-        "source_url": raw.get("source_url"), "day": raw.get("day") or rules.local_day(now(), TZ),
+        **clean, "time": raw["time"], "minutes": minutes, "target": target, "xp": xp,
+        "herd": raw.get("herd") is True,
+        "note": (one_line(raw["note"], 200) or None) if raw.get("note") else None,
+        "source": one_line(raw.get("source") or "manual", 20) or "manual",
+        "source_url": web_address(raw.get("source_url")),
+        "day": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else rules.local_day(now(), TZ),
     }, None
 
 
@@ -242,7 +275,7 @@ def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(No
                 store.put_quest(quest)
                 accepted.append(quest["id"])
             else:
-                rejected.append({"id": raw.get("id"), "why": why})
+                rejected.append({"id": raw.get("id") if isinstance(raw, dict) else None, "why": why})
     return {"accepted": accepted, "rejected": rejected}
 
 

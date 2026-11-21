@@ -101,6 +101,10 @@ They run in the `America/Toronto` timezone wherever the machine is.
   check-in can be skipped, and skipping sends nothing.
 - Seeded data is labelled where it is shown: the rival herds, the demo story,
   the sample week.
+- A quest is credited to the scout ("Found by the scout on london.ca") only
+  when its `source` is `tinyfish`, which only a live agent run sets. A sample
+  quest and a built-in quest each say what they are. The link is made only
+  from an `http` or `https` address.
 - No individual rankings anywhere.
 
 ## Not checked
