@@ -5,7 +5,7 @@ discover new places and bring a friend. Built at Hack Western 13.
 
 **Other apps count your steps. Gary counts your stories.**
 
-Devpost: [link] · Demo video: [link] · TinyFish post: [link]
+Live: http://149.248.50.153 (hosted on Vultr) · Devpost: [link] · Demo video: [link] · TinyFish post: [link]
 
 <p>
   <img src="docs/img/home.png" width="23%" alt="Home: Gary as a Scrambler on a lime screen, his line about a dog, his XP bar, and today's quest">
@@ -104,9 +104,9 @@ Update this table as each row is done.
 | --- | --- | --- |
 | The Sniff Test, C++ for QNX | Built and tested on Linux with stand-ins for QNX's camera | [not yet: issue #4] |
 | Button and buzzer | Tested with stand-in pins | [not yet: issues #10, #11] |
-| Backend | Tested in memory and on PostgreSQL 16 | [not yet on Tiger Data or Vultr: issues #16, #22] |
+| Backend | Tested in memory and on PostgreSQL 16 | Runs on Vultr at http://149.248.50.153. Tiger Data is verified from a laptop; [the Vultr server itself still keeps its data in memory] |
 | Web page | Tested, and looked at in Chrome at phone and desktop sizes | [not yet on a real phone] |
-| Scout | Tested against a stand-in for TinyFish | [no live run yet: issue #8] |
+| Scout | Tested against a stand-in for TinyFish | One live TinyFish run, on the City of London parks page (`scout/runs.jsonl`); [the other four pages: not yet] |
 
 ## For the team
 
