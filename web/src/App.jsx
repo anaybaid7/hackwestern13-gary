@@ -221,7 +221,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     <Handheld onPick={pick}>
       <div className="app" data-tab={tab} data-mode={service.mode}>
         <header className="topbar">
-          <h1>Gary</h1>
+          <h1 title="Go Anywhere, Rediscover Yourself">G.A.R.Y</h1>
           <span className={`status status-${status}`}>{STATUS[status]}</span>
         </header>
 
