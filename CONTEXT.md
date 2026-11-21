@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 4:00 am, with the Phase 3 pull request (#44).
+Last updated: Sat 21 Nov 2026, 5:00 am, with the Phase 4 pull request (#45).
 
 ## 1. What Gary is
 
@@ -54,7 +54,14 @@ running on QNX on the Pi, and the scout working on live sites.
 | #21 | Quest choice | **Done** | `POST /api/quest/choose` |
 | #22 | Deploy on Vultr | **Code done, needs the account** | `sh backend/deploy/deploy.sh root@<ip>`. Rehearsed in a container, never run on Vultr |
 | #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
-| **Phase 4** | **Front end (C)** | Open | #24 to #30 |
+| **Phase 4** | **Front end (C)** | | |
+| #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface are in, and every screen works in both. The prototype's own code was never in this repo, so the screens were built fresh. The team decides: keep these, or port the prototype onto them |
+| #25 | Gary: stages, naps, welcome back, his voice | **Done** | The eight images in `web/src/art/` are stand-ins an artist can replace |
+| #26 | Fog-of-war map view | **Done** | |
+| #27 | Discovery journal and field guide | **Done** | |
+| #28 | Quest card, short or long | **Done** | |
+| #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
+| #30 | Wellness view, private mood check-in | **Done** | |
 | **Phase 5** | **Scout and story (D)** | Open | #31 to #37 |
 | **Phase 6** | **Integration and demo** | Open | #38 to #40 |
 
@@ -110,7 +117,7 @@ Who decides what. Do not move logic across these lines:
 | `contract/` | shared | The JSON shapes and example files. The only shared surface |
 | `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
-| `web/` | C | React + Vite. `src/api.js` is the only file that talks to the backend |
+| `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests), `sources.json`, tests |
 | `docs/` | D | `PLAN.md`, later the Devpost text and demo script |
 | `scripts/` | shared | `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
@@ -144,7 +151,8 @@ python3 gary_device.py --show                     # Enter = Sniff Test
 python3 sync.py --api http://localhost:8000       # in another terminal
 ```
 
-Web page with no backend at all: `cd web && npm run dev` (mock mode).
+Web page with no backend at all: `cd web && npm run dev` (mock mode: a demo
+story you click through). On any running page, add `?mock` to the address.
 
 ## 6. Test it
 
@@ -254,16 +262,17 @@ removal needs all four owners to agree, in an issue.
 
 **Phase 4, front end (C)**
 
-- `web/src/api.js` is the seam. Mock mode draws `contract/examples/state.json`.
-- The backend now serves everything the screens need: `quest_choice` and
-  `quest_options` for the two buttons, `place` on journal entries, `finds` on
-  map tiles, `herd.quest`, `herd.cup.ahead`, and `GET /api/wellness`.
-  `contract/examples/story.json` is ten states in a row, for a mock mode that
-  can be clicked through.
-- #24: bring the React prototype in and point its mock-service interface at
-  `api.js`. Keep mock mode working.
-- #25 to #30: split `App.jsx` into screens. Every number comes from State.
-  For the field guide, the full list of things is `contract/labels.json`.
+- `web/src/services/index.js` is the one switch between mock and live. Both
+  services offer the same calls. A new backend call goes into `live.js` and
+  `mock.js` together.
+- Mock mode plays `contract/examples/story.json`, which the backend wrote. Do
+  not hand-edit it: change the story in `scripts/make_examples.py`.
+- `App.jsx` asks for the state, compares it with the last one (`whatChanged`)
+  and passes what is new to the screens, which animate it.
+- The page never computes a rule. If a screen needs a number that is not in
+  the state, ask for it in the contract.
+- Gary's art, his lines, the pictures and the colours each live in one place:
+  see "What to change, and where" in `web/README.md`.
 
 **Phase 5, scout and story (D)**
 
@@ -296,8 +305,9 @@ removal needs all four owners to agree, in an issue.
   crash, survives a hangup, a clean stop, a fresh run.
 - Scout: stream parsing and quest building. A real call to TinyFish with a
   wrong key gets a clean `401`.
-- Web: 3 tests, and the page looked at in headless Chrome at desktop and
-  phone widths.
+- Web: every screen drawn from the contract's example files, in mock and in
+  live mode, with a stand-in service. The built page looked at in headless
+  Chrome at 340, 390 and 1280 px, in mock mode and against the real backend.
 - Whole chain: `scripts/e2e.py`.
 
 **Not verified**
@@ -336,6 +346,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 2:00 am | Backend: Python with FastAPI, in memory for Phase 1. Web: React with Vite. Scout: standard library, TinyFish `run-sse`. The device talks only through `journal.jsonl` and `sync.py` |
 | 21 Nov, 3:00 am | The button script is `gary_io.py`, not `io.py`: that name hides Python's own `io` module. Buzzer patterns differ by rhythm, because the Grove buzzer is on/off. `sync.py` sends the device's clock with each upload |
 | 21 Nov, 4:00 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
+| 21 Nov, 5:00 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

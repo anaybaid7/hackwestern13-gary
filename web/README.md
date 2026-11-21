@@ -1,9 +1,11 @@
 # Web
 
-One page that draws whatever the backend's `GET /api/state` returns, and asks
-again every two seconds. Every number on it comes from the backend; the page
-decides nothing. This is the Phase 1 bare-bones version. Phase 4 turns it into
-Gary's world.
+Gary's world, in a browser: Gary and his climb, the quest, the fog-of-war map,
+the field guide and journal, the herd and the Herd Cup, and a private page for
+mood check-ins.
+
+The page draws what it is given and asks again every two seconds. Every number
+on it comes from the backend. The page decides nothing.
 
 ## Run it
 
@@ -11,14 +13,36 @@ Gary's world.
 cd web
 npm install
 
-npm run dev                                       # mock mode: no backend needed
+npm run dev                                       # mock mode: the demo story, no backend needed
 VITE_API_URL=http://localhost:8000 npm run dev    # against the real backend
 ```
 
-Mock mode draws `contract/examples/state.json`.
+On a phone, add to the page address: `?mock` for the demo story, or
+`?api=http://host:8000` for a backend somewhere else.
 
-At run time you can also add `?api=http://host:8000` or `?mock` to the page
-address. That is handy on a phone.
+## Mock mode and live mode (issue #24)
+
+One setting picks where the state comes from (`src/services/index.js`). Both
+services offer the same calls, so every screen works in both modes:
+
+| Call | Live (`services/live.js`) | Mock (`services/mock.js`) |
+| --- | --- | --- |
+| `getState()` | `GET /api/state` | the current step of the demo story |
+| `chooseQuest(time)` | `POST /api/quest/choose` | picks one of the two offered quests |
+| `postMood(phase, value)` | `POST /api/mood` | kept for this visit only |
+| `getWellness()` | `GET /api/wellness` | the story's own, marked as demo data |
+| `now()` | the real clock | the story's clock |
+
+**The demo story** is `contract/examples/story.json`: ten states that the real
+backend produced, a Saturday and a Sunday with Gary. Mock mode plays it one
+step per press of "Next". It needs no backend, no device and no network, so it
+is also the fallback if the Wi-Fi fails during judging: open the page with
+`?mock`. `?mock&step=6` opens at step 6.
+
+**The team's React prototype is not in here.** Its code was never added to
+this repo, so these screens were built fresh on the same idea: mock services
+and real services behind one interface. The prototype's components and art can
+replace them one screen at a time.
 
 ## Build it
 
@@ -28,6 +52,7 @@ npm run build
 
 This writes `web/dist`. The backend serves that folder at `/`, so after a
 build, `http://localhost:8000/` is the page and the API on one address.
+`backend/deploy/deploy.sh` does the build for you.
 
 ## Test it
 
@@ -35,24 +60,52 @@ build, `http://localhost:8000/` is the page and the API on one address.
 npm test
 ```
 
-The tests render the page from the contract's example state.
+The tests draw every screen from the contract's example files, in both modes.
+They run in the `America/Toronto` timezone wherever the machine is.
 
-## Files
+## Where things are
 
 | File | What it holds |
 | --- | --- |
-| `src/api.js` | The only file that talks to the backend. Mock mode lives here |
-| `src/App.jsx` | The page: Gary, XP, quest, field guide, journal, map, Herd Cup |
-| `src/Gary.jsx` | A placeholder SVG goat. Horns grow with the stage; he closes his eyes to nap |
-| `src/styles.css` | Styles |
-| `src/App.test.jsx` | Tests |
+| `src/App.jsx` | The frame: asks for the state, spots what is new, the five screens |
+| `src/services/` | `index.js` (the switch), `live.js`, `mock.js`, `sample_wellness.js` (a made-up week, always labelled as demo) |
+| `src/screens/Home.jsx` | Gary, his line, the recap of the day, the quest card, the latest finds |
+| `src/screens/MapScreen.jsx` | The 5 × 5 map. Fog shows nothing; a cleared tile shows its place and, on a tap, what was found there |
+| `src/screens/Guide.jsx` | The field guide (all 79 things) and the journal |
+| `src/screens/Herd.jsx` | The friend-in-frame confirmation, the co-op quest, badges, the Herd Cup |
+| `src/screens/You.jsx` | Private: the before and after check-in and the wellness view |
+| `src/components/` | `Gary.jsx`, `Climb.jsx` (the mountain), `QuestCard.jsx`, `FindRow.jsx`, `ThingIcon.jsx`, `Tabs.jsx`, `StoryBar.jsx` |
+| `src/voice.js` | Gary's lines and the one-sentence recap |
+| `src/things.js` | A picture for each of the 79 things |
+| `src/words.js` | Names for stage and badge ids |
+| `src/art/` | Gary's eight images |
+| `src/styles.css` | Every style, with the colours and faces at the top |
 
-## What Phase 4 changes
+## What to change, and where
 
-Bring the React prototype in and point its mock-service interface at `api.js`
-(#24). Real stage images and Gary's voice (#25). The map view (#26), the field
-guide (#27), the quest card with the short or long choice (#28), the Herd Mode
-screen and Herd Cup table (#29), the wellness view and private mood tap (#30).
+- **Gary's art.** Replace the files in `src/art/`, keeping the names:
+  `gary-kid.svg`, `gary-scrambler.svg`, `gary-ibex.svg`, `gary-summit-elder.svg`,
+  and the same four ending in `-nap.svg`. The page only swaps images.
+- **Gary's voice.** `src/voice.js`. A line tied to a thing goes in `BY_THING`.
+  Keep him dry and kind: no nagging, no guilt, nothing about missed days.
+- **A picture for a thing.** `src/things.js`. A thing with no picture shows
+  its initials.
+- **Colours and type.** The variables at the top of `src/styles.css`. The faces
+  are Barlow and Barlow Condensed, bundled with the page so it looks the same
+  with no network.
 
-Rules that hold on every screen: no guilt, no penalties, no individual
-rankings, and mood is private.
+## Rules this page keeps
+
+- It never computes XP, stages, ranks or which tile clears. It draws them.
+- Mood appears only on the "You" screen, from `GET /api/wellness`. Each
+  check-in can be skipped, and skipping sends nothing.
+- Seeded data is labelled where it is shown: the rival herds, the demo story,
+  the sample week.
+- No individual rankings anywhere.
+
+## Not checked
+
+- No real phone has opened this page. It was looked at in headless Chrome at
+  390 px and 1280 px wide, in mock mode and against the real backend.
+- The field guide's pictures are emoji. They look a little different on each
+  kind of phone, and a very old phone may show an empty box for a few of them.
