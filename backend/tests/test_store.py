@@ -34,13 +34,14 @@ def test_a_replaced_quest_keeps_its_place_in_the_order(client):
 
 def test_health_says_how_the_backend_is_set_up_and_never_shows_a_key(client, monkeypatch):
     health = client.get("/api/health").json()
-    assert health["keys"] == {"scout": False, "admin": False}
+    assert health["keys"] == {"scout": False, "admin": False, "private": False}
     assert health["nap_seconds"] == 8 * 3600 and health["timezone"] == "America/Toronto"
     monkeypatch.setenv("SCOUT_KEY", "scout-secret-1")
     monkeypatch.setenv("GARY_ADMIN_KEY", "admin-secret-2")
+    monkeypatch.setenv("GARY_PRIVATE_KEY", "private-secret-3")
     monkeypatch.setenv("GARY_NAP_SECONDS", "60")
     reply = client.get("/api/health")
-    assert reply.json()["keys"] == {"scout": True, "admin": True} and reply.json()["nap_seconds"] == 60
+    assert reply.json()["keys"] == {"scout": True, "admin": True, "private": True} and reply.json()["nap_seconds"] == 60
     assert "secret" not in reply.text
 
 
@@ -189,8 +190,9 @@ def test_a_restart_keeps_garys_state(client):
         state, _, _ = rules.compute(again.events(), again.quests(), backend.OUTDOOR, PINNED_NOW,
                                     rules.NAP_SECONDS, backend.TZ)
         assert state == before_state
-        assert rules.wellness(again.moods(), again.events(), backend.OUTDOOR, backend.TZ,
-                              again.outdoor_by_day(backend.OUTDOOR_LABELS, backend.TZ_NAME)) == before_wellness
+        after_wellness = rules.wellness(again.moods(), again.events(), backend.OUTDOOR, backend.TZ,
+                                        again.outdoor_by_day(backend.OUTDOOR_LABELS, backend.TZ_NAME))
+        assert dict(after_wellness, locked=False) == before_wellness   # "locked" is added by the endpoint
         assert [q["id"] for q in again.quests()] == [q["id"] for q in before_quests["quests"]] or \
             sorted(q["id"] for q in again.quests()) == sorted(q["id"] for q in before_quests["quests"])
         assert len(again.quests()) == 4, "the seed quests are not added a second time"

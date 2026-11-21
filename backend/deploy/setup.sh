@@ -39,6 +39,7 @@ if [ ! -f "$HOME_DIR/.env" ]; then
 # DATABASE_URL=postgres://tsdbadmin:PASSWORD@HOST.tsdb.cloud.timescale.com:PORT/tsdb?sslmode=require
 # SCOUT_KEY=choose-a-long-random-string
 # GARY_ADMIN_KEY=choose-another
+# GARY_PRIVATE_KEY=choose-a-passphrase-for-the-private-page
 # GARY_NAP_SECONDS=60        (shows a nap after a minute. Leave it out for the three-minute demo)
 ENV
   chmod 600 "$HOME_DIR/.env"

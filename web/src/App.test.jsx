@@ -106,7 +106,7 @@ describe('the page', () => {
     expect(screen.getByRole('heading', { name: 'Herd Cup, week 47' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'You' }))
-    expect(await screen.findByText(/Private\. Only you see this page/)).toBeTruthy()
+    expect(await screen.findByText(/appears in Gary's world, on the Herd screen or in the Herd Cup/)).toBeTruthy()
     expect(service.getWellness).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Field guide' }))

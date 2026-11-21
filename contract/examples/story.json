@@ -170,7 +170,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 0,
         "shared": 0,
-        "solo": 0
+        "solo": 0,
+        "locked": false
       }
     },
     {
@@ -356,7 +357,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 0,
         "shared": 0,
-        "solo": 0
+        "solo": 0,
+        "locked": false
       }
     },
     {
@@ -542,7 +544,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 0,
         "shared": 0,
-        "solo": 0
+        "solo": 0,
+        "locked": false
       }
     },
     {
@@ -768,7 +771,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 1,
         "shared": 0,
-        "solo": 1
+        "solo": 1,
+        "locked": false
       }
     },
     {
@@ -1007,7 +1011,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 2,
         "shared": 0,
-        "solo": 2
+        "solo": 2,
+        "locked": false
       }
     },
     {
@@ -1263,7 +1268,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 3,
         "shared": 1,
-        "solo": 2
+        "solo": 2,
+        "locked": false
       }
     },
     {
@@ -1523,7 +1529,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 3,
         "shared": 1,
-        "solo": 2
+        "solo": 2,
+        "locked": false
       }
     },
     {
@@ -1776,7 +1783,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 3,
         "shared": 1,
-        "solo": 2
+        "solo": 2,
+        "locked": false
       }
     },
     {
@@ -2036,7 +2044,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 3,
         "shared": 1,
-        "solo": 2
+        "solo": 2,
+        "locked": false
       }
     },
     {
@@ -2331,7 +2340,8 @@
         "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
         "finds": 4,
         "shared": 1,
-        "solo": 3
+        "solo": 3,
+        "locked": false
       }
     }
   ]

@@ -63,7 +63,8 @@ On the server they live in `/opt/gary/.env`. None of these files is in git.
 | `DATABASE_URL` | Postgres on Tiger Data. Unset: memory |
 | `SCOUT_KEY` | If set, the scout must send it as `X-Scout-Key` to post quests |
 | `GARY_ADMIN_KEY` | If set, `POST /api/dev/reset` must send it as `X-Admin-Key`. **Set this on the public server**, or anyone can wipe the demo |
-| `GARY_NAP_SECONDS` | Quiet time before Gary naps. Default 8 hours. `60` shows a nap and a welcome back inside a three-minute demo |
+| `GARY_PRIVATE_KEY` | A passphrase for the private side. If set, the check-ins and the wellness view open only with it (`X-Private-Key`), and the page asks for it once per device. **Set this on the public server**: without it anyone who has the address can read the check-ins, and the page says so |
+| `GARY_NAP_SECONDS` | Quiet time before Gary naps. Default 8 hours. A short value such as `60` shows a nap within minutes. Leave it out for the three-minute demo: Gary would be asleep again before the end |
 | `GARY_TZ` | Where days and weeks turn over. Default `America/Toronto` |
 | `GARY_SEED` | The quests a fresh backend starts with |
 
@@ -159,8 +160,11 @@ change the constant at the top and run the tests.
   uncovered together. Resets on Monday, local time. Rival herds are seeded
   demo data (`demo: true`). A tie goes to you, so your herd is never last.
   People are never ranked.
-- **Wellness.** Private. Before and after check-ins are paired within one
-  outing. The summary reports what the person said and never claims a cause.
+- **Wellness.** Kept apart: nothing that builds `/api/state` reads it. With
+  `GARY_PRIVATE_KEY` set it is also locked behind that passphrase. Before and
+  after check-ins are paired within one outing. The summary reports what the
+  person said and never claims a cause. Gary's own mood tap arrives with his
+  other events: the device can write a check-in and can never read one.
 
 **What a posted quest must be.** A quest's words can come from a web page,
 through the scout, and they end up in a link on the page and in the device's

@@ -38,8 +38,8 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `POST /api/quests` | scout | `{"quests": [Quest]}`, header `X-Scout-Key` if the server sets `SCOUT_KEY` | `{"accepted": [ids], "rejected": [{"id", "why"}]}` |
 | `POST /api/quest/choose` | web | `{"time": "short"\|"long"}` | `{"quest": Quest or null, "state": State}`. Makes a quest of that length the active one. Asking again gives the next one |
 | `GET /api/state` | web | | State |
-| `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}` | `{"ok": true}` |
-| `GET /api/wellness` | web | | Wellness. Private |
+| `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}`, header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | `{"ok": true}`. `401` without the passphrase |
+| `GET /api/wellness` | web | header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | Wellness. `401` without the passphrase |
 | `POST /api/dev/reset` | demos, tests | header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | forgets events and moods, reloads seed quests |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
@@ -110,7 +110,8 @@ Mood never appears in State.
 
 | Field | Meaning |
 | --- | --- |
-| `private` | Always `true`. Show a "only you see this" label |
+| `private` | Always `true`: none of this may ever be shown in Gary's shared world |
+| `locked` | `true` when a passphrase guards this reply. The page may say "private" only then. When `false`, anyone who has the address can read it, and the page says that instead |
 | `checkins` | Every check-in, oldest first: `ts`, `phase`, `value`, `source` (`web` or `device`) |
 | `pairs` | A "before" and the "after" of the same outing: `day`, `before`, `after`, `change`, `minutes` |
 | `summary` | One careful sentence, ready to show: "You reported feeling better after 2 of 3 outings." |

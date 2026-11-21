@@ -294,9 +294,13 @@ describe('You: the private check-in and the wellness view (issue #30)', () => {
     }
   }
 
-  test('a clear private label, and the view the backend wrote', async () => {
+  test('the view the backend wrote, and a label that says only what is true', async () => {
+    // exampleWellness comes from a backend with no passphrase: the page must not call itself private
     render(<You service={fakeService()} stamp="a" />)
-    expect(screen.getByText(/Private\. Only you see this page/)).toBeTruthy()
+    expect(await screen.findByText(/This page is not locked, so anyone who has its address can open it/)).toBeTruthy()
+    expect(screen.getByText(/Kept apart: none of this appears in Gary's world, on the Herd screen or in the Herd Cup/)).toBeTruthy()
+    expect(screen.queryByText(/Only you/)).toBeNull()
+    expect(screen.queryByText(/^Private\./)).toBeNull()
     expect(await screen.findByText('You reported feeling better after your outing.')).toBeTruthy()
     expect(screen.getByText('3 to 4')).toBeTruthy()
     expect(screen.getByText(/Okay before, Good after, 35 minutes apart/)).toBeTruthy()
@@ -313,8 +317,61 @@ describe('You: the private check-in and the wellness view (issue #30)', () => {
     fireEvent.click(screen.getByRole('button', { name: '4: Good' }))
     await waitFor(() => expect(service.postMood).toHaveBeenCalledWith('before', 4))
     expect(await screen.findByRole('heading', { name: 'Noted' })).toBeTruthy()
-    expect(screen.getByText(/Good \(4 of 5\), before heading out\. Only you see this\./)).toBeTruthy()
+    expect(screen.getByText(/Good \(4 of 5\), before heading out\. It stays on this page\./)).toBeTruthy()
     expect(service.getWellness.mock.calls.length).toBe(2) // loaded, then loaded again after the tap
+  })
+
+  test('behind a passphrase, the page says it is private and can be locked again', async () => {
+    const service = { ...fakeService({ ...exampleWellness, locked: true }), forgetKey: vi.fn() }
+    render(<You service={service} stamp="a" />)
+    expect(await screen.findByText(/Private\. This page opens only with your passphrase/)).toBeTruthy()
+    expect(screen.queryByText(/not locked/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Lock it on this device' }))
+    expect(service.forgetKey).toHaveBeenCalled()
+    expect(screen.getByText(/This page is locked/)).toBeTruthy()
+    expect(screen.queryByText('You reported feeling better after your outing.')).toBeNull()
+  })
+
+  test('a locked page shows nothing until the passphrase opens it', async () => {
+    const lockedError = Object.assign(new Error('HTTP 401'), { locked: true })
+    const service = {
+      mode: 'live',
+      now: () => new Date('2026-11-21T06:00:00Z'),
+      postMood: vi.fn(async () => ({ ok: true })),
+      getWellness: vi.fn(async () => {
+        throw lockedError
+      }),
+      unlock: vi.fn(async (passphrase) => {
+        if (passphrase !== 'goats climb at dawn') throw lockedError
+        return { ...exampleWellness, locked: true }
+      }),
+      forgetKey: vi.fn(),
+    }
+    render(<You service={service} stamp="a" />)
+    expect(await screen.findByText(/This page is locked\. It holds private check-ins/)).toBeTruthy()
+    // nothing private is on the screen, and no check-in can be made
+    expect(screen.queryByText('You reported feeling better after your outing.')).toBeNull()
+    expect(screen.queryByRole('button', { name: '4: Good' })).toBeNull()
+    const open = screen.getByRole('button', { name: 'Open this page' })
+    expect(open.disabled).toBe(true)
+
+    fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: 'a guess' } })
+    fireEvent.click(open)
+    expect(await screen.findByText('That passphrase did not open it. Check it and try again.')).toBeTruthy()
+    expect(screen.queryByText('You reported feeling better after your outing.')).toBeNull()
+
+    fireEvent.change(screen.getByLabelText('Passphrase'), { target: { value: 'goats climb at dawn' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Open this page' }))
+    expect(await screen.findByText('You reported feeling better after your outing.')).toBeTruthy()
+    expect(screen.getByText(/Private\. This page opens only with your passphrase/)).toBeTruthy()
+    expect(screen.queryByLabelText('Passphrase')).toBeNull()
+  })
+
+  test('the demo story never calls itself private or locked', async () => {
+    render(<You service={fakeService({ ...exampleWellness, demo: true })} stamp="a" />)
+    expect(await screen.findByText(/^The private page\. None of it appears in Gary's world/)).toBeTruthy()
+    expect(screen.queryByText(/not locked/)).toBeNull()
+    expect(screen.queryByText(/opens only with your passphrase/)).toBeNull()
   })
 
   test('with a "before" already in today, the next one is offered as an "after"', async () => {

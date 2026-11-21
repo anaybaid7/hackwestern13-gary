@@ -1,6 +1,10 @@
 // The private side (issue #30): a before and an after check-in, and the
-// wellness view. Private: it comes from GET /api/wellness, which is never part
-// of Gary's shared state. Every question here can be skipped.
+// wellness view. It comes from GET /api/wellness, which is never part of
+// Gary's shared state. Every question here can be skipped.
+//
+// The page says only what is true about who can see it. When the server sets a
+// passphrase the page is locked, and it says "private". When it does not,
+// anyone who has the address can open it, and the page says that instead.
 import { useCallback, useEffect, useState } from 'react'
 import { dayName, isToday, plural } from '../format.js'
 import { SAMPLE_WELLNESS } from '../services/sample_wellness.js'
@@ -20,17 +24,28 @@ export default function You({ service, stamp }) {
   const [sent, setSent] = useState(null)
   const [skipped, setSkipped] = useState(false)
   const [sample, setSample] = useState(false)
+  const [locked, setLocked] = useState(false) // the server wants a passphrase this device does not have
+  const [passphrase, setPassphrase] = useState('')
+  const [wrong, setWrong] = useState(false)
+
+  const failed = useCallback((err) => {
+    if (err.locked) {
+      setLocked(true)
+      setWellness(null)
+      setError(null)
+    } else {
+      setError(String(err.message || err))
+    }
+  }, [])
 
   const load = useCallback(
     () =>
-      service.getWellness().then(
-        (next) => {
-          setWellness(next)
-          setError(null)
-        },
-        (err) => setError(String(err.message || err)),
-      ),
-    [service],
+      service.getWellness().then((next) => {
+        setWellness(next)
+        setLocked(false)
+        setError(null)
+      }, failed),
+    [service, failed],
   )
   useEffect(() => {
     load()
@@ -46,8 +61,49 @@ export default function You({ service, stamp }) {
       setPhase(null)
       await load()
     } catch (err) {
-      setError(String(err.message || err))
+      failed(err)
     }
+  }
+
+  async function open(event) {
+    event.preventDefault()
+    try {
+      const next = await service.unlock(passphrase)
+      setWellness(next)
+      setLocked(false)
+      setWrong(false)
+      setPassphrase('')
+    } catch (err) {
+      if (err.locked) setWrong(true)
+      else setError(String(err.message || err))
+    }
+  }
+
+  function lockAgain() {
+    service.forgetKey()
+    setSent(null)
+    setWellness(null)
+    setLocked(true)
+  }
+
+  if (locked) {
+    return (
+      <div className="screen you">
+        <h2>You</h2>
+        <p className="private">This page is locked. It holds private check-ins, and it opens with a passphrase.</p>
+        <form className="checkin unlock" onSubmit={open}>
+          <label htmlFor="passphrase">Passphrase</label>
+          <input id="passphrase" type="password" autoComplete="current-password" value={passphrase}
+                 onChange={(event) => setPassphrase(event.target.value)} />
+          <button type="submit" className="choice-button" disabled={!passphrase}>
+            Open this page
+          </button>
+          {wrong && <p role="alert">That passphrase did not open it. Check it and try again.</p>}
+          {error && <p role="alert">Could not reach the backend ({error}).</p>}
+        </form>
+        <p className="small">Gary's world needs no passphrase. Nothing on this page ever appears there.</p>
+      </div>
+    )
   }
 
   const shown = sample ? SAMPLE_WELLNESS : wellness
@@ -56,9 +112,24 @@ export default function You({ service, stamp }) {
   return (
     <div className="screen you">
       <h2>You</h2>
-      <p className="private">
-        Private. Only you see this page. None of it appears in Gary's world, on the Herd screen or in the Herd Cup.
-      </p>
+      {wellness?.demo ? (
+        <p className="private">
+          The private page. None of it appears in Gary's world, on the Herd screen or in the Herd Cup.
+        </p>
+      ) : wellness?.locked ? (
+        <p className="private">
+          Private. This page opens only with your passphrase. None of it appears in Gary's world, on the Herd screen
+          or in the Herd Cup.{' '}
+          <button type="button" className="link" onClick={lockAgain}>
+            Lock it on this device
+          </button>
+        </p>
+      ) : (
+        <p className="private">
+          Kept apart: none of this appears in Gary's world, on the Herd screen or in the Herd Cup.
+          {wellness && ' This page is not locked, so anyone who has its address can open it. Setting GARY_PRIVATE_KEY on the server locks it.'}
+        </p>
+      )}
 
       <section className="checkin" aria-labelledby="checkin-title">
         {sent ? (
@@ -66,7 +137,7 @@ export default function You({ service, stamp }) {
             <h3 id="checkin-title">Noted</h3>
             <p>
               {MOOD_WORDS[sent.value]} ({sent.value} of 5), {sent.phase === 'before' ? 'before heading out' : 'after coming back'}.
-              Only you see this.
+              It stays on this page.
             </p>
             <button type="button" className="link" onClick={() => setSent(null)}>
               Check in again

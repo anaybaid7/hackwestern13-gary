@@ -828,6 +828,32 @@ button:disabled {
   margin-bottom: 4px;
 }
 
+.unlock {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.unlock label {
+  font-weight: 600;
+}
+
+.unlock input {
+  width: 100%;
+  max-width: 320px;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.unlock [role='alert'] {
+  color: var(--fireweed);
+  font-weight: 600;
+}
+
 .scale {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

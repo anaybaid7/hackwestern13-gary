@@ -65,6 +65,30 @@ def test_a_mood_tap_on_the_device_counts_too(client, clock):
     assert len(wellness(client)["checkins"]) == 2
 
 
+def test_with_a_passphrase_set_the_private_side_opens_only_with_it(client, monkeypatch):
+    assert wellness(client)["locked"] is False, "no passphrase on the server: open, and the reply says so"
+    mood(client, "before", 2)
+    monkeypatch.setenv("GARY_PRIVATE_KEY", "goats climb at dawn")
+    for headers in ({}, {"X-Private-Key": "wrong"}, {"X-Private-Key": ""}, {"X-Private-Key": "goats climb at daw"}):
+        refused = client.get("/api/wellness", headers=headers)
+        assert refused.status_code == 401 and "checkins" not in refused.text, headers
+        assert client.post("/api/mood", json={"phase": "after", "value": 4}, headers=headers).status_code == 401
+    key = {"X-Private-Key": "goats climb at dawn"}
+    assert client.post("/api/mood", json={"phase": "after", "value": 4}, headers=key).status_code == 200
+    opened = client.get("/api/wellness", headers=key).json()
+    assert opened["locked"] is True and [c["value"] for c in opened["checkins"]] == [2, 4]
+    # Gary's shared state needs no passphrase, and still holds no mood
+    assert client.get("/api/state").status_code == 200
+    assert "mood" not in json.dumps(state_of(client)).lower()
+    # Gary's own mood tap still arrives: the device can write a check-in, it can never read one
+    post(client, {"id": "m-locked", "ts": "2026-11-21T15:00:00Z", "type": "mood", "device": "gary-1",
+                  "phase": "before", "value": 3})
+    assert [c["value"] for c in client.get("/api/wellness", headers=key).json()["checkins"]][-1] == 3
+    # a blank setting is no passphrase
+    monkeypatch.setenv("GARY_PRIVATE_KEY", "")
+    assert wellness(client)["locked"] is False
+
+
 def test_bad_check_ins_are_refused(client):
     for body in ({"phase": "during", "value": 3}, {"phase": "before", "value": 0}, {"phase": "after", "value": 6},
                  {"phase": "after", "value": "4"}, {"phase": "after", "value": 2.5}, {"phase": "after", "value": True},

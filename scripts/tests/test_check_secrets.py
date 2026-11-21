@@ -16,6 +16,7 @@ SCRIPT = os.path.join(ROOT, "scripts", "check_secrets.sh")
 GOOGLE_KEY = "AIza" + "SyD3x4mpleOnlyNotARealKey0123456789ab"
 DATABASE = "postgres://tsdbadmin:" + "s3cretPassw0rd" + "@abc123.tsdb.cloud.timescale.com:31234/tsdb"
 TINYFISH = "TINYFISH_API_KEY=" + "tf_live_9f8e7d6c5b4a3210"
+PASSPHRASE = "GARY_PRIVATE_KEY=" + "sunny goats 42"
 
 
 class Repo:
@@ -82,11 +83,14 @@ def test_a_database_password_and_an_api_key_in_the_working_files_are_found():
     try:
         repo.write("backend/settings.txt", "DATABASE_URL=%s\n" % DATABASE)
         repo.write("scout/run.sh", "export %s\npython3 scout.py\n" % TINYFISH)
+        repo.write("notes/server.txt", "%s\n" % PASSPHRASE)
         out = repo.check()
         assert out.returncode == 1, out.stdout
         assert "FOUND in files" in out.stdout
-        assert "backend/settings.txt" in out.stdout and "scout/run.sh" in out.stdout
+        for name in ("backend/settings.txt", "scout/run.sh", "notes/server.txt"):
+            assert name in out.stdout, name
         assert "s3cretPassw0rd" not in out.stdout and "tf_live_9f8e7d6c5b4a3210" not in out.stdout
+        assert "sunny" not in out.stdout and "goats" not in out.stdout, "no word of a passphrase is printed"
     finally:
         repo.close()
 

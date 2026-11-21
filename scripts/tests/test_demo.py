@@ -34,7 +34,8 @@ class Backend:
             port = s.getsockname()[1]
         self.api = "http://127.0.0.1:%d" % port
         env = {k: v for k, v in os.environ.items()
-               if k not in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_SEED", "GARY_NAP_SECONDS", "GARY_TZ", "GARY_API")}
+               if k not in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_PRIVATE_KEY", "GARY_SEED", "GARY_NAP_SECONDS",
+                            "GARY_TZ", "GARY_API")}
         env.update({"GARY_NO_ENV_FILE": "1", "DATABASE_URL": ""}, **settings)
         self.proc = subprocess.Popen([PY, "-m", "uvicorn", "app:app", "--port", str(port), "--log-level", "warning"],
                                      cwd=os.path.join(ROOT, "backend"), env=env)
@@ -62,7 +63,8 @@ class Backend:
 
 
 def demo(*args, env=None, stdin=subprocess.DEVNULL):
-    clean = {k: v for k, v in os.environ.items() if k not in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_API", "TINYFISH_API_KEY")}
+    clean = {k: v for k, v in os.environ.items()
+             if k not in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_PRIVATE_KEY", "GARY_API", "TINYFISH_API_KEY")}
     clean.update(env or {})
     return subprocess.run([PY, DEMO] + list(args), capture_output=True, text=True, env=clean, stdin=stdin, timeout=120)
 
@@ -98,7 +100,9 @@ def test_check_on_a_fresh_backend_is_ready_and_says_what_to_know():
         assert "ok    a clean start: asleep, 0 XP, no finds" in text
         assert "ok    both table quests are open" in text
         assert "WARN  keeps everything in memory" in text
-        assert "WARN  anyone who has this address can reset Gary (GARY_ADMIN_KEY is not set) and post quests" in text
+        assert ("WARN  anyone who has this address can reset Gary and post quests and read the private check-ins "
+                "(GARY_ADMIN_KEY, SCOUT_KEY, GARY_PRIVATE_KEY not set)") in text
+        assert "Do not call it private in beat 7" in text
         assert "WARN  no quest from a live scout run is loaded" in text
         assert "WARN  that quest is already on the sign" in text
         assert 'WARN  no "before" check-in yet today' in text
@@ -197,13 +201,44 @@ def test_reset_asks_first_and_then_puts_the_scouts_quests_back():
         shutil.rmtree(folder)
 
 
+def test_a_locked_private_page_needs_its_passphrase():
+    backend = Backend(GARY_PRIVATE_KEY="goats climb for-test")
+    folder, files = scratch()
+    key = {"GARY_PRIVATE_KEY": "goats climb for-test"}
+    try:
+        # without the passphrase the check says what it could not look at, and still runs
+        blind = demo("check", "--api", backend.api, *files)
+        assert blind.returncode == 0, blind.stdout + blind.stderr
+        assert "WARN  the private page is locked, so the check-in could not be looked at" in blind.stdout
+        assert "read the private check-ins" not in blind.stdout, "that door is closed on this backend"
+        wrong = demo("check", "--api", backend.api, *files, env={"GARY_PRIVATE_KEY": "not it"})
+        assert "WARN  the passphrase in GARY_PRIVATE_KEY did not open the private page" in wrong.stdout
+        # the replay cannot make its check-ins without it, and it finds that out before it forgets anything
+        req = urllib.request.Request(backend.api + "/api/events", headers={"Content-Type": "application/json"}, data=json.dumps(
+            {"events": [{"id": "keep-me", "ts": "2026-11-21T15:00:00Z", "type": "discovery", "label": "kite"}]}).encode())
+        urllib.request.urlopen(req, timeout=5).read()
+        stuck = demo("replay", "--auto", "--yes", "--api", backend.api, *files)
+        assert stuck.returncode != 0 and "GARY_PRIVATE_KEY" in stuck.stderr and "Nothing was changed" in stuck.stderr
+        assert backend.get("/api/health")["events"] == 1, "the sniff from before is still there"
+        # with it, everything works, and the passphrase is never printed
+        played = demo("replay", "--auto", "--yes", "--api", backend.api, *files, env=key)
+        assert played.returncode == 0 and "The demo's numbers hold." in played.stdout, played.stdout + played.stderr
+        seen = demo("check", "--api", backend.api, *files, env=key)
+        assert "WARN  today already has a before and an after" in seen.stdout
+        for out in (blind, wrong, stuck, played, seen):
+            assert "goats climb" not in out.stdout + out.stderr
+    finally:
+        backend.close()
+        shutil.rmtree(folder)
+
+
 def test_a_locked_backend_needs_its_keys_and_check_says_it_is_locked():
-    backend = Backend(GARY_ADMIN_KEY="admin-key-for-test", SCOUT_KEY="scout-key-for-test")
+    backend = Backend(GARY_ADMIN_KEY="admin-key-for-test", SCOUT_KEY="scout-key-for-test", GARY_PRIVATE_KEY="private-for-test")
     folder, files = scratch()
     try:
         cached_quests(files[1])
         out = demo("check", "--api", backend.api, *files)
-        assert "ok    the reset and quest posting are locked with keys" in out.stdout
+        assert "ok    the reset, quest posting and the private page are locked with keys" in out.stdout
         assert "admin-key-for-test" not in out.stdout and "scout-key-for-test" not in out.stdout
         no_key = demo("reset", "--yes", "--api", backend.api, *files)
         assert no_key.returncode != 0 and "GARY_ADMIN_KEY" in no_key.stderr and "Nothing was changed" in no_key.stderr

@@ -16,9 +16,10 @@ words you may say. It exits 0 when nothing must be fixed.
 table. It also proves that the numbers in docs/DEMO.md (20 XP, 40 XP, a
 Scrambler at beat 5, the herd moving up) are what the backend really gives.
 
-Keys, when the server sets them: export GARY_ADMIN_KEY (for the reset) and
-SCOUT_KEY (to post quests). GARY_API can stand in for --api.
-Standard library only.
+Keys, when the server sets them: export GARY_ADMIN_KEY (for the reset),
+SCOUT_KEY (to post quests) and GARY_PRIVATE_KEY (the passphrase of the private
+page: check and replay read and write check-ins). GARY_API can stand in for
+--api. Standard library only.
 """
 import argparse
 import datetime
@@ -50,10 +51,13 @@ class Refused(Exception):
 
 
 def call(api, path, body=None, headers=None, raw=False, timeout=8):
-    """GET, or POST when a body is given. -> parsed JSON, or the text with raw=True."""
+    """GET, or POST when a body is given. -> parsed JSON, or the text with raw=True.
+    Calls to the private side carry the passphrase from GARY_PRIVATE_KEY."""
     data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(api.rstrip("/") + path, data=data,
-                                 headers=dict({"Content-Type": "application/json"}, **(headers or {})))
+    headers = dict({"Content-Type": "application/json"}, **(headers or {}))
+    if path in ("/api/wellness", "/api/mood") and os.environ.get("GARY_PRIVATE_KEY"):
+        headers["X-Private-Key"] = os.environ["GARY_PRIVATE_KEY"]
+    req = urllib.request.Request(api.rstrip("/") + path, data=data, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as reply:
             text = reply.read().decode("utf-8", "replace")
@@ -161,13 +165,18 @@ def check_backend(api, report):
     if keys is None:
         report.warn("this backend is older than this script: it does not say whether its keys are set",
                     "Deploy the current code: sh backend/deploy/deploy.sh root@<ip>")
-    elif keys.get("admin") and keys.get("scout"):
-        report.ok("the reset and quest posting are locked with keys")
     else:
-        open_doors = [what for name, what in (("admin", "reset Gary (GARY_ADMIN_KEY is not set)"),
-                                              ("scout", "post quests (SCOUT_KEY is not set)")) if not keys.get(name)]
-        report.warn("anyone who has this address can " + " and ".join(open_doors),
-                    "On a public server, set both in /opt/gary/.env and restart: systemctl restart gary")
+        doors = (("admin", "reset Gary", "GARY_ADMIN_KEY"), ("scout", "post quests", "SCOUT_KEY"),
+                 ("private", "read the private check-ins", "GARY_PRIVATE_KEY"))
+        open_doors = [(what, setting) for name, what, setting in doors if not keys.get(name)]
+        if not open_doors:
+            report.ok("the reset, quest posting and the private page are locked with keys")
+        else:
+            report.warn("anyone who has this address can %s (%s not set)" % (
+                " and ".join(what for what, _ in open_doors), ", ".join(setting for _, setting in open_doors)),
+                "On a public server, set them in /opt/gary/.env and restart: systemctl restart gary")
+        if "private" in keys and not keys.get("private"):
+            report.note("With no GARY_PRIVATE_KEY the page itself says it is not locked. Do not call it private in beat 7.")
     nap = health.get("nap_seconds")
     if isinstance(nap, (int, float)) and nap < SHORT_NAP:
         report.warn("Gary naps after %d seconds of quiet: he will be asleep again before the demo ends" % nap,
@@ -244,16 +253,28 @@ def check_gary(api, report):
 
 def check_you(api, report, tz, day):
     report.section("The private check-in")
-    wellness = call(api, "/api/wellness")
+    try:
+        wellness = call(api, "/api/wellness")
+    except Refused as exc:
+        if exc.code != 401:
+            raise
+        if os.environ.get("GARY_PRIVATE_KEY"):
+            report.warn("the passphrase in GARY_PRIVATE_KEY did not open the private page",
+                        "Use the value of GARY_PRIVATE_KEY in /opt/gary/.env on the server.")
+        else:
+            report.warn("the private page is locked, so the check-in could not be looked at",
+                        "export GARY_PRIVATE_KEY=<the passphrase> and run this again. "
+                        "Beat 7 needs a \"before\" check-in, and the Driver's laptop must have opened the You tab once.")
+        return
     todays = [c for c in wellness.get("checkins", []) if local_day(c.get("ts"), tz) == day]
     last = todays[-1] if todays else None
     if last is None:
         report.warn("no \"before\" check-in yet today",
-                    "Beat 7 needs one. Driver: open the You tab and tap how you feel under \"Before you head out\" (3 or lower).")
+                    "Beat 7 needs one. Driver: open the You tab and tap how you feel under \"Before you head out\".")
     elif last.get("phase") == "before":
         if last.get("value") == 5:
             report.warn("the \"before\" check-in is already at the top of the scale",
-                        "Beat 7's tap cannot go higher, so the sentence will not say \"better\". Reset and tap a lower number.")
+                        "Beat 7's tap cannot go higher, so the sentence cannot say \"better\". That is fine if it is true.")
         else:
             report.ok("a \"before\" check-in is waiting for its \"after\"")
     else:
@@ -417,7 +438,7 @@ def run_reset(api, args):
     do_reset(api, args)
     print("\nNext, by hand:")
     print("  1. On the Pi:   sh start_gary.sh --fresh")
-    print("  2. The Driver:  open the page, tap You, tap how you feel under \"Before you head out\" (3 or lower),")
+    print("  2. The Driver:  open the page, tap You, tap how you feel under \"Before you head out\",")
     print("                  then go back to the Gary tab")
     print("  3. Then:        python3 scripts/demo.py check --api %s" % api)
     return 0
@@ -436,6 +457,14 @@ def pretend_sniff(api, n, label, friend=False):
 
 
 def run_replay(api, args):
+    # The replay makes two check-ins. Find out that it cannot before anything is forgotten.
+    try:
+        call(api, "/api/wellness")
+    except Refused as exc:
+        if exc.code == 401:
+            sys.exit("The private page is locked. export GARY_PRIVATE_KEY=<the passphrase>, then run the replay again.\n"
+                     "Nothing was changed.")
+        raise
     confirm(api, args.yes)
     do_reset(api, args)
     problems = []
