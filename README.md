@@ -106,7 +106,7 @@ Update this table as each row is done.
 | Button and buzzer | Tested with stand-in pins | [not yet: issues #10, #11] |
 | Backend | Tested in memory and on PostgreSQL 16 | Runs on Vultr at http://149.248.50.153. Tiger Data is verified from a laptop; [the Vultr server itself still keeps its data in memory] |
 | Web page | Tested, and looked at in Chrome at phone and desktop sizes | [not yet on a real phone] |
-| Scout | Tested against a stand-in for TinyFish | One live TinyFish run, on the City of London parks page (`scout/runs.jsonl`); [the other four pages: not yet] |
+| Scout | Tested against a stand-in for TinyFish | Live TinyFish runs on London pages: each one is recorded in `scout/runs.jsonl` and listed in `scout/EVIDENCE.md` |
 
 ## For the team
 

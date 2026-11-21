@@ -41,7 +41,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #5 | `sync.py`, `fake_sniff.py` | **Done** | |
 | #6 | Backend, bare-bones | **Done** | In memory. Starting rules are in |
 | #7 | Web, bare-bones | **Done** | One page. The React prototype arrives in #24 |
-| #8 | Scout: one live TinyFish run | **Done for one page** | One live run is recorded in `scout/runs.jsonl` (21 Nov, the City of London parks page): three quests, saved in `scout/cached_quests.json` and loaded on the Vultr server. The other four pages have not run live |
+| #8 | Scout: one live TinyFish run | **Partly** | Code done, and tested against a stand-in for TinyFish. The live run needs `TINYFISH_API_KEY` |
 | #9 | End-to-end check | **Partly** | `python3 scripts/e2e.py` passes. Still needed: real device, live scout, a 20-second recording |
 | **Phase 2** | **Device and hardware (A)** | | |
 | #10 | Button triggers the Sniff Test | **Done** | On the Pi, Grove Base HAT socket D5: `GARY_BUTTON_PIN=5` in `gary.env` |
