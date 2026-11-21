@@ -106,6 +106,23 @@ def test_dotenv_file_is_read_without_overriding_the_shell(tmp_path, monkeypatch)
     monkeypatch.delenv("GARY_TEST_C")
 
 
+def test_the_tests_never_read_a_developers_own_settings_file(tmp_path):
+    """backend/.env holds the real database's address. A test backend that read
+    it would write test sniffs into the real Gary."""
+    assert os.environ.get("GARY_NO_ENV_FILE"), "conftest.py sets this before the backend is imported"
+    env = tmp_path / ".env"
+    env.write_text("DATABASE_URL=postgres://the-real-one\nGARY_NAP_SECONDS=60\n")
+    settings = {"GARY_NO_ENV_FILE": "1"}
+    assert backend.load_settings([env], settings) is False and settings == {"GARY_NO_ENV_FILE": "1"}
+    settings = {}
+    assert backend.load_settings([env, tmp_path / "missing.env"], settings) is True
+    assert settings == {"DATABASE_URL": "postgres://the-real-one", "GARY_NAP_SECONDS": "60"}
+    # and the two scripts that start a throwaway backend say the same
+    for script in ("e2e.py", "make_examples.py"):
+        text = (BACKEND.parent / "scripts" / script).read_text(encoding="utf-8")
+        assert "GARY_NO_ENV_FILE" in text and 'DATABASE_URL"] = ""' in text, script
+
+
 def test_the_contract_examples_are_what_the_backend_returns():
     """state.json, wellness.json and story.json are written by scripts/make_examples.py.
     If this fails, run that script and commit the result."""

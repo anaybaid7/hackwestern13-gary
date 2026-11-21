@@ -42,7 +42,7 @@ ROOT = HERE.parent
 CONTRACT = ROOT / "contract"
 
 
-def load_env(path):
+def load_env(path, environ=os.environ):
     """KEY=value lines from a .env file. What is already set wins."""
     if not path.is_file():
         return
@@ -51,11 +51,21 @@ def load_env(path):
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+        environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
-load_env(HERE / ".env")
-load_env(ROOT / ".env")
+def load_settings(paths, environ=os.environ):
+    """Read the .env files, unless GARY_NO_ENV_FILE is set. The tests and the
+    scripts that start a throwaway backend set it, so that a developer's own
+    .env, with a real database in it, is never used by a test."""
+    if environ.get("GARY_NO_ENV_FILE"):
+        return False
+    for path in paths:
+        load_env(path, environ)
+    return True
+
+
+load_settings([HERE / ".env", ROOT / ".env"])
 
 FRIEND, OUTDOOR = rules.load_labels(CONTRACT / "labels.json")
 OUTDOOR_LABELS = sorted(name for name, is_outdoor in OUTDOOR.items() if is_outdoor)

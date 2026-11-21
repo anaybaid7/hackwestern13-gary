@@ -20,6 +20,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "contract" / "examples"
+os.environ["GARY_NO_ENV_FILE"] = "1"     # never a developer's own .env
 os.environ["DATABASE_URL"] = ""          # always the in-memory store
 for name in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_NAP_SECONDS", "GARY_SEED", "GARY_TZ"):
     os.environ[name] = ""

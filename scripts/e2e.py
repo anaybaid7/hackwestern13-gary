@@ -56,9 +56,14 @@ def main():
     work = tempfile.mkdtemp(prefix="gary-e2e-")
     journal, quests = os.path.join(work, "journal.jsonl"), os.path.join(work, "quests.tsv")
     device = os.path.join(ROOT, "device")
+    # A known, clean backend that keeps its data in memory. It must never be
+    # the team's real one: GARY_NO_ENV_FILE keeps it from reading backend/.env,
+    # where the real database's address lives.
     env = dict(os.environ)
-    for key in ("SCOUT_KEY", "GARY_SEED", "GARY_NAP_SECONDS"):
-        env.pop(key, None)  # a known, clean backend
+    for key in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_SEED", "GARY_NAP_SECONDS", "GARY_TZ"):
+        env.pop(key, None)
+    env["GARY_NO_ENV_FILE"] = "1"
+    env["DATABASE_URL"] = ""
     backend = subprocess.Popen([PY, "-m", "uvicorn", "app:app", "--port", str(port), "--log-level", "warning"],
                                cwd=os.path.join(ROOT, "backend"), env=env)
     try:
@@ -71,6 +76,8 @@ def main():
                 time.sleep(0.25)
         else:
             raise SystemExit("the backend did not start")
+        check("it is a fresh backend that keeps its data in memory (never the team's real one)",
+              health.get("store") == "memory" and health.get("events") == 0, str(health))
         check("starts with the seed quests", health["quests"] == 3)
         check("Gary starts as a napping kid", call(api, "/api/state")["gary"]["napping"] is True)
 
