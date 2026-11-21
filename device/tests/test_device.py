@@ -631,8 +631,9 @@ def test_every_thing_the_model_knows_is_in_the_contract():
         model = [line.strip() for line in f if line.strip()]
     with open(os.path.join(DEVICE, "..", "contract", "labels.json"), encoding="utf-8") as f:
         doc = json.load(f)
-    assert model[0] == doc["friend"] == "person"
-    assert set(model[1:]) == {item["name"] for item in doc["labels"]}, "models/make_world.py and contract/labels.json disagree"
+    assert doc["friend"] == "person" and "person" in model
+    named = set(model) - {"n/a", "person"}
+    assert named == {item["name"] for item in doc["labels"]}, "models/make_model.py and contract/labels.json disagree"
 
 
 def test_the_journal_survives_a_power_cut_mid_write():

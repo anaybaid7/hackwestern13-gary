@@ -98,7 +98,7 @@ the Sniff Test confirm a quest. A `herd` quest completes only with a friend in f
 **Private**: `POST /api/mood` and `GET /api/wellness`. Mood never appears in
 `/api/state` or in anything a friend could see.
 
-**Labels**: `contract/labels.json` lists the 83 things Gary can recognise, each
+**Labels**: `contract/labels.json` lists the 90 things Gary can recognise, each
 marked outdoor or indoor, plus the label that means a person is in frame. The device, the rules and the field guide all read it.
 
 Starting rules, owned by B in one file. XP follows the health goal, so the big
@@ -112,7 +112,7 @@ rewards need a quest, the outdoors or a friend:
 
 Three things to collect, none of them a bare number:
 
-- **Field guide.** The journal shows all 83 things, found or still locked.
+- **Field guide.** The journal shows all 90 things, found or still locked.
 - **Map.** Each tile is a real place the scout found. Its fog lifts when a quest
   there is done.
 - **Herd Cup.** Each week herds are ranked by what they did together. It resets

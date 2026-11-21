@@ -20,7 +20,7 @@ def test_free_sniffs_fill_the_field_guide_but_clear_no_tile(client):
     post(client, sniff("dog"), sniff("bird"), sniff("cup"))
     state = state_of(client)
     assert not any(t["cleared"] for t in state["map"])
-    assert state["guide"] == {"total": 83, "found": ["dog", "bird", "cup"]}
+    assert state["guide"] == {"total": 90, "found": ["dog", "bird", "cup"]}
     assert all(entry["place"] is None for entry in state["journal"])
 
 

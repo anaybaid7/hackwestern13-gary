@@ -94,7 +94,7 @@ static double ms_between(Clock::time_point a, Clock::time_point b) {
 // Detector: a TFLite model of either kind
 //   SSD, four outputs: 0 boxes [1,N,4] (ymin,xmin,ymax,xmax in 0..1)
 //                      1 classes [1,N]   2 scores [1,N]   3 count [1]
-//   YOLO (models/make_world.py), one output [1, 4+K, A]; see yolo.hpp
+//   YOLO (models/make_model.py), one output [1, 4+K, A]; see yolo.hpp
 // Input [1,H,W,3] or [1,3,H,W], uint8 or float32.
 // ---------------------------------------------------------------------------
 
@@ -754,7 +754,7 @@ static double percentile(std::vector<double> v, double pct) {
 
 struct Options {
   int unit = 5;  // USB camera on a Raspberry Pi 5 (CAM/DISP 0 is 3, CAM/DISP 1 is 4)
-  std::string model = "models/gary_world.tflite";  // old one: models/ssd_mobilenet_v2_coco_quant_postprocess.tflite
+  std::string model = "models/gary_detector.tflite";  // old one: models/ssd_mobilenet_v2_coco_quant_postprocess.tflite
   std::string labels = "models/gary_labels.txt";   //          models/coco_labels.txt
   std::string quests;  // empty = quests.tsv, or quests.seed.tsv until sync.py has run
   std::string log = "journal.jsonl";

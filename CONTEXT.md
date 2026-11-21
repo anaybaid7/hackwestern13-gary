@@ -49,7 +49,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #12 | Mood tap and short or long: where | **Proposed: the web page** | Needs the team's yes. The knob is analog and the Pi has no analog input. `gary_io.py --mood before 3` is the hook if the knob comes later |
 | #13 | Field kit | **Partly** | `start_gary.sh`, `stop_gary.sh`, journal first, clock stamp. Still needed on the Pi: start at power-on, hotspot, strap, heat |
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
-| #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: code done, needs the Pi** | YOLO-World with our own list (`device/models/make_world.py`): 83 things, the old 79 plus tree, flower, trash can, street lamp. `device/bench_model.py` scores it on photos; most trail names did not work and were dropped. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
+| #15 | Stretch: bigger vocabulary, a screen | **Vocabulary: code done, needs the Pi** | YOLOv8s trained on Open Images (`device/models/make_model.py`): 90 things, the old 79 plus tree, flower, squirrel, duck, goose, rabbit, deer, butterfly, mushroom, trash can, street lamp. `device/bench_model.py` scores it on photos. Both versions of Gary read it; the old SSD model still works with `--model`. No screen |
 | **Phase 3** | **Backend, data, rules (B)** | | |
 | #16 | Tiger Data: events, quests, state in Postgres | **Code done, needs the account** | `backend/store.py`, `schema.sql`. Tested on plain PostgreSQL 16, where a restart keeps the state. On the real service: set `DATABASE_URL`, run `python3 backend/check_db.py` |
 | #17 | Rules: XP, stages, naps, welcome back | **Done** | `backend/rules.py` |
@@ -224,7 +224,7 @@ Full detail: `contract/README.md`. In brief:
   pairs, a ready-made summary sentence, estimated outdoor minutes per day, and
   `locked`. With `GARY_PRIVATE_KEY` set on the server, this call and
   `POST /api/mood` need the passphrase in an `X-Private-Key` header.
-- **Labels** (`contract/labels.json`): the 83 things Gary recognises, each
+- **Labels** (`contract/labels.json`): the 90 things Gary recognises, each
   marked outdoor or indoor, plus `friend` = `person`.
 
 **Changes are additive only.** A new optional field is fine. A rename or a
@@ -401,7 +401,7 @@ removal needs all four owners to agree, in an issue.
   and the page says that instead.
 - Anyone who has the server's address can post a sniff: `POST /api/events`
   has no key.
-- Gary recognises 83 things (YOLO-World, `device/models/make_world.py`). Ducks, squirrels, pine cones and mushrooms are not among them: YOLO-World was tried on them and calls them bird, bear or nothing (`device/bench_results.md`).
+- Gary recognises 90 things (`device/models/make_model.py`). On photos (`device/bench_results.md`) he is good at squirrels, trees, butterflies and ducks, and weak at benches, dogs and backpacks (about 25%): the bottle and backpack in `docs/DEMO.md` need a rehearsal with the real camera.
 - The Herd Cup's rival herds are seeded demo data, marked `demo: true`.
 
 ## 11. Decisions so far
@@ -418,7 +418,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 9:13 am | The private side can be locked with one passphrase (`GARY_PRIVATE_KEY`), and the page says "private" only when it is. The built page ignores `?api=`, so a link cannot send check-ins to another server. Tests never read `backend/.env`. `scripts/demo.py check` is the gate before a rehearsal or the demo |
 | 21 Nov, 9:30 am | The page is restyled as Pocket Pixel. The map is OpenStreetMap (Leaflet) under fog; place positions are hand-placed in `web/src/places.js` (presentation only, not a contract change; optional `lat`/`lng` on quests is the upgrade). The browser's location is shown on the map and never sent anywhere. The leaderboard is the Herd Cup only. A long quest is shown as a trail walk. After a quest, a reward screen, then an optional "after" check-in |
 | 21 Nov, 9:43 am | Phase 6 merged with the Pocket Pixel redesign. The passphrase form sits in the wellness view in Settings; the view wears "Private" only behind a passphrase and "Not locked" otherwise; a visitor without the passphrase is never shown the check-in pop-up. `docs/DEMO.md`, `docs/RUNBOOK.md` and the hints in `scripts/demo.py` still name the old tabs: left as they are until the page is final. Two layout rules that the new stylesheet had lost are back, in their own block: the spacing inside the wellness view (`.you`) and the small line under "Your herd" in the Cup table (`.cup-detail`). The highlight on the "Your herd" row and the rank-up animation (`.cup-row.moved`) are also gone from the stylesheet and were left for the web owner to decide |
-| 21 Nov, 11:30 am | Gary's detector is YOLO-World with our own list: the 79 COCO things plus tree, flower, trash can and street lamp. 25 trail names were tried; `device/bench_model.py` showed the rest lose to the COCO word every time (duck → bird, squirrel → bear), so they were dropped. On COCO things it is as good as SSD. The scout's targets are unchanged: only things Gary names reliably. float32, because int8 ruins the class scores |
+| 21 Nov, 11:30 am | Gary's detector is YOLOv8s trained on Open Images, for nature: on photos it names squirrels 88%, trees 88%, ducks 60%, where YOLO-World (tried first) and SSD named none. It is weaker on benches and dogs (25%), so the scout's quests are now trees, squirrels, ducks, birds and bicycles. float32, because int8 ruins the class scores |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 
@@ -428,7 +428,7 @@ removal needs all four owners to agree, in an issue.
 | --- | --- |
 | Sniff Test | One button press: Gary names what is in view and writes one journal line |
 | Journal | `device/journal.jsonl`, and the list of finds on the web page |
-| Field guide | The 83 things Gary can recognise, found or still locked |
+| Field guide | The 90 things Gary can recognise, found or still locked |
 | Herd Mode | A person is in the frame during a sniff. That sniff's XP doubles |
 | Herd quest | A quest that only completes in Herd Mode |
 | Herd Cup | The weekly ranking of herds. Never of people |

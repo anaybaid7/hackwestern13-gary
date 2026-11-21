@@ -1,4 +1,4 @@
-// yolo.hpp - read a YOLO detector's output (models/make_world.py) into
+// yolo.hpp - read a YOLO detector's output (models/make_model.py) into
 // Detections. Plain C++, no OpenCV or TFLite, so it is tested on its own:
 //   c++ -std=c++20 qnx/yolo_test.cpp -o /tmp/yolo_test && /tmp/yolo_test
 #pragma once

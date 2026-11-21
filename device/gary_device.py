@@ -23,7 +23,7 @@ While it runs
         kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 
 Files it reads
-    models/gary_world.tflite     the detector: YOLO-World with our own list (models/make_world.py)
+    models/gary_detector.tflite     the detector: YOLOv8s on Open Images (models/make_model.py)
     models/gary_labels.txt       class id -> name
     models/ssd_mobilenet_v2_coco_quant_postprocess.tflite + coco_labels.txt   the old one, still works
     quests.tsv                                             id, target, xp, text, [herd]
@@ -113,7 +113,7 @@ def decode_yolo(out, labels, min_score, iou=0.5):
 class Detector:
     """A TFLite detector of either kind:
     SSD, with the standard 4 outputs: boxes [1,N,4], classes [1,N], scores [1,N], count [1]
-    YOLO (models/make_world.py), with one output [1, 4+K, A], input NHWC or NCHW."""
+    YOLO (models/make_model.py), with one output [1, 4+K, A], input NHWC or NCHW."""
 
     def __init__(self, model_path, labels_path, threads=3):
         Interpreter = _interpreter_class()
@@ -490,7 +490,7 @@ def main():
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--image", help="run on one image file instead of the camera")
     ap.add_argument("--save-debug", help="with --image: save an annotated copy here")
-    ap.add_argument("--model", default=os.path.join(HERE, "models", "gary_world.tflite"))
+    ap.add_argument("--model", default=os.path.join(HERE, "models", "gary_detector.tflite"))
     ap.add_argument("--labels", default=os.path.join(HERE, "models", "gary_labels.txt"))
     ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
     ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
