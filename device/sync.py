@@ -16,6 +16,7 @@ uploaded later. No event is lost, and none is counted twice.
     python3 sync.py --api http://localhost:8000 --once  # one pass, then exit
 """
 import argparse
+import datetime
 import json
 import os
 import signal
@@ -36,6 +37,13 @@ def call(api, path, body=None):
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=TIMEOUT) as reply:
         return json.loads(reply.read().decode("utf-8"))
+
+
+def clock():
+    """This device's clock right now. Sent with every upload as "sent_at": a Pi
+    that booted without a network does not know the time, and the backend uses
+    this to put the journal's timestamps right."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
 def load_state(path):
@@ -82,7 +90,7 @@ def upload_journal(api, journal_path, state_path, say):
                 break
             if events:
                 try:
-                    call(api, "/api/events", {"events": events})
+                    call(api, "/api/events", {"events": events, "sent_at": clock()})
                 except urllib.error.HTTPError as exc:
                     if exc.code >= 500:
                         raise
@@ -90,7 +98,7 @@ def upload_journal(api, journal_path, state_path, say):
                     # bad line cannot block the rest for ever.
                     for event in events:
                         try:
-                            call(api, "/api/events", {"events": [event]})
+                            call(api, "/api/events", {"events": [event], "sent_at": clock()})
                         except urllib.error.HTTPError as one:
                             say("server refused event %s: HTTP %d" % (event.get("id"), one.code))
             state["offset"] = state.get("offset", 0) + size

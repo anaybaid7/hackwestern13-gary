@@ -34,7 +34,7 @@ Files it writes
     journal.jsonl  one line per sniff (append-only, survives power loss).
                    This is the device's whole output. sync.py uploads it.
                    Each line is an Event from contract/README.md.
-    latency.csv    per-frame timings, written on exit
+    latency.csv    per-frame timings, written on exit (gary_numbers.py reads it)
 
 The device records facts only. XP, stages and the map belong to the backend.
 No image is ever stored or uploaded. Only labels are written down.
@@ -176,6 +176,30 @@ def load_quests(path):
     return quests
 
 
+def choose_quest(quests, done, things, friend):
+    """Which open quest does this sniff belong to?
+
+    quests  the quests, in file order (sync.py puts the active one first)
+    done    ids of quests already completed
+    things  {label: score} of what Gary is sure he sees, friend excluded
+    friend  a person is in frame
+
+    Returns (quest, completed). `quest` is the open quest whose target is in
+    view, or None. `completed` is that quest if this sniff finishes it, or
+    None: a herd quest only completes with a friend in frame. A quest that can
+    be finished right now is preferred over a herd quest that cannot. Among
+    equals the surest target wins, then the earlier line of the file.
+    The backend makes the same choice from the same facts (backend/rules.py).
+    """
+    in_view = [q for q in quests if q.id not in done and q.label in things]
+    doable = [q for q in in_view if friend or not q.herd]
+    pool = doable or in_view
+    if not pool:
+        return None, None
+    quest = max(pool, key=lambda q: things[q.label])
+    return quest, (quest if doable else None)
+
+
 class Journal:
     """Append-only event log, one JSON object per line.
 
@@ -189,7 +213,7 @@ class Journal:
         self.done = set()        # quest ids already completed
         self.seq = 0
         if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8", errors="replace") as f:
                 for line in f:
                     try:
                         rec = json.loads(line)
@@ -201,6 +225,20 @@ class Journal:
                         self.discovered.add(rec["label"])
                     if rec.get("quest_id"):
                         self.done.add(rec["quest_id"])
+            self._close_torn_line()
+
+    def _close_torn_line(self):
+        """If the power went mid-write, the file ends without a newline. End
+        that line now, so the next event starts on a line of its own."""
+        with open(self.path, "rb+") as f:
+            f.seek(0, os.SEEK_END)
+            if f.tell() == 0:
+                return
+            f.seek(-1, os.SEEK_END)
+            if f.read(1) != b"\n":
+                f.write(b"\n")
+                f.flush()
+                os.fsync(f.fileno())
 
     def add(self, kind, **fields):
         self.seq += 1
@@ -474,6 +512,7 @@ def main():
     pid_path = os.path.join(HERE, "gary.pid")
     if not args.image:
         threading.Thread(target=keys, daemon=True).start()
+        signal.signal(signal.SIGTERM, lambda *_: stop.set())  # stop_gary.sh: finish cleanly
         if hasattr(signal, "SIGUSR1"):  # kill -USR1 = Sniff Test, kill -HUP = reload quests.tsv
             signal.signal(signal.SIGUSR1, press)
             signal.signal(signal.SIGHUP, lambda *_: reload_quests.set())
@@ -501,7 +540,8 @@ def main():
     # Only the most recent KEEP_TIMINGS are kept, so a long run does not grow.
     KEEP_TIMINGS = 200000
     timings, dropped = [], 0
-    last_report = time.monotonic()
+    started = time.monotonic()
+    last_report = started
     frames_since = 0
     seq = 0
     frame_budget = args.window if args.image else None
@@ -527,10 +567,8 @@ def main():
             return
 
         # An open quest's target wins if it is in view; otherwise the surest thing.
-        open_quests = [q for q in quests if q.id not in journal.done and q.label in things]
-        quest = max(open_quests, key=lambda q: things[q.label]) if open_quests else None
+        quest, completed = choose_quest(quests, journal.done, things, friend)
         label = quest.label if quest else max(things, key=things.get)
-        completed = quest if (quest and (friend or not quest.herd)) else None
         new = label not in journal.discovered
         rec = journal.add("discovery", label=label, score=round(things[label], 3), friend=friend, new=new,
                           quest_id=completed.id if completed else None, latency_ms=latency())
@@ -595,7 +633,8 @@ def main():
                     best[label] = max(best.get(label, 0.0), score)
             confirmed = stable.update(best)
 
-            timings.append(((time.monotonic() - stamp) * 1000.0, infer_ms))
+            decided = time.monotonic()
+            timings.append(((decided - stamp) * 1000.0, infer_ms, (decided - started) * 1000.0))
             frames_since += 1
 
             handle_sniff()
@@ -644,12 +683,16 @@ def main():
     if timings:
         inf = [t[1] for t in timings]
         lat = [t[0] for t in timings]
-        print("\n%d frames. Model: mean %.0f ms. Frame-to-decision: p50 %.0f ms, p95 %.0f ms, max %.0f ms."
-              % (dropped + len(timings), sum(inf) / len(inf), percentile(lat, 50), percentile(lat, 95), max(lat)))
+        seconds = max(1e-3, (timings[-1][2] - timings[0][2]) / 1000.0)
+        print("\n%d frames, %.1f per second. Model: mean %.0f ms. Frame-to-decision: p50 %.0f ms, p95 %.0f ms, max %.0f ms."
+              % (dropped + len(timings), (len(timings) - 1) / seconds if len(timings) > 1 else 0.0,
+                 sum(inf) / len(inf), percentile(lat, 50), percentile(lat, 95), max(lat)))
+        # t_ms is the time since Gary started. gary_numbers.py turns this file into
+        # the table for the judges (issue #14).
         with open(os.path.join(HERE, "latency.csv"), "w", encoding="utf-8") as f:
-            f.write("frame,frame_to_decision_ms,model_ms\n")
-            for i, (a, b) in enumerate(timings):
-                f.write("%d,%.2f,%.2f\n" % (dropped + i, a, b))
+            f.write("frame,frame_to_decision_ms,model_ms,t_ms\n")
+            for i, (a, b, t) in enumerate(timings):
+                f.write("%d,%.2f,%.2f,%.1f\n" % (dropped + i, a, b, t))
     if sniff_ms:
         print("Sniffs: %d (%d discoveries, %d new, %d misses). Answered in p50 %.0f ms, max %.0f ms."
               % (len(sniff_ms), counts["discovery"], counts["new"], counts["miss"],

@@ -11,15 +11,18 @@ records facts; XP, stages and the map belong to the backend.
 | File | What it is | Status |
 | --- | --- | --- |
 | `qnx/gary_qnx.cpp` | The real one: C++ for QNX on the Pi 5 | Logic tested on Linux with stand-ins for the QNX camera and TFLite. Compiles against the real TFLite 2.21 headers. **Not yet run on a QNX Pi** (issue #4) |
-| `gary_device.py` | The same behaviour in Python, for a laptop or Raspberry Pi OS | Tested on photos and a simulated camera feed |
-| `sync.py` | Uploads the journal, fetches quests | Tested against the backend, including no network |
+| `gary_device.py` | The same behaviour in Python, for a laptop or Raspberry Pi OS | Tested on photos and on a video played as the camera |
+| `gary_io.py` | The button and the buzzer | Tested with stand-in pins. **Not yet run on real pins** (issues #10, #11) |
+| `sync.py` | Uploads the journal, fetches quests | Tested, including no network and a power cut |
+| `start_gary.sh`, `stop_gary.sh` | Run all of it in the background, with no keyboard or screen | Tested on Linux. **Not yet run on QNX** (issue #13) |
+| `gary_numbers.py`, `cpu_load.py` | The timing table for the judges | Tested on Linux (issue #14) |
 | `fake_sniff.py` | Posts a pretend sniff, for teammates with no device | Tested |
 | `models/` | SSD MobileNet v2 detector (80 everyday objects) and its labels | From google-coral/test_data |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
 | `sounds/` | Placeholder chimes | Replace with Gary's voice |
 
-Both versions read the same files and write the same `journal.jsonl`. Each
-line of it is an Event from [`../contract`](../contract/README.md).
+Both versions of Gary read the same files and write the same `journal.jsonl`.
+Each line of it is an Event from [`../contract`](../contract/README.md).
 
 ## 1. Try it on a laptop first (5 minutes)
 
@@ -56,11 +59,10 @@ No device at all? `python3 fake_sniff.py bench --friend` posts a pretend sniff.
 1. Fit the heatsink or fan, then close the case. The model heats the Pi.
 2. microSD card in, contacts facing the board.
 3. Webcam into a **blue** USB port.
-4. Optional: a USB headset or USB speaker for sound. The Pi 5 has no headphone jack.
-5. First boot only: micro-HDMI to a monitor, plus a USB keyboard.
-6. Power last. Wall supply at the table, power bank when walking.
-
-The button and buzzer are Phase 2 (issues #10, #11). Until then, Enter is the button.
+4. Button and buzzer on the pin header (section 5).
+5. Optional: a USB headset or USB speaker for sound. The Pi 5 has no headphone jack.
+6. First boot only: micro-HDMI to a monitor, plus a USB keyboard.
+7. Power last. Wall supply at the table, power bank when walking.
 
 ## 4. QNX on the Pi
 
@@ -102,7 +104,7 @@ cd ~/gary
 sh qnx/build_qnx.sh
 ./qnx/build/gary --image test/pets.jpg     # model only, no camera. Expect two dogs
 ./qnx/build/gary --mute                    # camera + model. Hold up a water bottle, press Enter
-python3 sync.py --api http://<backend address>:8000 &
+python3 sync.py --api http://<backend address> &
 ```
 
 With USB audio plugged in, test it with `mmrplay sounds/quest.wav`, then drop `--mute`.
@@ -118,18 +120,140 @@ been compiled on QNX itself.
 - `./qnx/build/gary < /dev/null &`: run with no keyboard attached.
 - `--help` lists the rest.
 
-## 5. Hooks for other programs
+## 5. Button and buzzer (`gary_io.py`)
 
-These are how the button, the buzzer and the sync script work without touching
-the vision code.
+A second, small program. It never touches the vision code: a press sends Gary
+a signal, and the beeps follow his journal. If the button or buzzer is missing,
+Gary carries on and Enter still sniffs.
+
+**Wiring.** A Grove cable is red = power, black = ground, yellow = signal,
+white = unused. Grove plugs do not fit the Pi's pins, so use Grove-to-jumper
+cables from the hardware desk.
+
+| Part | Red (power) | Black (ground) | Yellow (signal) |
+| --- | --- | --- | --- |
+| Button | pin 1 (3.3 V) | pin 6 | pin 11 (GPIO17) |
+| Buzzer | pin 17 (3.3 V) | pin 9 | pin 13 (GPIO27) |
+
+Never use the 5 V pins (2 and 4): the Pi's inputs are 3.3 V only.
+With a Grove Base HAT, plug into two digital sockets and pass their numbers,
+for example `--button-pin 5 --buzzer-pin 16` for D5 and D16.
+
+**Run it** from the device folder, on QNX or Raspberry Pi OS:
+
+```
+python3 gary_io.py --demo     # plays the five patterns, one by one. Start here
+python3 gary_io.py            # button on GPIO17, buzzer on GPIO27
+python3 gary_io.py --fake     # on a laptop: Enter is the button, beeps are printed
+```
+
+On Raspberry Pi OS run it with the system `python3`, not the venv one: the
+GPIO library lives with the system Python.
+
+| You hear | It means |
+| --- | --- |
+| one short beep | Gary has seen one before |
+| two short beeps | a new discovery |
+| three beeps, each one longer | quest complete |
+| a quick double chirp after it | a friend is in frame (Herd Mode) |
+| one long buzz | nothing Gary can name |
+| two long buzzes | the button was pressed but Gary is not running |
+| one tick at start | `gary_io.py` is alive |
+
+The Grove buzzer is an on/off part, so the patterns differ by rhythm. `--tones`
+also varies the pitch through PWM; that is untested.
+
+One push is one Sniff Test: the level must hold for 30 ms (`--debounce-ms`),
+and pushes closer than 400 ms count as one (`--gap-ms`). If the button
+connects the pin to ground when pressed, add `--active-low`.
+
+**The mood tap and the short or long choice** (issue #12) are on the web page,
+not on the device: the Grove rotary knob is an analog part and the Pi has no
+analog input. If you later read the knob through the UNO Q, this is the only
+call it needs, and `sync.py` uploads the line like any other:
+
+```
+python3 gary_io.py --mood before 3      # or: after 4
+```
+
+## 6. Field kit: no keyboard, no screen, no network
+
+```
+cp gary.env.example gary.env      # set GARY_API to the backend's address
+sh start_gary.sh                  # starts Gary, sync.py and gary_io.py in the background
+sh start_gary.sh status           # who is up, and Gary's last lines
+sh stop_gary.sh
+sh start_gary.sh --fresh          # set the old journal aside and start clean, for a rehearsal
+```
+
+From a laptop, in one line: `ssh qnxuser@<hostname>.local 'sh ~/gary/start_gary.sh'`.
+You can log out; everything keeps running. If Gary stops, he is started again
+after 3 seconds. Logs are in `logs/`.
+
+**Start at power-on (QNX).** QNX runs `/usr/etc/post_startup.sh` at the end of
+start-up. Add one line to it, as root:
+
+```
+su root                                                     # password: root
+echo "su - qnxuser -c 'sh \$HOME/gary/start_gary.sh'" >> /usr/etc/post_startup.sh
+```
+
+Then pull the power, plug it back in, wait a minute and press the button.
+This line is **not tested on QNX**. If Gary does not come up, use the SSH line
+above; issue #13 accepts either.
+
+**No network.** Sniffs are written to `journal.jsonl` first, so they work with
+no network at all. `sync.py` uploads everything once the network is back.
+Nothing is lost and nothing is counted twice.
+
+**The clock.** A Pi that starts with no network may not know the time.
+`sync.py` tells the backend what the Pi's clock reads at upload time, so the
+backend can put the timestamps right. With a network, `sudo ntpdate -bs
+pool.ntp.org` sets the clock.
+
+**Phone hotspot.** Join the Pi to the hotspot the same way as to Wi-Fi, set
+`GARY_API` to the backend's public address, and the walk is live.
+
+**Heat.** After 15 minutes: `python3 gary_numbers.py --temp` (on QNX it reads
+`/dev/thermal`).
+
+## 7. QNX numbers for the judges
+
+Gary prints frames per second and frame-to-decision time every 5 seconds, each
+sniff prints its button-to-answer time, and he writes `latency.csv` when he
+stops. `gary_numbers.py` turns one run into a table row.
+
+```
+# 1. a normal run: press the button ten times, then q + Enter
+./qnx/build/gary --mute
+python3 gary_numbers.py --label "QNX, normal" --append ../docs/qnx-numbers.md
+
+# 2. the same with every core busy and a real-time priority
+python3 cpu_load.py --seconds 120 &
+./qnx/build/gary --mute --priority 20
+python3 gary_numbers.py --label "QNX, --priority 20, CPU loaded" --append ../docs/qnx-numbers.md
+
+# 3. for contrast: every core busy, no priority
+python3 cpu_load.py --seconds 120 &
+./qnx/build/gary --mute
+python3 gary_numbers.py --label "QNX, CPU loaded, no priority" --append ../docs/qnx-numbers.md
+
+python3 gary_numbers.py --threads         # while Gary runs: his threads and priorities (pidin)
+python3 gary_numbers.py --check-journal   # after pulling the power: is the journal intact?
+```
+
+"Frame" means the frame reaching the program. Time inside the camera and the
+USB link is not included. The page to fill in is `../docs/qnx-numbers.md`.
+
+## 8. Hooks for other programs
 
 | Do this | Effect |
 | --- | --- |
-| `kill -USR1 $(cat gary.pid)` | One Sniff Test. A button script sends this (issue #10) |
+| `kill -USR1 $(cat gary.pid)` | One Sniff Test. `gary_io.py` sends this on a button press |
 | `kill -HUP $(cat gary.pid)` | Reload the quests. `sync.py` sends this |
-| watch `journal.jsonl` | One new line per sniff: `discovery` or `miss`. A buzzer script reads this (issue #11) |
+| watch `journal.jsonl` | One new line per sniff: `discovery` or `miss`. `gary_io.py` beeps from this |
 
-## 6. Raspberry Pi OS instead (the fallback)
+## 9. Raspberry Pi OS instead (the fallback)
 
 Use a second microSD card. Do not re-flash the QNX one.
 
@@ -141,37 +265,47 @@ pip install -r requirements.txt
 python3 gary_device.py
 ```
 
+`start_gary.sh` works here too: with no QNX build it starts the Python
+version from `venv/`.
+
 Sound on the wrong device? Run `aplay -l`, find the USB card number, and start
 with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
 
-## 7. What to edit
+## 10. What to edit
 
 - **Quests:** they come from the backend through `sync.py`. To test by hand,
   stop `sync.py` and edit `quests.tsv` (or `quests.seed.tsv`): one quest per
   line, TAB-separated: `id  target  xp  text`, plus `herd` as a fifth column
   for a quest that needs a friend in frame. `target` must be a name in
-  `models/coco_labels.txt`.
+  `models/coco_labels.txt`. When two open quests want the same thing, the
+  earlier line wins; `sync.py` puts the quest chosen on the web page first.
 - **Gary's voice:** replace the WAV files in `sounds/` (`hello`, `new`,
   `again`, `quest`, `herd`, `nothing`, `done`). Add `sounds/<label>.wav`, for
   example `bottle.wav`, and Gary plays it after the chime.
 - **Strictness:** `--threshold 0.6` asks for more confidence. `--need 4` asks for
   4 of the last 5 frames. Raise these if Gary names the wrong things.
-- **Start over:** delete `journal.jsonl` and `sync.state`.
+- **Start over:** `sh start_gary.sh --fresh`, or delete `journal.jsonl` and `sync.state`.
 
-## 8. What it writes
+## 11. What it writes
 
 - `journal.jsonl`: one line per sniff, on disk before Gary reacts. Pull the
-  power and restart: nothing is lost.
+  power and restart: nothing is lost. If the power went in the middle of a
+  line, that one line is skipped and the next sniff starts a new one.
 - `quests.tsv`, `sync.state`: written by `sync.py`.
-- `latency.csv`: per-frame timings, written on exit. The console prints frames
-  per second and frame-to-decision time every 5 seconds, and each sniff prints
-  its button-to-answer time. "Frame" means the frame reaching the program. Time
-  inside the camera and USB link is not included.
+- `latency.csv`: per-frame timings, written when Gary stops.
 - `gary.pid`: the running program's process id.
+- `logs/`: written by `start_gary.sh`.
 
 None of these are tracked by git.
 
-## 9. If something fails
+## 12. Tests
+
+```
+python3 tests/test_device.py        # the scripts: button, buzzer, sync, start and stop. No Pi
+sh qnx/host_test/run.sh             # the C++ program against stand-ins (Linux, g++, libopencv-dev)
+```
+
+## 13. If something fails
 
 | Symptom | Try |
 | --- | --- |
@@ -179,11 +313,15 @@ None of these are tracked by git.
 | Build cannot find `tensorflow-lite` or OpenCV (QNX) | Run `sudo ./configure.sh` in `~/QNX-AI-workshop` |
 | Few frames per second (QNX) | QNX's camera wrapper asks for 720p. Lower `MIN_PIXELS` in `~/QNX-AI-workshop/rpi_cam.cpp` to `640 * 480` and rebuild |
 | `Could not open camera 0` (Linux) | Run `ls /dev/video*`, then try `--camera 1` |
-| No sound | QNX: `mmrplay sounds/quest.wav` on its own. Linux: `aplay sounds/quest.wav` |
-| Pi is hot or slow | QNX: `cat /dev/thermal`. Add the fan |
+| The button does nothing | `python3 gary_io.py` in a terminal and press: it prints each press. "Gary is not running" means no `gary.pid`. No line at all means wiring: yellow on pin 11, red on pin 1 |
+| The button fires by itself | A loose signal wire. Or the button pulls to ground: add `--active-low` |
+| No beeps | `python3 gary_io.py --demo`. Check yellow on pin 13. On QNX, `pidin \| grep rpi_gpio` must show the GPIO manager running |
+| No sound from a speaker | QNX: `mmrplay sounds/quest.wav` on its own. Linux: `aplay sounds/quest.wav` |
+| Pi is hot or slow | `python3 gary_numbers.py --temp`. Add the fan |
 | "nothing Gary can name" | On a laptop, `--show` draws what the model sees. Get closer, add light, hold still for a second |
 | Gary names things that are not there | `--threshold 0.6 --need 4` |
-| `sync.py` says offline | Check the `--api` address and that the backend runs with `--host 0.0.0.0` |
+| `sync.py` says offline | Check `GARY_API` and that the backend runs with `--host 0.0.0.0` |
+| Times on the web page are wrong | The Pi's clock. With a network: `sudo ntpdate -bs pool.ntp.org` |
 
 ## Credits
 

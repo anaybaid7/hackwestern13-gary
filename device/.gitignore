@@ -8,6 +8,8 @@ sync.state.tmp
 latency.csv
 gary.pid
 *.bak
+logs/
+gary.env
 
 # Local builds and environments
 qnx/build/
