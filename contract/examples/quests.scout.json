@@ -1,0 +1,44 @@
+{
+  "_note": "Hand-written examples of what one scout run posts. The places are real; this file is not the output of a TinyFish run. scripts/make_examples.py uses it for story.json.",
+  "quests": [
+    {
+      "id": "q-2026-11-21-springbank-park-bicycle",
+      "title": "Find a bicycle at Springbank Park",
+      "place": "Springbank Park",
+      "time": "short",
+      "minutes": 15,
+      "target": "bicycle",
+      "xp": 20,
+      "herd": false,
+      "source": "tinyfish",
+      "source_url": "https://london.ca/parks-london",
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-2026-11-21-gibbons-park-dog",
+      "title": "Find a dog at Gibbons Park, with a friend",
+      "place": "Gibbons Park",
+      "time": "short",
+      "minutes": 15,
+      "target": "dog",
+      "xp": 20,
+      "herd": true,
+      "source": "tinyfish",
+      "source_url": "https://london.ca/parks-london",
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-2026-11-21-kains-woods-bird",
+      "title": "Find a bird at Kains Woods",
+      "place": "Kains Woods",
+      "time": "long",
+      "minutes": 40,
+      "target": "bird",
+      "xp": 40,
+      "herd": false,
+      "source": "tinyfish",
+      "source_url": "https://www.londontourism.ca/best-of-london/hiking",
+      "day": "2026-11-21"
+    }
+  ]
+}

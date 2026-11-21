@@ -1,0 +1,40 @@
+{
+  "private": true,
+  "checkins": [
+    {
+      "ts": "2026-11-21T05:15:00Z",
+      "phase": "before",
+      "value": 3,
+      "source": "device"
+    },
+    {
+      "ts": "2026-11-21T05:50:00Z",
+      "phase": "after",
+      "value": 4,
+      "source": "web"
+    }
+  ],
+  "pairs": [
+    {
+      "day": "2026-11-21",
+      "before": 3,
+      "after": 4,
+      "change": 1,
+      "before_ts": "2026-11-21T05:15:00Z",
+      "after_ts": "2026-11-21T05:50:00Z",
+      "minutes": 35
+    }
+  ],
+  "summary": "You reported feeling better after your outing.",
+  "outdoor": [
+    {
+      "day": "2026-11-21",
+      "minutes": 10
+    }
+  ],
+  "outdoor_minutes": 10,
+  "outdoor_note": "An estimate from Gary's sniffs: each 10-minute block with an outdoor find counts as 10 minutes outdoors.",
+  "finds": 1,
+  "shared": 1,
+  "solo": 0
+}
