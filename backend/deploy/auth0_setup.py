@@ -84,9 +84,8 @@ else:
 
 # People sign in through the tenant's connections: switch them on for the page and for Gary
 for conn in api("get", "connections?per_page=50"):
-    on = set(conn.get("enabled_clients") or [])
-    if not {page, device} <= on:
-        api("patch", "connections/" + conn["id"], {"enabled_clients": sorted(on | {page, device})})
+    api("patch", "connections/%s/clients" % conn["id"],
+        [{"client_id": page, "status": True}, {"client_id": device, "status": True}])
     print("connection", conn["name"], conn["strategy"])
 
 roles = api("get", "roles")
