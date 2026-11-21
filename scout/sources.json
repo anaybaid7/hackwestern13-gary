@@ -1,0 +1,14 @@
+[
+  {
+    "name": "City of London: parks",
+    "url": "https://london.ca/parks-london",
+    "time": "short",
+    "goal": "This page lists public parks in London, Ontario with their addresses and features. Pick up to 6 parks from the list that have features worth a short visit. For each give its name, its address and its listed features. Skip anything marked closed. Return JSON in the form {\"places\": [{\"name\": ..., \"address\": ..., \"about\": ...}]}."
+  },
+  {
+    "name": "Tourism London: hiking trails",
+    "url": "https://www.londontourism.ca/best-of-london/hiking",
+    "time": "long",
+    "goal": "This page lists guides to hiking trails and natural areas in London, Ontario. List up to 6 trails or natural areas named on it. For each give its name and a one-sentence description taken from the page. Return JSON in the form {\"places\": [{\"name\": ..., \"about\": ...}]}."
+  }
+]
