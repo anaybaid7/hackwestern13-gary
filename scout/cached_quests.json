@@ -1,0 +1,48 @@
+{
+  "saved_at": "2026-11-21T14:51:47Z",
+  "day": "2026-11-21",
+  "quests": [
+    {
+      "id": "q-2026-11-21-gibbons-park",
+      "title": "Find a bicycle at Gibbons Park",
+      "place": "Gibbons Park",
+      "time": "short",
+      "minutes": 15,
+      "target": "bicycle",
+      "xp": 20,
+      "herd": false,
+      "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
+      "source": "tinyfish",
+      "source_url": "https://london.ca/parks-london",
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-2026-11-21-springbank-park",
+      "title": "Find a skateboard at Springbank Park",
+      "place": "Springbank Park",
+      "time": "short",
+      "minutes": 15,
+      "target": "skateboard",
+      "xp": 20,
+      "herd": false,
+      "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
+      "source": "tinyfish",
+      "source_url": "https://london.ca/parks-london",
+      "day": "2026-11-21"
+    },
+    {
+      "id": "q-2026-11-21-harris-park",
+      "title": "Find a bicycle at Harris Park, with a friend",
+      "place": "Harris Park",
+      "time": "short",
+      "minutes": 15,
+      "target": "bicycle",
+      "xp": 20,
+      "herd": true,
+      "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
+      "source": "tinyfish",
+      "source_url": "https://london.ca/parks-london",
+      "day": "2026-11-21"
+    }
+  ]
+}

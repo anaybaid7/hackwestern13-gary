@@ -6,6 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
+Last updated: Sat 21 Nov 2026, after live Tiger Data verification.
 Last updated: Sat 21 Nov 2026, 9:43 am, when the Phase 6 pull request (#47) was merged with the Pocket Pixel redesign (#48).
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
@@ -51,7 +52,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #14 | QNX numbers | **Tools done, needs the Pi** | `gary_numbers.py`, `cpu_load.py`. `docs/qnx-numbers.md` has the steps and an empty table |
 | #15 | Stretch: bigger vocabulary, a screen | Open | Not started on purpose: only after #4 passes on the Pi |
 | **Phase 3** | **Backend, data, rules (B)** | | |
-| #16 | Tiger Data: events, quests, state in Postgres | **Code done, needs the account** | `backend/store.py`, `schema.sql`. Tested on plain PostgreSQL 16, where a restart keeps the state. On the real service: set `DATABASE_URL`, run `python3 backend/check_db.py` |
+| #16 | Tiger Data: events, quests, state in Postgres | **Done** | Verified on Tiger Data on 21 Nov: events hypertable, `time_bucket`, API writes, persistence across fresh backend processes, and duplicate handling. Connection stored in ignored `backend/.env` on the setup machine |
 | #17 | Rules: XP, stages, naps, welcome back | **Done** | `backend/rules.py` |
 | #18 | Fog-of-war map | **Done** | Tiles also carry `cleared_at` and `finds` |
 | #19 | Herd Mode and the Herd Cup | **Done** | Rival herds are seeded demo data, marked `demo: true` |
@@ -103,9 +104,9 @@ To finish Phase 5, four things need a person:
 3. **#35** In `docs/DEVPOST.md`, tick the claims table and fill in every square bracket.
 4. **#36** Put names in `docs/DEMO.md`, rehearse it twice on the device, record the backup video.
 
-To finish Phase 3, two accounts (steps in `backend/README.md`):
+To finish Phase 3, deployment remains (steps in `backend/README.md`):
 
-1. **#16** A Tiger Data service. Put its connection string in `backend/.env`, run `python3 backend/check_db.py`, paste the output into the issue.
+1. **#16 is verified.** Other machines still need `DATABASE_URL` in their own ignored `backend/.env`; the connection is not distributed through Git. Run `python3 backend/check_db.py` to verify each setup.
 2. **#22** A Vultr instance. `sh backend/deploy/deploy.sh root@<ip>`, then put `DATABASE_URL`, `SCOUT_KEY` and `GARY_ADMIN_KEY` in `/opt/gary/.env` on the server.
 
 To finish Phase 2, on the Pi, in this order (each step is in `device/README.md`):
@@ -297,9 +298,8 @@ removal needs all four owners to agree, in an issue.
   `PostgresStore` with the same methods; add a method to both or to neither.
 - A press of short or long is stored as a `choice` event in the same stream as
   the sniffs, so a restart keeps it and old sniffs are never re-attributed.
-- #16 and #22 need accounts: see the two steps under the status table.
-- #23: not started. The private side has a passphrase (`GARY_PRIVATE_KEY`,
-  sent as `X-Private-Key`), not accounts.
+- #16 is verified on Tiger Data. #22 still needs a Vultr instance: see the two steps under the status table.
+- #23: not started. `/api/mood` and `/api/wellness` have no login.
 
 **Phase 4, front end (C)**
 
@@ -367,6 +367,15 @@ removal needs all four owners to agree, in an issue.
   Chrome at 340, 390 and 1280 px, in mock mode and against the real backend.
 - Whole chain: `scripts/e2e.py`.
 
+**Also verified on Windows against live Tiger Data, 21 Nov 2026**
+
+- PostgreSQL 18.7 and TimescaleDB 2.32.1 on a shared development service.
+- `backend/check_db.py`: `events` is a hypertable and the `time_bucket` query succeeds.
+- A temporary event posted through Gary's API survived a fresh backend process;
+  uploading the same event again counted once. The temporary event was removed.
+- API health reports `store: postgres`, `hypertable: true`, and `outdoor_query: time_bucket`.
+- Backend tests: 63 passed; four requiring a separate throwaway database were skipped.
+
 **Not verified**
 
 - The C++ program has never been built or run on QNX (#4).
@@ -383,8 +392,6 @@ removal needs all four owners to agree, in an issue.
 - The web page has not been opened on a real phone: location on the map, pinch zoom and the fog's zoom animation are checked only in tests and headless Chrome.
 - The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work.
 
-- The hypertable step and the `time_bucket` query have never run: there was
-  no TimescaleDB here. `python3 backend/check_db.py` proves them on Tiger Data.
 - `backend/deploy/deploy.sh` has never run against a Vultr machine. The
   systemd unit and the firewall line are untested.
 
