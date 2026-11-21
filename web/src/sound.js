@@ -97,24 +97,28 @@ export function unlockSound() {
   start(audio)
 }
 
+// Gary's clips were made a little slow. The browser speeds them up, keeping
+// his pitch. Back to 1 once the clips are made again (make_voice.py --force).
+export const VOICE_RATE = 1.15
+
 /** Play clips (urls) one after another on the shared player. */
-function playUrls(urls) {
+function playUrls(urls, rate = 1) {
   const audio = shared()
   if (!audio || urls.length === 0) return false
   let i = 0
-  audio.onended = () => {
-    if (i < urls.length) {
-      audio.src = urls[i++]
-      start(audio)
-    }
+  const play = () => {
+    audio.src = urls[i++]
+    audio.playbackRate = rate // set after src: a new source resets it
+    audio.preservesPitch = true
+    return start(audio)
   }
-  audio.src = urls[i++]
-  return start(audio)
+  audio.onended = () => i < urls.length && play()
+  return play()
 }
 
 /** Play spoken clips one after another. Like playClip, never an error. */
 export function playVoice(names) {
-  return playUrls(names.map((name) => VOICE[name]).filter(Boolean))
+  return playUrls(names.map((name) => VOICE[name]).filter(Boolean), VOICE_RATE)
 }
 
 /**

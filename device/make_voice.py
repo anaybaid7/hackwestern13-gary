@@ -12,6 +12,7 @@ is missing falls back to the chimes, so Gary is never silent.
     python3 make_voice.py --dry-run    # print every line, call nothing
     python3 make_voice.py              # make the clips that are missing
     python3 make_voice.py --force      # make them all again (a new voice, new lines)
+                                       # then set VOICE_RATE back to 1 in web/src/sound.js
     python3 make_voice.py --only say_bottle say_found_bottle
 
 The clips, and when Gary plays them (voice_clips() in gary_device.py):
@@ -37,7 +38,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LABELS = os.path.join(HERE, "..", "contract", "labels.json")
 URL = "https://api.elevenlabs.io/v1/text-to-speech/%s?output_format=pcm_%d"
 DEFAULT_VOICE = "IGRoDkfYV2Frq7Ly0PRu"   # Maxim
-DEFAULT_MODEL = "eleven_flash_v2_5"
+DEFAULT_MODEL = "eleven_multilingual_v2"  # more expressive than eleven_flash_v2_5; set ELEVENLABS_MODEL to change
+# How Gary sounds: a little quicker than the voice's own pace, and lively.
+# Lower stability = more rise and fall; style = more character. speed: 0.7-1.2.
+VOICE_SETTINGS = {"stability": 0.3, "similarity_boost": 0.75, "style": 0.45, "use_speaker_boost": True, "speed": 1.12}
 RATE = 16000                             # plenty for a small speaker; keeps the clips small
 
 # How a label is said out loud, where the label itself reads badly.
@@ -47,13 +51,13 @@ SPOKEN = {"bottle": "water bottle", "tv": "TV", "cell phone": "phone", "hair dri
 PLURAL = {"skis", "scissors"}            # "those are scissors", not "that's a scissors"
 
 FIXED = {
-    "say_hello": "Hi, I'm Gary. Press my button and I'll take a sniff.",
-    "say_nothing": "Hmm, I'm not seeing it right. Can you move closer?",
-    "say_not_it": "That's not what we're looking for.",
-    "say_new": "New one for the journal!",
+    "say_hello": "Hi! I'm Gary. Press my button, and I'll take a sniff.",
+    "say_nothing": "Hmm... I can't quite tell. Can you move a little closer?",
+    "say_not_it": "Ooh, close! But that's not what we're looking for.",
+    "say_new": "Ooh, a new one for the journal!",
     "say_need_friend": "That's the one! But this quest needs a friend in the frame.",
-    "say_herd": "Herd Mode! Good to have company.",
-    "say_done": "That's every quest for today. Nice work!",
+    "say_herd": "Herd Mode! I love the company.",
+    "say_done": "That's every quest for today. Amazing work!",
 }
 
 
@@ -70,8 +74,8 @@ def thats(label):
     """'That's a bird.' / 'That's an apple.' / 'Those are scissors.'"""
     name = spoken(label)
     if label in PLURAL:
-        return "Those are %s." % name
-    return "That's %s %s." % ("an" if name[0].lower() in "aeiou" else "a", name)
+        return "Those are %s!" % name
+    return "That's %s %s!" % ("an" if name[0].lower() in "aeiou" else "a", name)
 
 
 def read_labels(path=LABELS):
@@ -85,7 +89,7 @@ def lines(labels):
     out = dict(FIXED)
     for label in labels:
         out["say_" + clip_name(label)] = thats(label)
-        out["say_found_" + clip_name(label)] = "You found the %s!" % spoken(label)
+        out["say_found_" + clip_name(label)] = "Yes! You found the %s!" % spoken(label)
     return out
 
 
@@ -115,7 +119,8 @@ def write_wav(path, pcm, rate=RATE):
 
 def speak(text, key, voice, model=DEFAULT_MODEL, opener=urllib.request.urlopen, tries=3):
     """One line -> raw 16-bit mono PCM at RATE."""
-    body = json.dumps({"text": text, "model_id": model}).encode("utf-8")
+    body = json.dumps({"text": text, "model_id": os.environ.get("ELEVENLABS_MODEL") or model,
+                       "voice_settings": VOICE_SETTINGS}).encode("utf-8")
     req = urllib.request.Request(URL % (voice, RATE), data=body,
                                  headers={"xi-api-key": key, "Content-Type": "application/json"})
     for attempt in range(tries):

@@ -632,9 +632,9 @@ def test_every_clip_gary_can_ask_for_is_made_by_make_voice():
     labels = mv.read_labels()
     made = mv.lines(labels)
     assert "person" not in labels, "a friend is never named"
-    assert made["say_found_bottle"] == "You found the water bottle!"
-    assert made["say_apple"] == "That's an apple." and made["say_scissors"] == "Those are scissors."
-    assert made["say_nothing"].endswith("Can you move closer?")
+    assert made["say_found_bottle"] == "Yes! You found the water bottle!"
+    assert made["say_apple"] == "That's an apple!" and made["say_scissors"] == "Those are scissors!"
+    assert made["say_nothing"].endswith("Can you move a little closer?")
     for label in labels:
         for prefix in ("say_found_", "say_"):
             assert prefix + label.replace(" ", "_") in made, label

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import story from '../../contract/examples/story.json'
 import { Shell, whatChanged } from './App.jsx'
 import { CLIPS, VOICE, pickClip, playClip, voiceFor, writeSound } from './sound.js'
+import { EFFECT_NAMES, effectsFor, playSfx } from './sfx.js'
 import { createMock } from './services/mock.js'
 
 afterEach(() => {
@@ -45,6 +46,17 @@ describe("Gary's sounds on the page", () => {
     expect(pickClip({ find: { label: 'squirrel', new: false, quest_id: null } })).toBe('again')
     expect(pickClip(whatChanged(step(2), step(3)))).toBe('quest') // the story's bicycle quest
     for (const name of ['quest', 'herd', 'new', 'again', 'hello']) expect(CLIPS[name], name).toBeTruthy()
+  })
+
+  test('each change gets its effects, in order, and they never break a page with no audio', () => {
+    expect(effectsFor(null)).toEqual([])
+    expect(effectsFor({ find: { quest_id: 'q', friend: false }, cleared: ['Harris Park'], stageUp: true })).toEqual(['quest', 'fog', 'grow'])
+    expect(effectsFor({ find: { quest_id: 'q', friend: true }, cleared: [] })).toEqual(['herd'])
+    expect(effectsFor({ find: { quest_id: null, new: true }, cleared: [] })).toEqual(['find'])
+    expect(effectsFor({ find: { quest_id: null, new: false }, cleared: [], rankUp: { to: 2 } })).toEqual(['again', 'rank'])
+    expect(effectsFor({ find: null, miss: true, cleared: [] })).toEqual(['miss'])
+    for (const name of effectsFor({ find: { quest_id: 'q' }, cleared: ['x'], stageUp: true, rankUp: {} })) expect(EFFECT_NAMES).toContain(name)
+    expect(playSfx(['quest'])).toBe(false) // no AudioContext here (or not yet tapped): silent, no error
   })
 
   test('Gary says what he found, by the same rule as the device', () => {

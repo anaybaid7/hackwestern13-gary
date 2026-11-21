@@ -12,6 +12,7 @@ import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
+import { effectsFor, playSfx, unlockSfx } from './sfx.js'
 import { pickClip, playClip, playVoice, readSound, unlockSound, voiceFor } from './sound.js'
 import { away, isNear, realSpot } from './places.js'
 import { createService } from './services/index.js'
@@ -21,6 +22,7 @@ import { STAGE_NAMES } from './words.js'
 
 const POLL_MS = 2000
 const FLASH_MS = 6000
+const SAY_AFTER_MS = 450 // Gary speaks once the chime has rung
 const NO_FLASH = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
 const STATUS = {
   live: 'Live',
@@ -120,9 +122,11 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     setError(null)
     if (changes) {
       if (readSound()) {
-        const voice = voiceFor(changes, prev, next) // Gary's own voice, else a chime
-        const clip = voice ? null : pickClip(changes)
-        if (voice) playVoice(voice)
+        // the effect first (a chime, a fanfare, the fog), then Gary says it
+        const effects = playSfx(effectsFor(changes))
+        const voice = voiceFor(changes, prev, next)
+        const clip = voice || effects ? null : pickClip(changes) // no voice and no effects: the old chime
+        if (voice) setTimeout(() => playVoice(voice), effects ? SAY_AFTER_MS : 0)
         else if (clip) playClip(clip)
       }
       if (changes.quest) setReward({ ...changes, gary: next.gary })
@@ -139,12 +143,19 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
 
   // the first tap or key press lets the browser play Gary's voice (Safari needs it)
   useEffect(() => {
-    const unlock = () => unlockSound()
+    const unlock = () => {
+      unlockSound()
+      unlockSfx()
+    }
+    // and a soft tick on every button
+    const tick = (event) => event.target.closest?.('button') && readSound() && playSfx(['tap'])
     window.addEventListener('pointerdown', unlock, { once: true })
     window.addEventListener('keydown', unlock, { once: true })
+    window.addEventListener('click', tick)
     return () => {
       window.removeEventListener('pointerdown', unlock)
       window.removeEventListener('keydown', unlock)
+      window.removeEventListener('click', tick)
     }
   }, [])
 
