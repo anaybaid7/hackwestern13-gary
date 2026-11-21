@@ -249,7 +249,16 @@ def check_quest(raw):
         "source": one_line(raw.get("source") or "manual", 20) or "manual",
         "source_url": web_address(raw.get("source_url")),
         "day": day if re.fullmatch(r"\d{4}-\d{2}-\d{2}", day) else rules.local_day(now(), TZ),
+        "lat": degrees(raw.get("lat"), 90), "lng": degrees(raw.get("lng"), 180),
     }, None
+
+
+def degrees(value, limit):
+    """A latitude or longitude, or None: the page uses it to tell whether you
+    are at the place, so anything that is not a number in range is dropped."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), 6) if -limit <= value <= limit else None
 
 
 def current(events=None, quests=None):
@@ -356,6 +365,20 @@ def post_mood(payload: dict = Body(...), x_private_key: Optional[str] = Header(N
     with lock:
         store.add([{"id": "mood-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "mood",
                     "phase": payload["phase"], "value": payload["value"], "source": "web"}])
+    return {"ok": True}
+
+
+@app.post("/api/visit")
+def post_visit(payload: dict = Body(...)):
+    """{"quest_id": ...}: the web page is at that quest's place. It works that
+    out in the browser, so no position ever reaches this server, and only the
+    quest id is kept. A quest finished near a visit earns the Been there bonus."""
+    quest_id = str(payload.get("quest_id") or "")
+    with lock:
+        if not any(q["id"] == quest_id for q in store.quests()):
+            raise HTTPException(422, "no quest has that id")
+        store.add([{"id": "visit-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "visit",
+                    "quest_id": quest_id}])
     return {"ok": True}
 
 

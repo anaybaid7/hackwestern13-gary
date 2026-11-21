@@ -13,7 +13,9 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.9655,
+      "lng": -81.3005
     },
     {
       "id": "q-2026-11-21-gibbons-park-dog",
@@ -27,7 +29,9 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.9995,
+      "lng": -81.2585
     },
     {
       "id": "q-2026-11-21-kains-woods-bird",
@@ -41,7 +45,9 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.975,
+      "lng": -81.358
     }
   ]
 }

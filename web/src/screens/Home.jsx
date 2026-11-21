@@ -9,7 +9,7 @@ import { STAGE_NAMES } from '../words.js'
 // Where the device serves what Gary sees (device/qnx/live.sh), if anywhere.
 const LIVE_URL = import.meta.env.VITE_LIVE_URL
 
-export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl = LIVE_URL }) {
+export default function Home({ state, flash, onChoose, onShowMap, busy, where = null, liveUrl = LIVE_URL }) {
   const { gary, journal } = state
   const celebrating = Boolean(flash.find)
   return (
@@ -47,6 +47,7 @@ export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl 
         onChoose={onChoose}
         onShowMap={onShowMap}
         busy={busy}
+        where={where}
       />
     </div>
   )

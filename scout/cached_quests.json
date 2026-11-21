@@ -14,7 +14,9 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.96251,
+      "lng": -81.296615
     },
     {
       "id": "q-2026-11-21-gibbons-park",
@@ -28,7 +30,9 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.001071,
+      "lng": -81.261599
     },
     {
       "id": "q-2026-11-21-victoria-park",
@@ -42,7 +46,9 @@
       "note": "Any safe, accessible spot in the park counts. Stay on public paths.",
       "source": "tinyfish",
       "source_url": "https://london.ca/parks-london",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.988784,
+      "lng": -81.248514
     },
     {
       "id": "q-2026-11-21-longwoods-road-conservation-area",
@@ -70,7 +76,9 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.968683,
+      "lng": -81.32008
     },
     {
       "id": "q-2026-11-21-boler-mountain",
@@ -84,7 +92,9 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/best-of-london/hiking",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.939433,
+      "lng": -81.340403
     },
     {
       "id": "q-2026-11-21-byron-valley",
@@ -112,7 +122,9 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.971862,
+      "lng": -81.26236
     },
     {
       "id": "q-2026-11-21-kains-woods",
@@ -126,7 +138,9 @@
       "note": "Stay on the marked trail. Any safe, accessible spot counts.",
       "source": "tinyfish",
       "source_url": "https://thamesriver.on.ca/parks-recreation-natural-areas/londons-esas/",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.977604,
+      "lng": -81.367711
     },
     {
       "id": "q-2026-11-21-downtown-london",
@@ -140,7 +154,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.985539,
+      "lng": -81.239647
     },
     {
       "id": "q-2026-11-21-western-alumni-stadium",
@@ -154,7 +170,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 42.999785,
+      "lng": -81.273892
     },
     {
       "id": "q-2026-11-21-fanshawe-conservation-area",
@@ -168,7 +186,9 @@
       "note": "Any safe, accessible spot at the venue counts, outside included. No ticket needed.",
       "source": "tinyfish",
       "source_url": "https://www.londontourism.ca/events",
-      "day": "2026-11-21"
+      "day": "2026-11-21",
+      "lat": 43.065424,
+      "lng": -81.185625
     }
   ]
 }

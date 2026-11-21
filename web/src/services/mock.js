@@ -27,6 +27,7 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
       if (quest) patch = { ...patch, quest, quest_choice: time }
       return { quest, state: current() }
     },
+    postVisit: async () => ({ ok: true }), // the story is not anywhere
     postMood: async (phase, value) => {
       moods.push({ ts: steps[index].now, phase, value, source: 'web' })
       return { ok: true }
