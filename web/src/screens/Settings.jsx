@@ -2,6 +2,7 @@
 // gets Gary's state from, a reset for testing, and the promises Gary keeps.
 import { useState } from 'react'
 import { readAsk, writeAsk } from '../components/CheckIn.jsx'
+import { playClip, readSound, writeSound } from '../sound.js'
 import You from './You.jsx'
 
 const STATUS_WORDS = { live: 'Live', mock: 'Demo story', stale: 'Offline · last state' }
@@ -88,10 +89,17 @@ function ResetGary({ service, onReset }) {
 
 export default function Settings({ service, stamp, status, onReset }) {
   const [ask, setAsk] = useState(readAsk)
+  const [sound, setSound] = useState(readSound)
 
   function toggle() {
     writeAsk(!ask)
     setAsk(!ask)
+  }
+
+  function toggleSound() {
+    writeSound(!sound)
+    setSound(!sound)
+    if (!sound) playClip('hello') // a hello, so you hear that it works
   }
 
   return (
@@ -104,6 +112,17 @@ export default function Settings({ service, stamp, status, onReset }) {
           <input type="checkbox" checked={ask} onChange={toggle} />
           <span>Ask how I feel when I open Gary</span>
         </label>
+      </section>
+
+      <section className="panel">
+        <h3 className="section-title">Sound</h3>
+        <label className="switch">
+          <input type="checkbox" checked={sound} onChange={toggleSound} />
+          <span>Play Gary's sounds on this device</span>
+        </label>
+        <p className="small">
+          A sound for each new find and each finished quest. Browsers stay quiet until you have tapped the page once.
+        </p>
       </section>
 
       <section className="panel">

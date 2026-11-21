@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import story from '../../contract/examples/story.json'
 import { Shell, whatChanged } from './App.jsx'
+import { CLIPS, pickClip, playClip, writeSound } from './sound.js'
 import { createMock } from './services/mock.js'
 
 afterEach(() => {
@@ -33,6 +34,54 @@ function fakeService(first) {
   }
   return service
 }
+
+describe("Gary's sounds on the page", () => {
+  test('each kind of find has its clip, and nothing else makes a sound', () => {
+    expect(pickClip(null)).toBeNull()
+    expect(pickClip({ find: null, stageUp: true })).toBeNull()
+    expect(pickClip({ find: { label: 'bottle', new: true, quest_id: 'q-demo-bottle', friend: false } })).toBe('quest')
+    expect(pickClip({ find: { label: 'backpack', new: true, quest_id: 'q-demo-backpack', friend: true } })).toBe('herd')
+    expect(pickClip({ find: { label: 'squirrel', new: true, quest_id: null } })).toBe('new')
+    expect(pickClip({ find: { label: 'squirrel', new: false, quest_id: null } })).toBe('again')
+    expect(pickClip(whatChanged(step(2), step(3)))).toBe('quest') // the story's bicycle quest
+    for (const name of ['quest', 'herd', 'new', 'again', 'hello']) expect(CLIPS[name], name).toBeTruthy()
+  })
+
+  test('the page plays the clip when a find arrives, unless sound is switched off', async () => {
+    const played = []
+    vi.stubGlobal('Audio', class {
+      constructor(url) {
+        this.url = url
+      }
+      play() {
+        played.push(this.url)
+        return Promise.reject(new Error('not allowed yet')) // a browser that has not been tapped: no crash
+      }
+    })
+    try {
+      window.localStorage.clear()
+      const service = fakeService(step(2))
+      const { unmount } = render(<Shell service={service} pollMs={20} askCheckIn={false} />)
+      await screen.findByText('Kid')
+      expect(played).toEqual([]) // the first state is not news
+      service.state = step(3)
+      await waitFor(() => expect(played).toEqual([CLIPS.quest]))
+      unmount()
+
+      writeSound(false)
+      const quiet = fakeService(step(2))
+      render(<Shell service={quiet} pollMs={20} askCheckIn={false} />)
+      await screen.findByText('Kid')
+      quiet.state = step(3)
+      await screen.findByText('Quest complete!') // the page did see the find
+      expect(played).toEqual([CLIPS.quest]) // nothing more
+      expect(playClip('no-such-clip')).toBe(false)
+    } finally {
+      window.localStorage.clear()
+      vi.unstubAllGlobals()
+    }
+  })
+})
 
 describe('what changed between two states', () => {
   test('nothing on the first state, and nothing when nothing happened', () => {

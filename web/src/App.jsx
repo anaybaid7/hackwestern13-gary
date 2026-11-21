@@ -12,6 +12,7 @@ import Herd from './screens/Herd.jsx'
 import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
+import { pickClip, playClip, readSound } from './sound.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
 import { STAGE_NAMES } from './words.js'
@@ -98,6 +99,8 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
     setState(next)
     setError(null)
     if (changes) {
+      const clip = pickClip(changes)
+      if (clip && readSound()) playClip(clip)
       if (changes.quest) setReward({ ...changes, gary: next.gary })
       setFlash(changes)
       clearTimeout(flashTimer.current)

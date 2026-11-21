@@ -617,6 +617,35 @@ describe('The check-in pop-up and Settings', () => {
     window.localStorage.clear()
   })
 
+  test('the Sound switch remembers its choice and says hello when it is turned on', () => {
+    const played = []
+    vi.stubGlobal('Audio', class {
+      constructor(url) {
+        this.url = url
+      }
+      play() {
+        played.push(this.url)
+        return Promise.resolve()
+      }
+    })
+    try {
+      window.localStorage.clear()
+      render(<Settings service={fakeService(exampleWellness)} stamp="a" status="live" />)
+      const box = screen.getByRole('checkbox', { name: "Play Gary's sounds on this device" })
+      expect(box.checked).toBe(true) // on unless switched off
+      fireEvent.click(box)
+      expect(box.checked).toBe(false)
+      expect(window.localStorage.getItem('gary.sound')).toBe('no')
+      expect(played).toEqual([]) // switching off is silent
+      fireEvent.click(box)
+      expect(window.localStorage.getItem('gary.sound')).toBe('yes')
+      expect(played.length).toBe(1)
+    } finally {
+      window.localStorage.clear()
+      vi.unstubAllGlobals()
+    }
+  })
+
   test('Reset Gary asks first, then starts over and tells the page to look again', async () => {
     const service = { ...fakeService(exampleWellness), resetGary: vi.fn(async () => ({ ok: true })) }
     const onReset = vi.fn()
