@@ -17,8 +17,10 @@ npm run dev                                       # mock mode: the demo story, n
 VITE_API_URL=http://localhost:8000 npm run dev    # against the real backend
 ```
 
-On a phone, add to the page address: `?mock` for the demo story, or
-`?api=http://host:8000` for a backend somewhere else.
+Add `?mock` to the page address for the demo story, on any device. With
+`npm run dev` only, `?api=http://host:8000` points the page at a backend
+somewhere else. The built page ignores `?api`, so that a link can never send
+someone's check-ins to another server.
 
 ## Mock mode and live mode (issue #24)
 
@@ -106,6 +108,12 @@ the handheld; on a phone it fills the screen.
 - It never computes XP, stages, ranks or which tile clears. It draws them.
 - Mood appears only in Settings and in the check-in pop-up. Each check-in
   can be skipped, and skipping sends nothing. The pop-up can be turned off.
+- The page says "Private" about the check-ins only when they are behind a
+  passphrase. If the server sets `GARY_PRIVATE_KEY`, the wellness view in
+  Settings asks for it once per device and shows nothing until it is right,
+  and a visitor without it is never shown the check-in pop-up. If the server
+  sets none, the view says "Not locked". The passphrase is sent only with the
+  two private calls (`services/live.js`), never with Gary's shared ones.
 - Seeded data is labelled where it is shown: the rival herds, the demo story,
   the sample week.
 - A quest is credited to the scout ("Found by the scout on london.ca") only

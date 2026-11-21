@@ -7,7 +7,10 @@
 //   VITE_API_URL=http://localhost:8000 npm run dev    live: the real backend
 //   npm run build                                     live: the address the page is served from
 //
-// At run time, ?mock or ?api=http://host:8000 in the page address overrides.
+// At run time, ?mock in the page address plays the story. With `npm run dev`,
+// ?api=http://host:8000 points the page at a backend somewhere else. The
+// built page ignores ?api: a link must never be able to send someone's
+// private check-ins to another server.
 import { createLive } from './live.js'
 
 /** -> {mode: 'mock'} or {mode: 'live', api}. */
@@ -15,7 +18,7 @@ export function pickMode(search = '', env = {}) {
   const params = new URLSearchParams(search)
   if (params.has('mock')) return { mode: 'mock', step: Number(params.get('step')) || 0 }
   const fromQuery = params.get('api')
-  if (fromQuery) return { mode: 'live', api: fromQuery }
+  if (fromQuery && env.DEV) return { mode: 'live', api: fromQuery }
   if (env.VITE_API_URL !== undefined) return { mode: 'live', api: env.VITE_API_URL }
   if (env.DEV) return { mode: 'mock', step: 0 }
   return { mode: 'live', api: '' } // the built page: the backend that serves it

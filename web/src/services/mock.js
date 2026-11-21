@@ -35,6 +35,9 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
       const wellness = steps[index].wellness
       return { ...wellness, checkins: [...wellness.checkins, ...moods], demo: true }
     },
+    // The story has no lock: nothing in it is anyone's own.
+    unlock: async () => steps[index].wellness,
+    forgetKey: () => {},
     /** The story's controls. Only the mock service has these. */
     story: {
       get index() {

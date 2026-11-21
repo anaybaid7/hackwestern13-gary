@@ -17,11 +17,14 @@ file (or in the repo root):
     DATABASE_URL       postgres://... on Tiger Data. Unset: memory
     SCOUT_KEY          the scout must send it as X-Scout-Key to post quests
     GARY_ADMIN_KEY     POST /api/dev/reset must send it as X-Admin-Key
+    GARY_PRIVATE_KEY   a passphrase. With it set, the private side (check-ins
+                       and the wellness view) opens only with X-Private-Key
     GARY_NAP_SECONDS   quiet time before Gary naps. Default 8 hours; 60 for a demo
     GARY_TZ            where days and weeks turn over. Default America/Toronto
     GARY_SEED          the quests a fresh backend starts with
 """
 import datetime as dt
+import hmac
 import os
 import re
 import threading
@@ -74,7 +77,7 @@ QUEST_XP_MAX = 100  # a posted quest cannot be worth more than this. The scout g
 EVENT_TYPES = ("discovery", "miss", "mood")
 CLOCK_TOLERANCE = 2.0  # seconds. A device clock closer than this to ours is taken as right
 
-TZ_NAME = os.environ.get("GARY_TZ", "America/Toronto")
+TZ_NAME = os.environ.get("GARY_TZ") or "America/Toronto"  # a blank setting means the default
 try:
     TZ = zoneinfo.ZoneInfo(TZ_NAME)
 except Exception:  # no timezone data on this machine
@@ -87,17 +90,36 @@ def now():
 
 
 def nap_seconds():
-    return float(os.environ.get("GARY_NAP_SECONDS", rules.NAP_SECONDS))
+    """Quiet time before Gary naps. A blank or unreadable setting means the default."""
+    try:
+        seconds = float(os.environ.get("GARY_NAP_SECONDS") or rules.NAP_SECONDS)
+    except ValueError:
+        return float(rules.NAP_SECONDS)
+    return seconds if seconds > 0 else float(rules.NAP_SECONDS)
 
 
 def stamp(when):
     return when.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-store = make_store(Path(os.environ.get("GARY_SEED", CONTRACT / "examples" / "quests.json")))
+store = make_store(Path(os.environ.get("GARY_SEED") or CONTRACT / "examples" / "quests.json"))
 lock = threading.Lock()  # one request at a time touches the store
 app = FastAPI(title="Gary the Goat", version="0.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+def key_matches(sent, key):
+    """Compare a key the same way whether it is nearly right or all wrong."""
+    return hmac.compare_digest(str(sent or "").encode("utf-8"), str(key).encode("utf-8"))
+
+
+def private_side(sent):
+    """The private side is the check-ins and the wellness view. When the server
+    sets GARY_PRIVATE_KEY it opens only with that passphrase. -> is it locked?"""
+    key = os.environ.get("GARY_PRIVATE_KEY")
+    if key and not key_matches(sent, key):
+        raise HTTPException(401, "The private page is locked. Send its passphrase as X-Private-Key.")
+    return bool(key)
 
 
 def as_list(payload, key):
@@ -227,8 +249,13 @@ def current(events=None, quests=None):
 
 @app.get("/api/health")
 def health():
+    """Is the backend up, and how is it set up? Says whether each key is set,
+    never what it is."""
     with lock:
-        return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME}
+        return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME,
+                "nap_seconds": nap_seconds(),
+                "keys": {name: bool(os.environ.get(setting)) for name, setting in
+                         (("scout", "SCOUT_KEY"), ("admin", "GARY_ADMIN_KEY"), ("private", "GARY_PRIVATE_KEY"))}}
 
 
 @app.post("/api/events")
@@ -265,7 +292,7 @@ def get_quests(time: Optional[str] = Query(None, pattern="^(short|long)$"), all:
 def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(None)):
     """The scout writes quests here. A quest with a known id is replaced."""
     key = os.environ.get("SCOUT_KEY")
-    if key and x_scout_key != key:
+    if key and not key_matches(x_scout_key, key):
         raise HTTPException(401, "wrong or missing X-Scout-Key")
     accepted, rejected = [], []
     with lock:
@@ -310,8 +337,9 @@ def get_state():
 
 
 @app.post("/api/mood")
-def post_mood(payload: dict = Body(...)):
+def post_mood(payload: dict = Body(...), x_private_key: Optional[str] = Header(None)):
     """A private check-in: {"phase": "before" | "after", "value": 1..5}."""
+    private_side(x_private_key)
     check_mood(payload.get("phase"), payload.get("value"))
     with lock:
         store.add([{"id": "mood-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "mood",
@@ -320,21 +348,24 @@ def post_mood(payload: dict = Body(...)):
 
 
 @app.get("/api/wellness")
-def get_wellness():
-    """Private: only the person themself sees this. Check-ins, before and
-    after pairs, estimated outdoor minutes per day, and solo versus shared
-    finds. The wording never says an outing caused a feeling."""
+def get_wellness(x_private_key: Optional[str] = Header(None)):
+    """The private side: check-ins, before and after pairs, estimated outdoor
+    minutes per day, and solo versus shared finds. None of it is ever part of
+    /api/state. "locked" says whether a passphrase guards it: without
+    GARY_PRIVATE_KEY anyone who has the address can read this, and the page
+    says so. The wording never says an outing caused a feeling."""
+    locked = private_side(x_private_key)
     with lock:
         events, moods = store.events(), store.moods()
         days = store.outdoor_by_day(OUTDOOR_LABELS, TZ_NAME)
-    return rules.wellness(moods, events, OUTDOOR, TZ, days)
+    return dict(rules.wellness(moods, events, OUTDOOR, TZ, days), locked=locked)
 
 
 @app.post("/api/dev/reset")
 def dev_reset(x_admin_key: Optional[str] = Header(None)):
     """Forget every event and mood and reload the seed quests. For demos and tests."""
     key = os.environ.get("GARY_ADMIN_KEY")
-    if key and x_admin_key != key:
+    if key and not key_matches(x_admin_key, key):
         raise HTTPException(401, "wrong or missing X-Admin-Key")
     with lock:
         store.reset()

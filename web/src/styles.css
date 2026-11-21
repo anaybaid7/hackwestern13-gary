@@ -1143,6 +1143,54 @@ button:disabled {
   background: var(--coral);
 }
 
+/* the passphrase of the private side */
+.unlock {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.unlock label {
+  font-family: var(--pixel);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.unlock input {
+  width: 100%;
+  max-width: 320px;
+  padding: 8px 10px;
+  border: var(--line);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.unlock [role='alert'] {
+  color: var(--coral-deep);
+  font-weight: 700;
+}
+
+.chip-open {
+  background: var(--orange);
+}
+
+/* Two rules the page's markup still asks for, which the Pocket Pixel rewrite
+   of this file left out: the spacing inside the wellness view (its body is
+   sitting on ".cup-row.you" above), and the small line under "Your herd" in
+   the Cup table. */
+.you {
+  display: grid;
+  gap: 14px;
+}
+
+.cup-detail {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
 .scale {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

@@ -9,14 +9,18 @@ describe('one setting switches between mock and live', () => {
   test('the page address wins, then the build setting, then the kind of build', () => {
     expect(pickMode('?mock', { VITE_API_URL: 'http://x' })).toEqual({ mode: 'mock', step: 0 })
     expect(pickMode('?mock&step=4', {})).toEqual({ mode: 'mock', step: 4 })
-    expect(pickMode('?api=http://pi.local:8000', {})).toEqual({ mode: 'live', api: 'http://pi.local:8000' })
+    expect(pickMode('?api=http://pi.local:8000', { DEV: true })).toEqual({ mode: 'live', api: 'http://pi.local:8000' })
+    // The built page ignores ?api. Otherwise a link could send someone's private check-ins to another server.
+    expect(pickMode('?api=http://elsewhere.example', { DEV: false })).toEqual({ mode: 'live', api: '' })
+    expect(pickMode('?api=http://elsewhere.example', {})).toEqual({ mode: 'live', api: '' })
+    expect(pickMode('?api=http://elsewhere.example', { VITE_API_URL: 'http://ours' })).toEqual({ mode: 'live', api: 'http://ours' })
     expect(pickMode('', { VITE_API_URL: 'http://localhost:8000' })).toEqual({ mode: 'live', api: 'http://localhost:8000' })
     expect(pickMode('', { DEV: true })).toEqual({ mode: 'mock', step: 0 }) // npm run dev with nothing set
     expect(pickMode('', { DEV: false })).toEqual({ mode: 'live', api: '' }) // the built page: same address
   })
 
   test('both services offer the same calls', () => {
-    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now']
+    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now', 'unlock', 'forgetKey']
     const live = createLive('http://x')
     const mock = createMock()
     for (const name of calls) {
@@ -53,6 +57,67 @@ describe('live', () => {
     const fetchFn = fakeFetch()
     await createLive('', fetchFn).getState()
     expect(fetchFn.mock.calls[0][0]).toBe('/api/state')
+  })
+})
+
+describe('live: the passphrase of the private page', () => {
+  // A stand-in backend whose private side opens with one passphrase.
+  function lockedBackend(passphrase = 'goats climb at dawn') {
+    return vi.fn(async (url, options) => {
+      const secret = url.endsWith('/api/wellness') || url.endsWith('/api/mood')
+      if (secret && options?.headers?.['X-Private-Key'] !== passphrase) {
+        return { ok: false, status: 401, json: async () => ({ detail: 'locked' }) }
+      }
+      return { ok: true, status: 200, json: async () => ({ locked: secret, ok: true }) }
+    })
+  }
+
+  test('a locked page is told apart from a broken one, and the passphrase is kept only if it works', async () => {
+    window.localStorage.clear()
+    const fetchFn = lockedBackend()
+    const live = createLive('http://gary.example', fetchFn)
+    live.forgetKey()
+    await expect(live.getWellness()).rejects.toMatchObject({ message: 'HTTP 401', locked: true })
+    await expect(live.postMood('before', 3)).rejects.toMatchObject({ locked: true })
+
+    await expect(live.unlock('a guess')).rejects.toMatchObject({ locked: true })
+    expect(window.localStorage.getItem('gary-private-key')).toBeNull() // a wrong guess is not remembered
+    await expect(live.getWellness()).rejects.toMatchObject({ locked: true })
+
+    expect(await live.unlock('goats climb at dawn')).toEqual({ locked: true, ok: true })
+    expect(window.localStorage.getItem('gary-private-key')).toBe('goats climb at dawn')
+    expect(await live.getWellness()).toEqual({ locked: true, ok: true })
+    expect(await live.postMood('after', 4)).toEqual({ locked: true, ok: true })
+
+    // a page loaded later on this device still has it
+    expect(await createLive('http://gary.example', fetchFn).getWellness()).toEqual({ locked: true, ok: true })
+
+    live.forgetKey()
+    expect(window.localStorage.getItem('gary-private-key')).toBeNull()
+    await expect(live.getWellness()).rejects.toMatchObject({ locked: true })
+  })
+
+  test("the passphrase goes only to the private side, never with Gary's shared calls", async () => {
+    window.localStorage.clear()
+    const fetchFn = lockedBackend()
+    const live = createLive('http://gary.example', fetchFn)
+    await live.unlock('goats climb at dawn')
+    fetchFn.mockClear()
+    await live.getState()
+    await live.chooseQuest('short')
+    await live.getWellness()
+    const sent = fetchFn.mock.calls.map(([url, options]) => [url.replace('http://gary.example', ''), options?.headers?.['X-Private-Key']])
+    expect(sent).toEqual([
+      ['/api/state', undefined],
+      ['/api/quest/choose', undefined],
+      ['/api/wellness', 'goats climb at dawn'],
+    ])
+    live.forgetKey()
+  })
+
+  test('a 401 anywhere else is an ordinary error, not a locked page', async () => {
+    const live = createLive('', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })))
+    await expect(live.getState()).rejects.toMatchObject({ message: 'HTTP 401', locked: false })
   })
 })
 

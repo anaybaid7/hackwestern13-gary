@@ -1,5 +1,10 @@
 # The three-minute demo
 
+> **Out of date since the Pocket Pixel redesign (pull request #48).** The tabs,
+> taps and "the screen shows" below describe the old page layout. The words,
+> the timings and the numbers still hold. To be rewritten once the page is
+> final.
+
 Issue #36. Eight beats, who does what, what to press, and what to do if a beat
 fails. Rehearse it twice on the real device before the freeze (issue #38).
 
@@ -7,9 +12,11 @@ fails. Rehearse it twice on the real device before the freeze (issue #38).
 this repo, so these eight were written from the features. If the breakdown's
 beats differ, swap them in and keep the timings.
 
-**How this was checked.** Every "the screen shows" below was replayed against
-the real backend with `device/fake_sniff.py` standing in for Gary. It has not
-been rehearsed on the device, and nobody has timed it out loud.
+**How this was checked.** Every "the screen shows" below is replayed against
+the real backend by `python3 scripts/demo.py replay`, with pretend sniffs
+standing in for Gary, and `sh scripts/check_all.sh` fails if the numbers here
+stop matching the backend. It has not been rehearsed on the device, and nobody
+has timed it out loud.
 
 ## Who does what
 
@@ -28,32 +35,54 @@ Talker: ____ Holder: ____ Driver: ____ Friend: ____
 Do these in order. Each one matters to a beat.
 
 ```
-# 1. Forget the rehearsal. (Add  -H "X-Admin-Key: <key>"  if the server sets GARY_ADMIN_KEY.)
-curl -X POST http://<server>/api/dev/reset
+# 1. Forget the rehearsal and put the scout's quests back. It asks before it forgets anything.
+#    (If the server sets them, export GARY_ADMIN_KEY and SCOUT_KEY first.)
+python3 scripts/demo.py reset --api http://<server>
 
-# 2. Put the scout's quests back. The reset keeps only the three built-in quests.
-#    (If the server sets SCOUT_KEY, export the same value first.)
-python3 scout/scout.py --cached --api http://<server>
-#    No live run yet? This posts hand-written places instead, and beat 2 changes (see below):
-#    python3 scout/scout.py --from-file scout/sample_result.json --api http://<server>
-
-# 3. On the Pi: a clean Gary.
+# 2. On the Pi: a clean Gary.
 sh start_gary.sh --fresh
-sh start_gary.sh status        # Gary: up. button and buzzer: up. sync: up
 ```
 
-4. **Driver:** open the page, tap **You**, and under "Before you head out" tap
-   how you feel right now. Use 3 or lower, honestly if you can: beat 7 needs
-   room to go up. Then go back to the **Gary** tab.
+3. **Driver:** open the page and tap **You**. If it asks for the passphrase,
+   type it once (it is `GARY_PRIVATE_KEY` on the server; the laptop remembers
+   it). Under "Before you head out" tap how you feel right now. Any number
+   works: the page has a sentence for better, the same and worse. For the
+   "better" sentence the first tap has to leave room to go up. Then go back to
+   the **Gary** tab.
+4. Check everything at once:
+
+   ```
+   export GARY_PRIVATE_KEY=<the passphrase>      # so that it can see the "before" check-in
+   python3 scripts/demo.py check --api http://<server> --video <the backup video>
+   ```
+
+   It must end with **READY**. Read each WARN: it tells you which line of this
+   script to change. On the Pi, `sh start_gary.sh status` must say that Gary,
+   the button and buzzer, and sync are all up. (Or copy `scripts/demo.py` next
+   to `start_gary.sh` and run `python3 demo.py check --api http://<server> --device`.)
 5. Do not press Gary's button until beat 4. Gary must still be napping at beat 1.
+
+No live scout run yet? `python3 scripts/demo.py reset --samples --api http://<server>`
+loads hand-written places instead. The page labels them as samples, and beats
+2 and 3 change (see below).
 
 On the table:
 
 - A **water bottle** and a **backpack**, within reach. These are the two table quests.
 - The page on the big screen, on the **Gary** tab. The status at the top says **Live**.
 - A second browser tab with `scout/EVIDENCE.md` on GitHub.
-- A third tab with the page in mock mode (add `?mock` to the address). This is the fallback.
+- A third tab with the demo story, served from the Driver's own laptop so that
+  it works when the server does not: `python3 -m http.server 8080 -d web/dist`,
+  then open `http://localhost:8080/?mock`. (Build the page once first:
+  `cd web && npm install && npm run build`.)
 - The backup video, ready to play, with the laptop's volume up.
+
+On the server, leave `GARY_NAP_SECONDS` unset. With a short nap, Gary is asleep
+again before beat 8.
+
+**To learn the words with no device:** `python3 scripts/demo.py replay --api http://localhost:8000`
+plays these beats with pretend sniffs, one Enter at a time, on a backend on
+your own laptop.
 
 ## What must be true before you say it
 
@@ -62,6 +91,7 @@ On the table:
 | "a web agent read these pages this morning" (beat 2) | `scout/EVIDENCE.md` lists completed runs from today. If it says no live runs are recorded, use the other beat 2 line below |
 | "running on QNX" (beat 4) | Gary on the table is the QNX build: `sh start_gary.sh status`, then `ls qnx/build/gary`. If it is the Python version on Raspberry Pi OS, say "running on the device" |
 | any QNX number (questions) | `docs/qnx-numbers.md` has rows measured on the Pi |
+| "this page is locked with a passphrase" (beat 7) | The You tab says "Private. This page opens only with your passphrase." If it says "This page is not locked", set `GARY_PRIVATE_KEY` on the server, or use the other beat 7 line below |
 
 ## The script
 
@@ -73,7 +103,7 @@ On the table:
 | 4 | 0:55 | "That park is a walk from here, so we put two quests on this table. Now the Sniff Test. One button. A model on the device, running on QNX, names what the camera sees. No photo leaves the device, only the word." | Holder points at the **bottle**, holds still for a second, presses the button | Buzzer: three rising beeps. On the page Gary wakes up, the bottle is at the top of the journal with Gary's line and **+20 XP**. Driver points at "named on the device in N ms" |
 | 5 | 1:25 | "Gary likes company. When a friend is in the frame it is Herd Mode: it counts double, and our herd climbs the Herd Cup. Herds compete. People are never ranked." | Friend steps beside the **backpack**. Holder points at both, presses | Buzzer: three rising beeps, then a double chirp. **+40 XP**. Gary grows from a Kid into a Scrambler. Driver taps **Herd**: "Your herd" has moved from 5th to 3rd |
 | 6 | 1:55 | "Every quest is a place. Finish one and its fog lifts." | Driver taps **Map**, then taps an uncovered tile | Two places uncovered. The tile says what was found there and when |
-| 7 | 2:15 | "And one private thing. Before we started, I tapped how I felt. Now I tap again. Only I see this page. It reports what I said. It never claims the walk caused it." | Driver taps **You**. The card says "Now that you are back". Driver taps a number | "Noted", and under it the sentence, for example "You reported feeling better after your outing." |
+| 7 | 2:15 | "And one private thing. Before we started, I tapped how I felt. Now I tap again. This page is locked with a passphrase, and none of it ever shows up in Gary's world or the herd. It reports what I said. It never claims the walk caused it." | Driver taps **You**. The card says "Now that you are back". Driver taps a number | "Noted", and under it the sentence, for example "You reported feeling better after your outing." |
 | 8 | 2:40 | "Pokémon GO got people walking, and the gain was gone in six weeks. Walking with others lasts. That is what Gary rewards. A little adventure goes a long way." | Holder sets Gary down facing the judges. Driver back on the Gary tab | Gary, awake, a Scrambler |
 
 End by 3:00. If the Friend signals 2:30 and you are not on beat 7, skip beat 6.
@@ -84,6 +114,11 @@ event pages. We have not had a live run yet, so today's quests are places we
 wrote in by hand." Show `scout/sources.json` instead of the evidence page. At
 beat 3 the sign will read "A sample quest, written by hand. The scout did not
 find this one." That is correct. Leave it.
+
+**Beat 7 when the page is not locked.** Say "none of this ever shows up in
+Gary's world or the herd" and leave out the passphrase. Do not say "private"
+or "only I see this": on a server with no passphrase, anyone who has the
+address can open that page, and the page says so itself.
 
 **Why beat 5 has to follow beat 4.** Gary becomes a Scrambler at 60 XP. The
 bottle quest gives 20 and the backpack quest with a friend gives 40. If either
@@ -97,9 +132,11 @@ move on: the Herd screen still shows the herd find.
   and we take your word for it."
 - **"Is the Herd Cup real?"** "Our score is real. The rival herds are demo
   data, and the page says so."
-- **"Is the mood data private?"** "It never appears in anything shared, and
-  each check-in can be skipped. There is no login yet, so the page itself is
-  not behind a password."
+- **"Is the mood data private?"** "It never appears in anything shared, each
+  check-in can be skipped, and the page is behind a passphrase. There are no
+  accounts yet: one Gary, one passphrase." (Only if the You tab says
+  "Private". Otherwise: "It never appears in anything shared. The page has no
+  lock on this server yet.")
 - **"Why QNX?"** "The button has to answer at once, every time, on a battery.
   With every core busy, Gary at priority 20 answered in N ms." (Read the number
   from `docs/qnx-numbers.md`. If the table is empty, do not quote a number.)
@@ -115,7 +152,7 @@ move on: the Herd screen still shows the herd find.
 | Gary names nothing (one long low buzz) | Hold still, closer, more light, press again. A miss costs nothing, so say so: "He missed. No penalty. Again." |
 | Gary names the wrong thing | It lands in the journal as a find and no quest completes. Say what he saw, and try once more |
 | The find does not reach the page | Driver runs `python3 device/fake_sniff.py bottle --api http://<server>` (and `backpack --friend` for beat 5). Say: "The device is offline, so I am sending the same event by hand" |
-| The backend is unreachable (the status says Offline) | Driver switches to the mock-mode tab and presses **Next**. Say: "This is the same page playing states our backend recorded earlier" |
+| The backend is unreachable (the status says Offline) | Driver switches to the demo story tab (the one served from the laptop) and presses **Next**. Say: "This is the same page playing states our backend recorded earlier" |
 | TinyFish is slow or down | Do not run it live. The quests on screen are from this morning's run, and the evidence page shows it |
 | Gary will not start | Play the backup video |
 | The buzzer is silent | Ignore it. The page is the proof |

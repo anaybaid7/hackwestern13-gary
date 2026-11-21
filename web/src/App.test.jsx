@@ -136,7 +136,7 @@ describe('the page', () => {
     expect(screen.getByRole('heading', { name: 'Herd Cup, week 47' })).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-    expect(await screen.findByText('🔒 Private')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Wellness' })).toBeTruthy()
     expect(service.getWellness).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Journal' }))
@@ -163,6 +163,23 @@ describe('the page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Map' }))
     fireEvent.click(screen.getByRole('button', { name: 'Home' }))
     expect(screen.queryByRole('dialog')).toBeNull() // once per visit
+  })
+
+  test('on a locked Gary a visitor without the passphrase sees the world and is asked nothing', async () => {
+    const service = fakeService(step(5))
+    service.getWellness = vi.fn(async () => {
+      throw Object.assign(new Error('HTTP 401'), { locked: true })
+    })
+    render(<Shell service={service} pollMs={100000} askCheckIn />)
+    expect(await screen.findByRole('heading', { name: 'Scrambler' })).toBeTruthy()
+    await waitFor(() => expect(service.getWellness).toHaveBeenCalled())
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(service.postMood).not.toHaveBeenCalled()
+    // the private side says it is locked, and nothing of it shows
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(await screen.findByText('🔒 Locked')).toBeTruthy()
+    expect(screen.getByLabelText('Passphrase')).toBeTruthy()
+    expect(screen.queryByText(/You reported/)).toBeNull()
   })
 
   test('short or long asks the service, and the card changes at once', async () => {
