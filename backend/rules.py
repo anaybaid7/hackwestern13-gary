@@ -194,6 +194,7 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
     finds_at = {}       # place key -> what was found there
     choices = []        # (when, time, quest id), oldest first
     last_when, last_was_return = None, False
+    last_miss = None    # the latest sniff that named nothing: the page says "move closer"
     this_week = iso_week(now, tz)
     # Visits first, so a visit that arrives after its sniff still counts.
     visits = {}         # quest id -> [when the page was at its place]
@@ -222,6 +223,8 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
             choices.append((parse_ts(ev.get("ts")), ev.get("time"), ev.get("quest_id")))
             results[ev.get("id")] = {"xp": 0, "reaction": "choice", "new": False, "quest_id": ev.get("quest_id")}
             continue
+        if kind == "miss":
+            last_miss = {"id": ev.get("id"), "ts": ev.get("ts")}
         if kind != "discovery":
             results[ev.get("id")] = {"xp": 0, "reaction": kind or "unknown", "new": False, "quest_id": None}
             continue
@@ -330,6 +333,7 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
         "quest_choice": choice_time,
         "quest_options": options,
         "quests_open": len(open_quests),
+        "last_miss": last_miss,
         "journal": list(reversed(journal))[:JOURNAL_LIMIT],
         "guide": {"total": len(outdoor), "found": found},
         "map": tiles,

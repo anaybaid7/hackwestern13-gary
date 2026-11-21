@@ -69,6 +69,7 @@
           }
         },
         "quests_open": 6,
+        "last_miss": null,
         "journal": [],
         "guide": {
           "total": 90,
@@ -277,6 +278,7 @@
           }
         },
         "quests_open": 6,
+        "last_miss": null,
         "journal": [],
         "guide": {
           "total": 90,
@@ -493,6 +495,7 @@
           }
         },
         "quests_open": 6,
+        "last_miss": null,
         "journal": [],
         "guide": {
           "total": 90,
@@ -722,6 +725,7 @@
           }
         },
         "quests_open": 5,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795274700000-1",
@@ -979,6 +983,7 @@
           }
         },
         "quests_open": 5,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795274820000-2",
@@ -1246,6 +1251,7 @@
           }
         },
         "quests_open": 4,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795275600000-3",
@@ -1521,6 +1527,7 @@
           }
         },
         "quests_open": 4,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795275600000-3",
@@ -1805,6 +1812,7 @@
           }
         },
         "quests_open": 4,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795275600000-3",
@@ -2097,6 +2105,7 @@
           }
         },
         "quests_open": 4,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795275600000-3",
@@ -2398,6 +2407,7 @@
           }
         },
         "quests_open": 3,
+        "last_miss": null,
         "journal": [
           {
             "id": "gary-01-1795358400000-4",

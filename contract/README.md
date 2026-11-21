@@ -99,6 +99,7 @@ only. It never decides XP.
 | `quest_choice` | `short`, `long`, or `null` if the person has not chosen |
 | `quest_options` | `{"short": Quest or null, "long": Quest or null}`: what each button would give |
 | `quests_open` | How many quests are open |
+| `last_miss` | The latest Sniff Test that named nothing: `id` and `ts`, or `null`. The page speaks when it changes ("Can you move closer?") |
 | `journal` | Finds, newest first (at most 50), each with the `xp` it earned, the `place` of the quest it finished (or `null`), and `been_there`: the page said you were at that place |
 | `guide` | Field guide: `total` things, and the names `found` |
 | `map` | Up to 25 tiles. Pad to 5 × 5 with fog. Each: `place`, `quest_id`, `cleared`, `cleared_at`, `finds`: what was found there (`label`, `ts`, `friend`, `quest_id`), `lat`/`lng` (or `null`), and `visited`: the page has said you were there |

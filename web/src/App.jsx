@@ -45,7 +45,11 @@ export default function App({ service: given }) {
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
 export function whatChanged(prev, next) {
   if (!prev) return null
-  const out = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, messages: [] }
+  const out = { find: null, quest: null, stageUp: false, cleared: [], rankUp: null, miss: false, messages: [] }
+  if (next.last_miss && next.last_miss.id !== prev.last_miss?.id) {
+    out.miss = true
+    out.messages.push('Gary could not name that one. Try a little closer.')
+  }
   const top = next.journal[0]
   if (top && top.id !== prev.journal[0]?.id && next.gary.xp > prev.gary.xp) {
     out.find = top

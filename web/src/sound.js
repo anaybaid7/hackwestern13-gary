@@ -5,10 +5,11 @@
 import again from '../../device/sounds/again.wav'
 import herd from '../../device/sounds/herd.wav'
 import hello from '../../device/sounds/hello.wav'
+import nothing from '../../device/sounds/nothing.wav'
 import fresh from '../../device/sounds/new.wav'
 import quest from '../../device/sounds/quest.wav'
 
-export const CLIPS = { again, herd, hello, new: fresh, quest }
+export const CLIPS = { again, herd, hello, new: fresh, quest, nothing }
 
 // Gary's spoken clips (ElevenLabs, device/make_voice.py): {say_bottle: url, ...}.
 export const VOICE = Object.fromEntries(
@@ -37,11 +38,11 @@ export function writeSound(on) {
 
 /**
  * Which clip a change deserves, or null. `changes` is what whatChanged() gives.
- * A sniff that found nothing never reaches the page, so it has no sound here.
+ * A sniff that found nothing (state.last_miss changed) gets the "nothing" sound.
  */
 export function pickClip(changes) {
   const find = changes?.find
-  if (!find) return null
+  if (!find) return changes?.miss ? 'nothing' : null
   if (find.quest_id) return find.friend ? 'herd' : 'quest'
   return find.new ? 'new' : 'again'
 }
@@ -53,7 +54,7 @@ export function pickClip(changes) {
  */
 export function voiceFor(changes, prev, next) {
   const find = changes?.find
-  if (!find) return null
+  if (!find) return changes?.miss && VOICE.say_nothing ? ['say_nothing'] : null
   const name = find.label.replace(/ /g, '_')
   const clips = []
   if (find.quest_id) clips.push(`say_found_${name}`)

@@ -58,6 +58,11 @@ describe("Gary's sounds on the page", () => {
     expect(voiceFor(find({ quest_id: 'q', friend: true }), open, open)).toEqual(['say_found_bottle', 'say_herd'])
     expect(voiceFor(find({ label: 'no such thing' }), {}, {})).toBeNull() // no clip: the chime plays instead
     expect(voiceFor({ find: null }, {}, {})).toBeNull()
+    expect(voiceFor({ find: null, miss: true }, {}, {})).toEqual(['say_nothing']) // "Can you move closer?"
+    expect(pickClip({ find: null, miss: true })).toBe('nothing')
+    const before = { ...step(3), last_miss: null }
+    expect(whatChanged(before, { ...before, last_miss: { id: 'm-1', ts: 'x' } }).miss).toBe(true)
+    expect(whatChanged({ ...before, last_miss: { id: 'm-1' } }, { ...before, last_miss: { id: 'm-1' } })).toBeNull()
     expect(Object.keys(VOICE).length).toBeGreaterThan(180)
   })
 
