@@ -1544,3 +1544,6 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* link to the device's live camera view, shown only when VITE_LIVE_URL is set */
+.live-link { display: inline-block; margin-top: 8px; }

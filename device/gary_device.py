@@ -339,14 +339,25 @@ class Stability:
 # --------------------------------------------------------------------------
 # Sound
 # --------------------------------------------------------------------------
-def _tone(freqs, seconds_each=0.14, rate=22050, volume=0.5):
+def _tone(notes, rate=22050, volume=0.5):
+    """notes: [(start Hz, end Hz, seconds)]. A note whose end differs slides
+    between the two (the "wah" of a miss). 0 Hz is a rest. A little of the
+    second and third harmonic makes it carry on a small speaker."""
     samples = []
-    for freq in freqs:
-        n = int(rate * seconds_each)
+    for start, end, seconds in notes:
+        n = int(rate * seconds)
+        phase = 0.0
         for i in range(n):
-            env = min(1.0, i / (0.01 * rate)) * min(1.0, (n - i) / (0.04 * rate))
-            samples.append(volume * env * math.sin(2 * math.pi * freq * i / rate))
+            freq = start + (end - start) * i / max(1, n - 1)
+            phase += 2 * math.pi * freq / rate
+            env = min(1.0, i / (0.01 * rate)) * min(1.0, (n - i) / (0.05 * rate))
+            wave_ = math.sin(phase) + 0.3 * math.sin(2 * phase) + 0.15 * math.sin(3 * phase)
+            samples.append(volume * env * wave_ / 1.45 if freq else 0.0)
     return rate, samples
+
+
+def _notes(freqs, seconds=0.12):
+    return [(f, f, seconds) for f in freqs]
 
 
 def ensure_sounds(folder):
@@ -354,20 +365,22 @@ def ensure_sounds(folder):
     Gary's voice. Drop your own WAV files in with the same names to replace
     them, or add <label>.wav (for example bottle.wav) for spoken labels."""
     os.makedirs(folder, exist_ok=True)
+    # Right answers are quick and rising; a miss slides down, slow and sad, so
+    # the two never sound alike (the buzzer patterns in gary_io.py do the same).
     chimes = {
-        "hello": [523, 659],
-        "new": [659, 880, 1047],              # a new discovery
-        "again": [587],                       # Gary has seen one before
-        "quest": [523, 659, 784, 1047],       # quest complete
-        "herd": [880, 1047, 1319, 1568],      # a friend is in the frame
-        "nothing": [392, 330],                # nothing he can name
-        "done": [523, 659, 784, 1047, 1319],  # every quest finished
+        "hello": _notes([523, 784]),
+        "new": _notes([784, 988, 1319], 0.09),                                # a new discovery
+        "again": _notes([880, 1175], 0.08),                                   # seen one before
+        "quest": _notes([523, 659, 784], 0.08) + [(1047, 1047, 0.45)],        # quest complete: a run up, then hold
+        "herd": _notes([1319, 0, 1568, 0, 1760], 0.06),                       # a friend is in the frame
+        "nothing": [(330, 300, 0.35), (0, 0, 0.08), (294, 196, 0.75)],        # wah... wahhh
+        "done": _notes([523, 659, 784, 1047, 784], 0.1) + [(1047, 1047, 0.6)],  # every quest finished
     }
-    for name, freqs in chimes.items():
+    for name, notes in chimes.items():
         path = os.path.join(folder, name + ".wav")
         if os.path.exists(path):
             continue
-        rate, samples = _tone(freqs)
+        rate, samples = _tone(notes)
         with wave.open(path, "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)

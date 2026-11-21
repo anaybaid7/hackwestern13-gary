@@ -1131,6 +1131,25 @@ int main(int argc, char** argv) {
     timings.push_back({ms_between(stamp, decided), model_ms, ms_between(started, decided)});
     ++frames_total;
     handle_sniff();
+#ifdef GARY_HAS_IMGCODECS
+    // GARY_LIVE=live/frame.jpg: what Gary sees, with his boxes, for a live view
+    // (qnx/live.sh serves it). Drawn after the decision, so a sniff never waits.
+    if (static const char* live = std::getenv("GARY_LIVE"); live) {
+      cv::Mat view;
+      cv::resize(frame, view, cv::Size(640, 480));
+      for (const auto& d : detections) {
+        if (d.score < opt.threshold) continue;
+        const cv::Scalar colour = d.label == opt.friend_label ? cv::Scalar(255, 160, 60) : cv::Scalar(80, 230, 120);
+        const cv::Point a(static_cast<int>(d.x0 * 640), static_cast<int>(d.y0 * 480));
+        cv::rectangle(view, a, cv::Point(static_cast<int>(d.x1 * 640), static_cast<int>(d.y1 * 480)), colour, 3);
+        char text[64];
+        snprintf(text, sizeof text, "%s %.0f%%", d.label.c_str(), d.score * 100.0f);
+        cv::putText(view, text, a + cv::Point(4, 24), cv::FONT_HERSHEY_SIMPLEX, 0.8, colour, 2);
+      }
+      const std::string tmp = std::string(live) + ".tmp.jpg";
+      if (cv::imwrite(tmp, view)) std::rename(tmp.c_str(), live);  // whole frames only
+    }
+#endif
 
     const auto now = Clock::now();
     const double since = ms_between(last_report, now) / 1000.0;

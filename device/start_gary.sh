@@ -22,6 +22,14 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR" || exit 1
 [ -f gary.env ] && . ./gary.env
 : "${GARY_FLAGS=--mute}"
+# GARY_SOUND=on in gary.env: play the sound clips through a speaker (a USB
+# speaker on the Pi). Off by default: the buzzer is always there.
+if [ "${GARY_SOUND:-off}" = on ]; then
+  GARY_FLAGS="$(printf '%s' "$GARY_FLAGS" | sed 's/--mute//g')"
+fi
+# GARY_LIVE=live/frame.jpg in gary.env: Gary writes what he sees, with boxes,
+# for the live view (sh qnx/live.sh). Off unless set.
+[ -n "${GARY_LIVE:-}" ] && export GARY_LIVE
 : "${GARY_BUTTON_PIN:=17}"
 : "${GARY_BUZZER_PIN:=27}"
 : "${GARY_PYTHON:=python3}"

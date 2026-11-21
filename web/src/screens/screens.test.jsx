@@ -31,6 +31,13 @@ describe('Gary (issue #25)', () => {
     expect(screen.getByText(/A bench\. I respect anything that holds still\./)).toBeTruthy()
     // the home screen stays calm: the finds live in the journal
     expect(screen.queryByText('+80 XP')).toBeNull()
+    expect(screen.queryByText(/What Gary sees/)).toBeNull() // no device address, no link
+  })
+
+  test('links to what Gary sees when the device serves a live view', () => {
+    render(<Home state={example} flash={NO_FLASH} liveUrl="http://192.168.3.2:8090" />)
+    const link = screen.getByRole('link', { name: /What Gary sees/ })
+    expect(link.getAttribute('href')).toBe('http://192.168.3.2:8090')
   })
 
   test('a fresh Gary naps: no guilt, no pressure, nothing lost', () => {
