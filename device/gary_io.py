@@ -31,12 +31,13 @@ Run it from the device folder (QNX, or Raspberry Pi OS)
 
 What you hear
 
-    one short beep                  Gary has seen one before
-    two short beeps                 a new discovery
-    three beeps, each one longer    quest complete
-    a quick double chirp after it   a friend is in frame (Herd Mode)
-    one long buzz                   nothing Gary can name
-    two long buzzes                 the button was pressed but Gary is not running
+    one quick beep                  good: the quest's thing, or a find with no quest open
+    three quick beeps               bad: not what the quest is looking for
+    beep... beeep (two, the second  unsure: nothing Gary can name. Not a failure:
+      longer, like a question)        he is puzzled and asks you to move closer
+    three slow beeps                the button was pressed but Gary is not running
+
+Gary's speaker says the rest ("You found the water bottle!"): see make_voice.py.
 
 On QNX the GPIO module is rpi_gpio; on Raspberry Pi OS it is RPi.GPIO or
 gpiozero. This script uses whichever it finds, and only the plainest calls
@@ -62,43 +63,90 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # A pattern is a list of (seconds, tone). Tone 0 is silence. The Grove buzzer
 # is an on/off part, so any other tone simply means "on" and the patterns
 # differ by rhythm. With --tones the tone is also played as a pitch (PWM).
-# Right answers are quick and bright; a wrong one is slow and long, so the two
-# cannot be mixed up from across a park, even on a one-pitch buzzer.
+# Good is one beep and bad is three, so they are told apart by counting, even
+# on a one-pitch buzzer. Gary's speaker says the details.
 PATTERNS = {
-    "again": [(0.06, 880), (0.06, 0), (0.06, 1320)],                  # "bip-bip": got it, seen before
-    "new": [(0.05, 880), (0.04, 0), (0.05, 1100), (0.04, 0), (0.15, 1320)],  # "bi-bi-beep": new!
-    "quest": [(0.05, 660), (0.03, 0), (0.05, 880), (0.03, 0), (0.05, 1100), (0.03, 0),
-              (0.05, 1320), (0.12, 0), (0.50, 1760)],                 # rapid run up, then a long held note
-    "herd": [(0.12, 0), (0.03, 1760), (0.05, 0), (0.03, 1760)],  # added after another pattern
-    "miss": [(0.40, 330), (0.15, 0), (0.90, 196)],                    # "wah... wahhh": nothing there
+    "good": [(0.06, 1320)],                                                  # beep
+    "bad": [(0.06, 880), (0.06, 0), (0.06, 880), (0.06, 0), (0.06, 880)],    # beep-beep-beep
+    "unsure": [(0.06, 1100), (0.12, 0), (0.15, 1320)],                       # beep... beeep? (puzzled)
     "tap": [(0.03, 1760)],
     "not_ready": [(0.20, 220), (0.20, 0), (0.20, 220), (0.20, 0), (0.20, 220)],
 }
-# The five that issue #11 asks to see working, in the order --demo plays them.
+# What --demo plays, in order.
 DEMO = [
-    ("seen before: bip-bip", {"type": "discovery", "new": False}),
-    ("new discovery: bi-bi-beep", {"type": "discovery", "new": True}),
-    ("quest complete: a fast run of beeps, then a long note", {"type": "discovery", "new": True, "quest_id": "q"}),
-    ("a friend in frame: the same, then a double chirp", {"type": "discovery", "new": True, "friend": True}),
-    ("nothing Gary can name: wah... wahhh (slow and long)", {"type": "miss"}),
+    ("good (the quest's thing, or a find with no quest open): one quick beep",
+     {"type": "discovery", "new": True, "quest_id": "q"}),
+    ("bad (not what we're looking for): three quick beeps", {"type": "discovery", "label": "dog", "_open": ["bottle"]}),
+    ("unsure (nothing he can name): beep... beeep?", {"type": "miss"}),
 ]
 
 
-def pattern_for(event):
-    """One journal line -> the beeps for it. [] for a line that makes no sound."""
+def is_good(event, open_labels=()):
+    """A sniff is good when it finds the quest's thing, or when no quest is
+    open; bad when it names something else while a quest is open.
+    voice_clips() in gary_device.py makes the same call. (A miss is neither:
+    see pattern_for.)"""
+    return bool(event.get("quest_id")) or not open_labels or event.get("label") in open_labels
+
+
+def pattern_for(event, open_labels=()):
+    """One journal line -> the beeps for it. [] for a line that makes no sound.
+    open_labels: the targets of the quests still open (QuestBook)."""
     kind = event.get("type")
+    if kind == "miss":
+        return list(PATTERNS["unsure"])
     if kind == "discovery":
-        name = "quest" if event.get("quest_id") else ("new" if event.get("new") else "again")
-    elif kind == "miss":
-        name = "miss"
-    elif kind == "mood":
+        return list(PATTERNS["good" if is_good(event, open_labels) else "bad"])
+    if kind == "mood":
         return list(PATTERNS["tap"])  # a quiet "noted". Nothing about the mood itself
-    else:
-        return []
-    steps = list(PATTERNS[name])
-    if event.get("friend"):
-        steps += PATTERNS["herd"]
-    return steps
+    return []
+
+
+class QuestBook:
+    """Which quests are still open, from quests.tsv (or quests.seed.tsv until
+    sync.py has written it, as Gary does) and the quest ids in the journal."""
+
+    def __init__(self, folder, journal_path, friend_label="person"):
+        self.folder, self.friend_label = folder, friend_label
+        self.done = set()
+        try:
+            with open(journal_path, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    self.note(line)
+        except OSError:
+            pass
+
+    def note(self, line_or_event):
+        """Remember a finished quest from a journal line (text or parsed)."""
+        event = line_or_event
+        if isinstance(event, str):
+            try:
+                event = json.loads(event)
+            except ValueError:
+                return
+        if isinstance(event, dict) and event.get("quest_id"):
+            self.done.add(event["quest_id"])
+
+    def open_labels(self):
+        for name in ("quests.tsv", "quests.seed.tsv"):
+            path = os.path.join(self.folder, name)
+            if not os.path.exists(path):
+                continue
+            labels = set()
+            try:
+                with open(path, encoding="utf-8", errors="replace") as f:
+                    for raw in f:
+                        if raw.lstrip().startswith("#") or not raw.strip():
+                            continue
+                        parts = raw.rstrip("\n").split("\t")
+                        if len(parts) > 1 and parts[0].strip() not in self.done:
+                            label = parts[1].strip().lower()
+                            if label and label != self.friend_label:
+                                labels.add(label)
+            except OSError:
+                return set()
+            return labels
+        return set()
 
 
 class Beeper:
@@ -469,6 +517,7 @@ class Io:
         self.pins, self.say = pins, say
         self.pid_path = os.path.join(folder, "gary.pid")
         self.tail = JournalTail(os.path.join(folder, "journal.jsonl"))
+        self.quests = QuestBook(folder, os.path.join(folder, "journal.jsonl"))
         self.button = Button(debounce, gap)
         self.beeper = Beeper(self._sound)
         self.button_ok, self.buzzer_ok = pins.has_button, pins.has_buzzer
@@ -502,7 +551,9 @@ class Io:
         if now >= self.next_journal:
             self.next_journal = now + self.JOURNAL_EVERY
             for event in self.tail.poll():
-                steps = pattern_for(event)
+                # Open quests as they were before this sniff: one it finishes was still open.
+                steps = pattern_for(event, self.quests.open_labels() if event.get("type") == "discovery" else ())
+                self.quests.note(event)
                 if steps:
                     self.say("buzzer: %s%s" % (describe(event), "" if self.buzzer_ok else " (no buzzer)"))
                     self.beeper.play(steps)
@@ -575,7 +626,7 @@ def main(argv=None):
         if args.demo:
             for title, event in DEMO:
                 say(title)
-                io.beeper.play(pattern_for(event))
+                io.beeper.play(pattern_for(event, event.get("_open", ())))
                 while io.beeper.busy() and not stopping.is_set():
                     io.beeper.tick(time.monotonic())
                     time.sleep(0.005)

@@ -145,7 +145,7 @@ for example `--button-pin 5 --buzzer-pin 16` for D5 and D16.
 **Run it** from the device folder, on QNX or Raspberry Pi OS:
 
 ```
-python3 gary_io.py --demo     # plays the five patterns, one by one. Start here
+python3 gary_io.py --demo     # plays good (one quick beep) and bad (three). Start here
 python3 gary_io.py            # button on GPIO17, buzzer on GPIO27
 python3 gary_io.py --fake     # on a laptop: Enter is the button, beeps are printed
 ```
@@ -316,9 +316,15 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   a cue in front of each line (`[excited] Yes! You found the water bottle!`,
   `[thoughtful] Hmm...`); the cues are `CUES` and `PREFIX_CUES` in
   `make_voice.py`. After making them all again, set `VOICE_RATE` in
-  `web/src/sound.js` back to 1. If any clip a sniff needs is missing, Gary plays
-  the chimes (`hello`, `new`, `again`, `quest`, `herd`, `nothing`, `done`)
-  instead.
+  `web/src/sound.js` back to 1. Right before the voice, Gary plays a cue:
+  `good.wav` (one quick beep and a "check"), `bad.wav` (three quick beeps and
+  an "X") or, when he names nothing, `unsure.wav` (a puzzled "hm... hmm?"). The
+  buzzer counts the same way. The voice starts when the cue is 75% through
+  (`Speaker.LEAD`, `kLead` in the C++), so the player's start-up fills the last
+  quarter and there is no gap. The cues are made by `ensure_sounds()` in
+  `gary_device.py` and committed, because the QNX Gary does not make them. If
+  any clip a sniff needs is missing, Gary plays the chimes (`hello`, `new`,
+  `again`, `quest`, `herd`, `nothing`, `done`) instead.
 - **Strictness:** the default threshold is 0.35. `--threshold 0.6` asks for more confidence. `--need 4` asks for
   4 of the last 5 frames. Raise these if Gary names the wrong things.
 - **What Gary can recognise:** edit `NATURE` (or `RENAME`) in `models/make_model.py` and the

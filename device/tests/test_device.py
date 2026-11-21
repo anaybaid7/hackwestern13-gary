@@ -128,25 +128,18 @@ def on_off(steps):
     return [round(seconds * 1000) for seconds, tone in steps if tone]
 
 
-def test_the_five_patterns_differ_by_rhythm():
-    again = gary_io.pattern_for({"type": "discovery", "new": False})
-    new = gary_io.pattern_for({"type": "discovery", "new": True})
-    quest = gary_io.pattern_for({"type": "discovery", "new": True, "quest_id": "q-1"})
-    herd = gary_io.pattern_for({"type": "discovery", "new": True, "friend": True})
-    miss = gary_io.pattern_for({"type": "miss"})
-    assert len(on_off(again)) == 2                     # bip-bip
-    assert len(on_off(new)) == 3                       # bi-bi-beep
-    beeps = on_off(quest)
-    assert len(beeps) == 5 and beeps[-1] >= 5 * beeps[0]   # a fast run, then a long note
-    assert on_off(herd) == on_off(new) + [30, 30]      # the extra chirp
-    # right answers are quick, a wrong one slow: every miss beep is longer than any quick beep
-    quick = [b for p in (again, new) for b in on_off(p)] + on_off(quest)[:-1]
-    assert len(on_off(miss)) == 2 and min(on_off(miss)) > 2 * max(quick)
-    assert sum(on_off(miss)) >= 4 * sum(on_off(again))  # and long
-    assert len({tuple(on_off(p)) for p in (again, new, quest, herd, miss)}) == 5
-    # a quest with a friend: quest first, then the chirp
-    both = gary_io.pattern_for({"type": "discovery", "quest_id": "q", "friend": True})
-    assert on_off(both) == on_off(quest) + [30, 30]
+def test_good_is_one_quick_beep_and_bad_is_three():
+    beeps = lambda event, open_labels=(): len(on_off(gary_io.pattern_for(event, open_labels)))  # noqa: E731
+    bottle_quest = {"bottle"}
+    assert beeps({"type": "discovery", "label": "bottle", "quest_id": "q-1"}, bottle_quest) == 1, "the quest's thing"
+    assert beeps({"type": "discovery", "label": "bottle", "friend": True}, bottle_quest) == 1, "the thing, a herd quest"
+    assert beeps({"type": "discovery", "label": "dog", "new": True}, bottle_quest) == 3, "not what we're looking for"
+    assert beeps({"type": "discovery", "label": "dog", "new": True}) == 1, "no quest open: a find is good"
+    assert beeps({"type": "discovery", "label": "dog", "new": False}) == 1
+    unsure = on_off(gary_io.pattern_for({"type": "miss"}, bottle_quest))
+    assert len(unsure) == 2 and unsure[1] > unsure[0], "nothing he can name: puzzled, not bad"
+    assert on_off(gary_io.pattern_for({"type": "miss", "friend": True})) == unsure
+    assert max(on_off(gary_io.PATTERNS["bad"])) <= 60, "quick, so the voice follows at once"
     # lines that are not sniffs make no noise, and nothing here reveals a mood
     assert gary_io.pattern_for({"type": "choice"}) == []
     assert gary_io.pattern_for({"type": "mood", "value": 1}) == gary_io.pattern_for({"type": "mood", "value": 5})
@@ -156,25 +149,48 @@ def test_the_beeper_keeps_time_and_ends_silent():
     played = []
     beeper = gary_io.Beeper(lambda tone: played.append((round(now[0], 3), tone)))
     now = [0.0]
-    beeper.play(gary_io.PATTERNS["new"])        # 50 on, 40 off, 50 on, 40 off, 150 on
+    beeper.play(gary_io.PATTERNS["bad"])        # 60 on, 60 off, 60 on, 60 off, 60 on
     while beeper.busy():
         beeper.tick(now[0])
         now[0] += 0.005
-    assert [tone for _, tone in played] == [880, 0, 1100, 0, 1320, 0], played
+    assert [tone for _, tone in played] == [880, 0, 880, 0, 880, 0], played
     starts = [t for t, _ in played]
-    assert all(abs(s - want) < 0.011 + 0.005 * i for i, (s, want) in enumerate(zip(starts, [0, 0.05, 0.09, 0.14, 0.18, 0.33])))
+    assert all(abs(s - want) < 0.011 + 0.005 * i for i, (s, want) in enumerate(zip(starts, [0, 0.06, 0.12, 0.18, 0.24, 0.30])))
 
     # two patterns in a row are separated by a silence; a flood is dropped, not queued for a minute
     played.clear()
-    beeper.play(gary_io.PATTERNS["again"])
-    beeper.play(gary_io.PATTERNS["again"])
+    beeper.play(gary_io.PATTERNS["good"])
+    beeper.play(gary_io.PATTERNS["good"])
     for _ in range(100):
-        beeper.play(gary_io.PATTERNS["miss"])
+        beeper.play(gary_io.PATTERNS["not_ready"])
     assert beeper.queued < gary_io.Beeper.MAX_QUEUED + 1.0
     while beeper.busy():
         beeper.tick(now[0])
         now[0] += 0.005
     assert played[-1][1] == 0, "the buzzer must end switched off"
+
+
+def test_the_buzzer_knows_which_quests_are_open():
+    folder = tempfile.mkdtemp(prefix="gary-io-")
+    try:
+        with open(os.path.join(folder, "quests.seed.tsv"), "w", encoding="utf-8") as f:
+            f.write("# seed\ns-1\tbench\t10\tA bench\nh-1\tperson\t10\tA friend\n")
+        journal = os.path.join(folder, "journal.jsonl")
+        with open(journal, "w", encoding="utf-8") as f:
+            f.write("{not json\n")  # a torn line is skipped
+        book = gary_io.QuestBook(folder, journal)
+        assert book.open_labels() == {"bench"}, "a quest for a friend is not a thing to find"
+        with open(os.path.join(folder, "quests.tsv"), "w", encoding="utf-8") as f:
+            f.write("q-1\tbottle\t10\tWater bottle\n")
+        assert book.open_labels() == {"bottle"}, "sync.py's quests.tsv wins over the seed"
+        book.note({"type": "discovery", "label": "bottle", "quest_id": "q-1"})
+        assert book.open_labels() == set(), "a finished quest is no longer open"
+        assert gary_io.QuestBook(folder, os.path.join(folder, "none.jsonl")).open_labels() == {"bottle"}
+        with open(journal, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"type": "discovery", "label": "bottle", "quest_id": "q-1"}) + "\n")
+        assert gary_io.QuestBook(folder, journal).open_labels() == set(), "done quests are read from the journal"
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
 
 
 def test_a_broken_buzzer_never_stops_the_loop():
@@ -194,7 +210,7 @@ def test_a_broken_buzzer_never_stops_the_loop():
     folder = tempfile.mkdtemp(prefix="gary-io-")
     try:
         io = gary_io.Io(Broken(), folder, said.append)
-        io.beeper.play(gary_io.PATTERNS["again"])
+        io.beeper.play(gary_io.PATTERNS["good"])
         for i in range(50):
             io.step(i * 0.005)        # must not raise
         assert io.button_ok is False and io.buzzer_ok is False
@@ -332,8 +348,8 @@ def test_one_push_is_one_journal_line_and_one_pattern():
         assert len(lines) == 2, "two pushes, two sniffs, got %d: %r" % (len(lines), said)
         assert io.presses == 2
         assert sum(1 for s in said if s == "button: Sniff Test") == 2
-        # the first find is new (three beeps), the second is seen before (two): five "on" in all
-        assert sum(1 for tone in pins.sounds if tone) == 5, pins.sounds
+        # no quest is open here, so both finds are good: one quick beep each
+        assert sum(1 for tone in pins.sounds if tone) == 2, pins.sounds
         assert pins.sounds[-1] == 0, "ends silent"
         assert any("new discovery: bottle" in s for s in said) and any("seen before: bottle" in s for s in said)
     finally:
@@ -396,7 +412,7 @@ def test_no_gpio_fails_quietly():
         assert "Gary is not affected" in out.stdout
         demo = subprocess.run([PY, os.path.join(DEVICE, "gary_io.py"), "--dir", folder, "--fake", "--demo"],
                               capture_output=True, text=True, timeout=30, stdin=subprocess.DEVNULL)
-        assert demo.returncode == 0 and demo.stdout.count("\n") >= 5, demo.stdout + demo.stderr
+        assert demo.returncode == 0 and demo.stdout.count("\n") >= 3, demo.stdout + demo.stderr
     finally:
         shutil.rmtree(folder)
 
@@ -618,12 +634,40 @@ def test_gary_says_found_not_it_or_move_closer():
     gd = gary_device()
     say = gd.voice_clips
     # label, quest, completed, new, friend, any_open, all_done
-    assert say("bottle", "q", "q", True, False, False, False) == ["say_found_bottle"]
-    assert say("bird", None, None, True, False, True, False) == ["say_not_it", "say_bird"], "a quest is open"
-    assert say("bird", None, None, True, False, False, False) == ["say_bird", "say_new"], "no quest: a first find"
-    assert say("bird", None, None, False, False, False, False) == ["say_bird"]
-    assert say("bench", "q", None, False, False, True, False) == ["say_bench", "say_need_friend"], "a herd quest"
-    assert say("trash can", "q", "q", False, True, False, True) == ["say_found_trash_can", "say_herd", "say_done"]
+    assert say("bottle", "q", "q", True, False, False, False) == ["good", "say_found_bottle"]
+    assert say("bird", None, None, True, False, True, False) == ["bad", "say_not_it", "say_bird"], "a quest is open"
+    assert say("bird", None, None, True, False, False, False) == ["good", "say_bird", "say_new"], "no quest: a first find"
+    assert say("bird", None, None, False, False, False, False) == ["good", "say_bird"]
+    assert say("bench", "q", None, False, False, True, False) == ["good", "say_bench", "say_need_friend"], "a herd quest"
+    assert say("trash can", "q", "q", False, True, False, True) == ["good", "say_found_trash_can", "say_herd", "say_done"]
+    # The beeps agree with the buzzer: one for good, three for bad.
+    for clips, event, open_labels in ((say("bird", None, None, True, False, True, False), {"type": "discovery", "label": "bird"}, {"bottle"}),
+                                      (say("bottle", "q", "q", True, False, False, False), {"type": "discovery", "label": "bottle", "quest_id": "q"}, {"bottle"}),
+                                      (say("dog", None, None, True, False, False, False), {"type": "discovery", "label": "dog"}, set())):
+        assert (clips[0] == "good") == gary_io.is_good(event, open_labels)
+    for name in ("good", "bad", "unsure"):
+        assert os.path.exists(os.path.join(DEVICE, "sounds", name + ".wav")), "commit sounds/%s.wav: the QNX Gary does not make it" % name
+
+
+def test_the_voice_starts_when_the_cue_is_three_quarters_through():
+    gd = gary_device()
+    sounds = os.path.join(DEVICE, "sounds")
+    assert abs(gd.wav_seconds(os.path.join(sounds, "good.wav")) - 0.35) < 0.02
+    assert gd.wav_seconds(os.path.join(sounds, "missing.wav")) == 0.0
+    started = []
+    speaker = gd.Speaker(sounds, command="true")
+    speaker._play_all = lambda paths, lead=None: started.append((len(paths), lead))
+    real = gd.threading.Thread
+    gd.threading.Thread = lambda target, args, daemon: type("T", (), {"start": lambda self: target(*args)})()
+    try:
+        speaker.play("unsure", "say_nothing")
+        speaker.play("good")                  # a cue alone plays to its end
+        speaker.play("say_bird", "say_new")   # not a cue: one after another
+    finally:
+        gd.threading.Thread = real
+    want = gd.wav_seconds(os.path.join(sounds, "unsure.wav")) * 0.75
+    assert started[0][0] == 2 and abs(started[0][1] - want) < 1e-9, started
+    assert started[1:] == [(1, None), (2, None)], started
 
 
 def test_every_clip_gary_can_ask_for_is_made_by_make_voice():
