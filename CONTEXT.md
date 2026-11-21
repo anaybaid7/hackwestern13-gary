@@ -63,7 +63,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | **Phase 4** | **Front end (C)** | | |
 | #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
 | #25 | Gary: stages, naps, welcome back, his voice | **Done** | Gary is a 32 x 32 pixel sprite in `web/src/sprites.js`: one drawing plus a few edits per stage |
-| #26 | Fog-of-war map view | **Done** | |
+| #26 | Fog-of-war map view | **Done** | Also: a lime frontier round cleared ground, a reveal when a place clears, a trail between cleared places, a quest beacon, "Quest" and "All places", a key, the distance from you, and a note when street tiles cannot load. The map now has a height in browsers without `dvh`, and no longer covers the quest-complete pop-up |
 | #27 | Discovery journal and field guide | **Done** | |
 | #28 | Quest card, short or long | **Done** | |
 | #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
@@ -390,7 +390,8 @@ removal needs all four owners to agree, in an issue.
   `/usr/etc/post_startup.sh` is untested.
 - `docs/qnx-numbers.md` has no numbers in it yet.
 - The web page has not been opened on a real phone: location on the map, pinch zoom and the fog's zoom animation are checked only in tests and headless Chrome.
-- The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work.
+- The map's street tiles come from openstreetmap.org, so they need a network. Without one, the fog, pins and sheets still work, and the map says the street map is missing.
+- The map's reveal, frontier, trail and "All places" were looked at in desktop Chrome 94 at 1280 px and 390 px. The distance line and the reduced-motion path are checked only in tests.
 
 - `backend/deploy/deploy.sh` has never run against a Vultr machine. The
   systemd unit and the firewall line are untested.
