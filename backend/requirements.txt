@@ -2,6 +2,7 @@ fastapi
 uvicorn
 psycopg[binary]    # Postgres on Tiger Data. Only used when DATABASE_URL is set
 tzdata             # timezone data, for machines that have none (Windows)
+pyjwt[crypto]      # checks Auth0 tokens. Only used when AUTH0_DOMAIN is set
 # tests only
 pytest
 httpx

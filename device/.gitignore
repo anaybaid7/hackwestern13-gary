@@ -18,3 +18,7 @@ __pycache__/
 
 # Benchmark photos: other people's photos, fetched again with bench_model.py --fetch
 bench_photos/
+
+# The token of a paired Gary (pair.py). It says who he belongs to: never commit it
+gary.token
+gary.token.tmp

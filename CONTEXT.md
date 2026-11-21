@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 2:23 pm, with the Reset Gary button for testing.
+Last updated: Sat 21 Nov 2026, 6:20 pm, with the Auth0 login and the name G.A.R.Y.
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
 21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
@@ -63,7 +63,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | #20 | Private mood, wellness view | **Done** | `GET /api/wellness` |
 | #21 | Quest choice | **Done** | `POST /api/quest/choose` |
 | #22 | Deploy on Vultr | **Live, still in memory** | http://149.248.50.153 since Sat 21 Nov, 12:55 pm (Vultr, Toronto, 1 vCPU, 1 GB, Ubuntu 24.04): the page and the API on one address. `deploy.sh` ran from Moe's Mac, the three keys are set, `demo.py replay` passed all eight beats against it, and it came back by itself after a reboot. Left: `DATABASE_URL` on the server (it keeps its data in memory), and the real device posting to it. The server's SSH key and its keys are only on Moe's Mac, in `~/.gary-deploy/`; he redeploys with `sh ~/.gary-deploy/redeploy.sh` |
-| #23 | Stretch: Auth0 login | Open | Not started. It needs `https`, so a domain name first |
+| #23 | Stretch: Auth0 login | **Built, live** | https://149-248-50-153.sslip.io. People sign in on the page, Gary is paired with the device flow (`device/pair.py`), the scout has a machine token. Optional: off unless `AUTH0_DOMAIN` is set. See `docs/AUTH0.md` |
 | **Phase 4** | **Front end (C)** | | |
 | #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
 | #25 | Gary: stages, naps, welcome back, his voice | **Done** | Gary is a 32 x 32 pixel sprite in `web/src/sprites.js`: one drawing plus a few edits per stage |
@@ -306,7 +306,7 @@ removal needs all four owners to agree, in an issue.
 - A press of short or long is stored as a `choice` event in the same stream as
   the sniffs, so a restart keeps it and old sniffs are never re-attributed.
 - #16 is verified on Tiger Data. #22 is live at http://149.248.50.153, in memory until `DATABASE_URL` is set there: see the two steps under the status table.
-- #23: not started. `/api/mood` and `/api/wellness` have no login.
+- #23: built. With Auth0 on, a signed-in person reads and writes only their own check-ins; the passphrase still opens the ones nobody signed. See `docs/AUTH0.md`.
 
 **Phase 4, front end (C)**
 
@@ -443,6 +443,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 8:15 pm | The backend, the rules and the built page run on the Pi beside Gary, started by `start_gary.sh` (`GARY_BACKEND`). On QNX: FastAPI 0.99 with pydantic 1 (pydantic-core does not build), Gary's state in SQLite (`GARY_DB`, no Postgres driver), and asyncio's `SC_IOV_MAX` set to 1024 because QNX reports -1 and large replies were cut short. The live view is served by the backend at `/live/`. Gary's confidence threshold is 0.35 (a backpack scored 0.35-0.5); the 3-of-5-frame check still guards against false finds |
 | 21 Nov, 9:30 pm | Been there: a quest finished at its place earns +10 XP. A bonus, not a gate, so Gary never punishes a sniff made elsewhere. The page compares the browser's location with the quest's `lat`/`lng` (within 150 m, or the fix's accuracy up to 500 m) and sends only the quest id; no position reaches the backend. The scout looks up positions on OpenStreetMap from the agent's street address. Hand-placed spots in `web/src/places.js` count as real; made-up map spots never do. Browsers give location only over HTTPS or on localhost |
 | 21 Nov, 10:30 pm | Gemini writes Gary's words ahead of time, never live: the Pi and the page must work offline, and a live call could say something wrong in front of judges. Trail tidbits travel on the quest (`tidbits`, from `scout.py --voice`; place facts only from the page TinyFish read). Facts and everyday lines live in `web/src/gary_lines.json` (`scout/gary_lines.py`), read and corrected by a person before commit. Default model `gemini-3.5-flash-lite` |
+| 21 Nov, 6:07 pm | Auth0 is optional and sits beside the shared keys, never in place of them: with no `AUTH0_DOMAIN` nothing changes, and with it the keys still work, so the demo cannot be locked out. The backend keeps a fingerprint of the Auth0 id and no name or e-mail address. The server has an `https` address through sslip.io and Caddy on port 443; plain `http` on port 80 is unchanged for the Pi and the scout |
 | 21 Nov, 6:12 pm | The product's name is written **G.A.R.Y**: “Go Anywhere, Rediscover Yourself”. It covers both tracks: the adventure, and the outdoors and wellness side, with no health claim. In running text, voice lines and code he stays Gary |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |

@@ -200,7 +200,8 @@
         "finds": 0,
         "shared": 0,
         "solo": 0,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -416,7 +417,8 @@
         "finds": 0,
         "shared": 0,
         "solo": 0,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -633,7 +635,8 @@
         "finds": 0,
         "shared": 0,
         "solo": 0,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -891,7 +894,8 @@
         "finds": 1,
         "shared": 0,
         "solo": 1,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -1163,7 +1167,8 @@
         "finds": 2,
         "shared": 0,
         "solo": 2,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -1451,7 +1456,8 @@
         "finds": 3,
         "shared": 1,
         "solo": 2,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -1743,7 +1749,8 @@
         "finds": 3,
         "shared": 1,
         "solo": 2,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -2028,7 +2035,8 @@
         "finds": 3,
         "shared": 1,
         "solo": 2,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -2321,7 +2329,8 @@
         "finds": 3,
         "shared": 1,
         "solo": 2,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     },
     {
@@ -2648,7 +2657,8 @@
         "finds": 4,
         "shared": 1,
         "solo": 3,
-        "locked": false
+        "locked": false,
+        "signed_in": false
       }
     }
   ]
