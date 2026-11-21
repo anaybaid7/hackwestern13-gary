@@ -649,6 +649,140 @@ def test_gary_says_found_not_it_or_move_closer():
         assert os.path.exists(os.path.join(DEVICE, "sounds", name + ".wav")), "commit sounds/%s.wav: the QNX Gary does not make it" % name
 
 
+# --------------------------------------------------------------------------
+# Talking to Gary (gary_talk.py). No network: Gemini and ElevenLabs are stand-ins.
+# --------------------------------------------------------------------------
+def test_go_gary_wakes_him_only_when_said_to_him():
+    gt = load("gary_talk")
+    assert gt.wake_split("Go Gary, what am I looking at?") == (True, "what am i looking at")
+    assert gt.wake_split("Hey Garry!") == (True, "")
+    assert gt.wake_split("uh, go Gary what's that") == (True, "what's that")
+    assert gt.wake_split("Okay Gary.")[0] and gt.wake_split("yo gary")[0]
+    for chatter in ("Gary is a good name", "I think the goat project is cool, go Gary go",
+                    "let's go", "", None, "go team"):
+        assert gt.wake_split(chatter)[0] is False, chatter
+
+    # Gemini only writes down what it heard; the code decides. "Go Gary" alone gets "Go ahead".
+    def wake(heard, answer="Ooh, a squirrel!"):
+        reply = json.dumps({"heard": heard, "answer": answer})
+        return gt.is_wake(b"\0\0" * 1600, "key", None, opener=stand_in(reply))
+    assert wake("Go Gary") == (True, "")
+    assert wake("Go Gary, what's that?") == (True, "Ooh, a squirrel!")
+    assert wake("Gary is a good name") == (False, "")
+
+
+def stand_in(text):
+    """A stand-in for urlopen that returns a Gemini reply holding `text`."""
+    import io
+
+    class Reply(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+    body = json.dumps({"candidates": [{"content": {"parts": [{"text": text}]}}]}).encode()
+    return lambda req, timeout=None: Reply(body)
+
+
+def test_the_ears_cut_sound_into_things_said():
+    import math
+    import struct
+    gt = load("gary_talk")
+
+    def frames(level, seconds):
+        n = int(seconds * 50)
+        tone = struct.pack("<320h", *[int(level * math.sin(i / 3.0)) for i in range(320)])
+        return [tone] * n
+
+    ears = gt.Utterances()
+    stream = frames(60, 1.0) + frames(4000, 0.8) + frames(60, 1.0) + frames(4000, 0.05) + frames(60, 1.0)
+    said = [s for s in (ears.feed(f) for f in stream) if s]
+    assert len(said) == 1, "one thing said; the 50 ms bump is not speech"
+    assert 0.8 <= len(said[0]) / 32000.0 <= 1.8, "the words, a little before and the pause after"
+    # a long, loud room raises the bar: steady noise is not speech
+    ears = gt.Utterances()
+    assert not [s for s in (ears.feed(f) for f in frames(500, 0.2) + frames(600, 3.0)) if s and len(s) > 32000 * 2.5]
+
+
+def test_gary_hears_only_fresh_labels_and_never_a_person():
+    gt = load("gary_talk")
+    folder = tempfile.mkdtemp(prefix="gary-talk-")
+    try:
+        path = os.path.join(folder, "seeing.json")
+        assert gt.read_seeing(path) is None
+        with open(path, "w") as f:
+            json.dump({"labels": {"bird": 0.86, "tree": 0.5}, "friend": True, "ts": 1000}, f)
+        assert gt.read_seeing(path, clock=lambda: 1001.0)["labels"]["bird"] == 0.86
+        assert gt.read_seeing(path, clock=lambda: 1010.0) is None, "old: Gary is not looking any more"
+        said = gt.now_context(gt.read_seeing(path, clock=lambda: 1001.0))
+        assert "bird (86%), tree (50%)" in said and "A friend is in the frame." in said
+        assert "person" not in said and "nothing he can name" in gt.now_context(None)
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def test_go_gary_then_a_question_gets_go_ahead_then_an_answer():
+    gt = load("gary_talk")
+    played, log = [], []
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            played.append(name)
+
+        def say_pcm(self, pcm):
+            played.append(("answer", pcm))
+
+    now = [0.0]
+    woke = iter([(True, ""), (False, ""), (True, "Hi! That's a duck.")])
+    talk = gt.Talk(Mouth(), "g", "e", os.path.join(tempfile.gettempdir(), "no-seeing.json"), say=log.append,
+                   ask_wake=lambda pcm, key, seeing: next(woke),
+                   ask_answer=lambda q, key, seeing: "A goose! They mate for life.",
+                   speak=lambda text, key: text.encode(), clock=lambda: now[0])
+    speech = b"\1\0" * 16000
+    assert talk.heard(speech) == "woke" and played == ["say_go_ahead"]
+    assert talk.heard(speech) == "answered", "the next thing said is the question"
+    assert played[1:] == ["say_thinking", ("answer", b"A goose! They mate for life.")]
+    assert talk.state == talk.IDLE
+    assert talk.heard(speech) == "ignored", "back to waiting for Go Gary"
+    assert talk.heard(speech) == "answered" and played[-1] == ("answer", b"Hi! That's a duck."), "one breath"
+    # Go Gary, then nothing: after a while he stops listening
+    talk.wake()
+    now[0] += gt.LISTEN_FOR + 1
+    talk.tick()
+    assert talk.state == talk.IDLE
+    # Gemini down: Gary says so kindly, and the question is never printed
+    def broken(*a):
+        raise gt.TalkError("Gemini answered HTTP 503")
+    talk.ask_answer = broken
+    talk.wake()
+    assert talk.heard(speech) == "error" and played[-1] == "say_ears"
+    assert talk.heard(b"\1\0" * 16000 * 7) == "ignored", "too long for Go Gary: someone talking nearby"
+
+
+def test_holding_the_button_asks_gary_to_listen():
+    folder = tempfile.mkdtemp(prefix="gary-io-")
+    asked, real = [], gary_io.ask_talk
+    gary_io.ask_talk = lambda path: asked.append(path) or True
+    try:
+        pins, said = ScriptPins(), []
+        io = gary_io.Io(pins, folder, said.append)
+        t = 0.0
+        for level, seconds in ((False, 0.2), (True, 0.3), (False, 0.6), (True, 1.2), (False, 0.3)):
+            pins.level = level
+            end = t + seconds
+            while t < end:
+                io.step(t)
+                t += 0.005
+        assert len(asked) == 1, "a short press is a sniff only; a long one also talks: %r" % said
+        assert io.presses == 2
+    finally:
+        gary_io.ask_talk = real
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def test_the_voice_starts_when_the_cue_is_three_quarters_through():
     gd = gary_device()
     sounds = os.path.join(DEVICE, "sounds")

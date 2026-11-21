@@ -287,6 +287,40 @@ laptop and copy `gary.token` to the Pi.
 | `kill -HUP $(cat gary.pid)` | Reload the quests. `sync.py` sends this |
 | watch `journal.jsonl` | One new line per sniff: `discovery` or `miss`. `gary_io.py` beeps from this |
 
+## 8b. Talking to Gary ("Go Gary")
+
+Say **"Go Gary"** (or hold the button for 0.8 s). Gary says "Go ahead!". Ask
+"what am I looking at?" and he says "Ooh, let me think..." and then answers
+with one true fact about what he sees, in his voice, in about 1.5 to 3 s. All
+in one breath works too: "Go Gary, what's that?".
+
+- `gary_talk.py` runs beside Gary (`GARY_TALK=on` in `gary.env`; `start_gary.sh`
+  starts it, log in `logs/talk.log`). Standard library only.
+- **What Gary sees:** both versions of Gary write `seeing.json` twice a second:
+  the labels he is sure of, never a picture. Gemini gets those labels.
+- **Your voice** goes to Gemini (`gemini-3.1-flash-lite`, with `gemini-2.5-flash`
+  as the backup when it is slow) to hear the question and answer it. It is never
+  written to disk, logged or printed. "Go Gary" is checked in code from the words
+  Gemini heard, so talking *about* Gary never wakes him.
+- **Gary's answer** is spoken by ElevenLabs' fastest model (`eleven_flash_v2_5`,
+  voice Maxim). "Go ahead", "let me think" and "my ears are fuzzy" are ready-made
+  clips (`make_voice.py`).
+- **Keys:** `GEMINI_API_KEY` and `ELEVENLABS_API_KEY` in `device/.env` (ignored by
+  Git). It needs a network: the phone hotspot on a walk.
+- **The microphone:** the Logitech C270 has one built in. Any command that writes
+  raw 16-bit mono 16 kHz sound to its output works, set as `GARY_TALK_REC` in
+  `gary.env`:
+  - Raspberry Pi OS / Linux: `arecord -l` shows the webcam's card number, then
+    `GARY_TALK_REC="arecord -q -D plughw:1,0 -f S16_LE -r 16000 -c 1 -t raw"`.
+  - QNX: **not yet tried.** QNX 8 records through `io-snd`; find the webcam's
+    capture device (`ls /dev/snd`) and a recorder that writes raw PCM to its
+    output. Until then, talking works on the Raspberry Pi OS fallback or a laptop.
+- **Try it with no microphone:** `python3 gary_talk.py --ask "what is a goose?"`
+  (a typed question), or `--from-wav question.wav` (16-bit mono 16 kHz).
+- The prompts (Gary's personality and the rules: true facts only, never name a
+  bird's species, never describe a person, nothing about health or anything
+  unsafe) are `GARY`, `RULES` and `HOW` at the top of `gary_talk.py`.
+
 ## 9. Raspberry Pi OS instead (the fallback)
 
 Use a second microSD card. Do not re-flash the QNX one.
@@ -351,6 +385,7 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
 - `quests.tsv`, `sync.state`: written by `sync.py`.
 - `latency.csv`: per-frame timings, written when Gary stops.
 - `gary.pid`: the running program's process id.
+- `seeing.json`: what Gary is sure he sees right now (labels only), twice a second, for `gary_talk.py`.
 - `logs/`: written by `start_gary.sh`.
 
 None of these are tracked by git.
@@ -374,6 +409,7 @@ sh qnx/host_test/run.sh             # the C++ program against stand-ins (Linux, 
 | The button fires by itself | A loose signal wire. Or the button pulls to ground: add `--active-low` |
 | No beeps | `python3 gary_io.py --demo`. Check yellow on pin 13. On QNX, `pidin \| grep rpi_gpio` must show the GPIO manager running |
 | No sound from a speaker | QNX: `mmrplay sounds/quest.wav` on its own. Linux: `aplay sounds/quest.wav` |
+| Gary does not answer "Go Gary" | `tail logs/talk.log`. Keys in `device/.env`? A network? Try `python3 gary_talk.py --ask "hello"` first, then the recorder on its own |
 | Pi is hot or slow | `python3 gary_numbers.py --temp`. Add the fan |
 | "nothing Gary can name" | On a laptop, `--show` draws what the model sees. Get closer, add light, hold still for a second |
 | Gary names things that are not there | `--threshold 0.6 --need 4` |

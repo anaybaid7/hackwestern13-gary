@@ -1,4 +1,4 @@
-# Gary the Goat: build plan for four people
+# G.A.R.Y the Goat: build plan for four people
 
 Hack Western 13. Hacking ends **Sun 22 Nov, 9:00 am**. Written Sat 21 Nov, 12:50 am.
 Tasks live in the issue tracker, grouped by milestone. This page is the map.

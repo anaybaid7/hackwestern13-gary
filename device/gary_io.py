@@ -37,6 +37,8 @@ What you hear
       longer, like a question)        he is puzzled and asks you to move closer
     three slow beeps                the button was pressed but Gary is not running
 
+Hold the button for 0.8 s to talk to Gary (gary_talk.py), the same as saying "Go Gary".
+
 Gary's speaker says the rest ("You found the water bottle!"): see make_voice.py.
 
 On QNX the GPIO module is rpi_gpio; on Raspberry Pi OS it is RPi.GPIO or
@@ -278,7 +280,11 @@ def looks_like_gary(name):
     return name == "gary" or name.startswith(("gary_device", "gary_qnx", "fake_gary"))
 
 
-def gary_pid(pid_path):
+def looks_like_talk(name):
+    return name.startswith(("gary_talk", "fake_talk"))
+
+
+def gary_pid(pid_path, looks_like=looks_like_gary):
     """The running Gary's process id, or None.
 
     gary.pid can be stale after a power cut, and by then its number may belong
@@ -301,7 +307,7 @@ def gary_pid(pid_path):
     if not words:
         return pid
     names = [os.path.basename(w.decode("utf-8", "replace")) for w in words]
-    return pid if any(looks_like_gary(n) for n in names) else None
+    return pid if any(looks_like(n) for n in names) else None
 
 
 def press_gary(pid_path):
@@ -311,6 +317,18 @@ def press_gary(pid_path):
         return False
     try:
         os.kill(pid, signal.SIGUSR1)
+    except OSError:
+        return False
+    return True
+
+
+def ask_talk(pid_path):
+    """Ask gary_talk.py to listen (the button was held). False if it is not running."""
+    pid = gary_pid(pid_path, looks_like_talk)
+    if pid is None or not hasattr(signal, "SIGUSR2"):
+        return False
+    try:
+        os.kill(pid, signal.SIGUSR2)
     except OSError:
         return False
     return True
@@ -512,10 +530,13 @@ class Io:
     """One step of work at a time, so the tests can drive it."""
 
     JOURNAL_EVERY = 0.05
+    HOLD = 0.8          # seconds: a press held this long also means "talk to Gary"
 
     def __init__(self, pins, folder, say, debounce=0.03, gap=0.4):
         self.pins, self.say = pins, say
         self.pid_path = os.path.join(folder, "gary.pid")
+        self.talk_path = os.path.join(folder, "gary_talk.pid")
+        self.held = False
         self.tail = JournalTail(os.path.join(folder, "journal.jsonl"))
         self.quests = QuestBook(folder, os.path.join(folder, "journal.jsonl"))
         self.button = Button(debounce, gap)
@@ -548,6 +569,14 @@ class Io:
                     else:
                         self.say("button: Gary is not running (no live gary.pid)")
                         self.beeper.play(PATTERNS["not_ready"])
+                # Held down: talk to Gary, as if you had said "Go Gary".
+                if not self.button.state:
+                    self.held = False
+                elif (not self.held and self.button.last_press is not None
+                      and now - self.button.last_press >= self.HOLD):
+                    self.held = True
+                    self.say("button held: talk" if ask_talk(self.talk_path)
+                             else "button held: talking is off (gary_talk.py is not running)")
         if now >= self.next_journal:
             self.next_journal = now + self.JOURNAL_EVERY
             for event in self.tail.poll():

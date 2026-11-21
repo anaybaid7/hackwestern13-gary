@@ -37,7 +37,9 @@ built it". Do not leave it out.
 
 # The page
 
-## Gary the Goat
+## G.A.R.Y the Goat
+
+**G.A.R.Y: Go Anywhere, Rediscover Yourself.**
 
 **Other apps count your steps. Gary counts your stories.**
 
