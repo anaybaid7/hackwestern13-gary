@@ -21,6 +21,23 @@
     "source_url": null,
     "day": "2026-11-21"
   },
+  "quest_choice": null,
+  "quest_options": {
+    "short": {
+      "id": "q-demo-bottle",
+      "title": "Find a water bottle at your table",
+      "place": "Hack Western, your table",
+      "time": "short",
+      "minutes": 5,
+      "target": "bottle",
+      "xp": 20,
+      "herd": false,
+      "source": "seed",
+      "source_url": null,
+      "day": "2026-11-21"
+    },
+    "long": null
+  },
   "quests_open": 2,
   "journal": [
     {
@@ -32,7 +49,8 @@
       "new": true,
       "quest_id": "q-harris-bench",
       "latency_ms": 41.0,
-      "xp": 80
+      "xp": 80,
+      "place": "Harris Park"
     }
   ],
   "guide": {
@@ -45,27 +63,55 @@
     {
       "place": "Hack Western, your table",
       "quest_id": "q-demo-bottle",
-      "cleared": false
+      "cleared": false,
+      "cleared_at": null,
+      "finds": []
     },
     {
       "place": "Hack Western, the next table",
       "quest_id": "q-demo-backpack",
-      "cleared": false
+      "cleared": false,
+      "cleared_at": null,
+      "finds": []
     },
     {
       "place": "Harris Park",
       "quest_id": "q-harris-bench",
-      "cleared": true
+      "cleared": true,
+      "cleared_at": "2026-11-21T05:20:00Z",
+      "finds": [
+        {
+          "label": "bench",
+          "ts": "2026-11-21T05:20:00Z",
+          "friend": true,
+          "quest_id": "q-harris-bench"
+        }
+      ]
     }
   ],
   "herd": {
     "badges": [
-      "first-herd"
+      "first-herd",
+      "herd-quest"
     ],
     "shared": 1,
+    "quest": {
+      "id": "q-demo-backpack",
+      "title": "Find a backpack, with a friend in frame",
+      "place": "Hack Western, the next table",
+      "time": "short",
+      "minutes": 5,
+      "target": "backpack",
+      "xp": 20,
+      "herd": true,
+      "source": "seed",
+      "source_url": null,
+      "day": "2026-11-21"
+    },
     "cup": {
       "week": "2026-W47",
-      "rank": 4,
+      "rank": 3,
+      "herds": 6,
       "demo": true,
       "table": [
         {
@@ -77,15 +123,18 @@
           "score": 4
         },
         {
-          "herd": "Summit Else",
-          "score": 2
-        },
-        {
           "herd": "Your herd",
-          "score": 1,
+          "score": 2,
+          "quests": 1,
+          "places": 1,
           "you": true
         }
-      ]
+      ],
+      "ahead": {
+        "herd": "The Bleat Goes On",
+        "score": 4,
+        "gap": 2
+      }
     }
   }
 }

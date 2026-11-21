@@ -16,6 +16,9 @@ skip() { skipped="$skipped\n  - $1"; echo "skipped: $1"; }
 step "Backend against the contract"
 if "$PY" -c "import fastapi, httpx, pytest" 2>/dev/null; then
   (cd backend && "$PY" -m pytest -q) || fail "backend tests"
+  if [ -z "${TEST_DATABASE_URL:-}" ]; then
+    echo "(in memory only. Set TEST_DATABASE_URL to a throwaway database to run them on Postgres too)"
+  fi
 else
   skip "backend tests (pip install -r backend/requirements.txt)"
 fi

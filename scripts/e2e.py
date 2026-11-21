@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""e2e.py - the Phase 1 exit test, with no hardware.
+"""e2e.py - the whole loop, with no hardware.
 
 Runs the whole chain on this machine and checks the result:
 
@@ -56,9 +56,14 @@ def main():
     work = tempfile.mkdtemp(prefix="gary-e2e-")
     journal, quests = os.path.join(work, "journal.jsonl"), os.path.join(work, "quests.tsv")
     device = os.path.join(ROOT, "device")
+    # A known, clean backend that keeps its data in memory. It must never be
+    # the team's real one: GARY_NO_ENV_FILE keeps it from reading backend/.env,
+    # where the real database's address lives.
     env = dict(os.environ)
-    for key in ("SCOUT_KEY", "GARY_SEED", "GARY_NAP_SECONDS"):
-        env.pop(key, None)  # a known, clean backend
+    for key in ("SCOUT_KEY", "GARY_ADMIN_KEY", "GARY_SEED", "GARY_NAP_SECONDS", "GARY_TZ"):
+        env.pop(key, None)
+    env["GARY_NO_ENV_FILE"] = "1"
+    env["DATABASE_URL"] = ""
     backend = subprocess.Popen([PY, "-m", "uvicorn", "app:app", "--port", str(port), "--log-level", "warning"],
                                cwd=os.path.join(ROOT, "backend"), env=env)
     try:
@@ -71,6 +76,8 @@ def main():
                 time.sleep(0.25)
         else:
             raise SystemExit("the backend did not start")
+        check("it is a fresh backend that keeps its data in memory (never the team's real one)",
+              health.get("store") == "memory" and health.get("events") == 0, str(health))
         check("starts with the seed quests", health["quests"] == 3)
         check("Gary starts as a napping kid", call(api, "/api/state")["gary"]["napping"] is True)
 
@@ -81,11 +88,18 @@ def main():
         call(api, "/api/quests", {"id": "q-e2e-dog", "title": "Find a dog at Gibbons Park", "place": "Gibbons Park",
                                   "time": "short", "target": "dog", "xp": 20})
 
+        chosen = call(api, "/api/quest/choose", {"time": "short"})
+        check("short or long picks the active quest: today's scout quest first",
+              chosen["quest"] is not None and chosen["quest"]["source"] == "tinyfish"
+              and chosen["state"]["quest"]["id"] == chosen["quest"]["id"])
+
         print("3. Sync brings the quests to the device")
         run([PY, "sync.py", "--dir", work, "--api", api, "--once"], cwd=device)
         with open(quests, encoding="utf-8") as f:
             text = f.read()
         check("quests.tsv holds seed and scout quests", "q-demo-bottle" in text and "q-e2e-dog\tdog" in text)
+        first = [line for line in text.splitlines() if not line.startswith("#")][0]
+        check("the active quest is the first line the device reads", first.startswith(chosen["quest"]["id"] + "\t"))
 
         print("4. Device: two Sniff Tests on test photos (the laptop version of Gary)")
         base = [PY, "gary_device.py", "--mute", "--log", journal, "--quests", quests, "--image"]
@@ -112,9 +126,13 @@ def main():
         check("the field guide lists both", state["guide"]["found"] == ["dog", "kite"])
         check("the herd counted the shared find", state["herd"]["shared"] == 1 and "first-herd" in state["herd"]["badges"])
         check("Gary woke up", state["gary"]["napping"] is False)
+        wellness = call(api, "/api/wellness")
         check("the mood check-in is private: in wellness, never in the state",
-              [c["value"] for c in call(api, "/api/wellness")["checkins"]] == [3]
+              [(c["value"], c["source"]) for c in wellness["checkins"]] == [(3, "device")]
               and "mood" not in json.dumps(state).lower())
+        check("wellness counts the outdoor finds", wellness["outdoor_minutes"] >= 10 and wellness["shared"] == 1)
+        tile = [t for t in state["map"] if t["place"] == "Gibbons Park"][0]
+        check("the tile remembers what was found there", [f["label"] for f in tile["finds"]] == ["dog"])
 
         print("6. Nothing is counted twice")
         os.remove(os.path.join(work, "sync.state"))  # as if the device forgot how far it got
@@ -128,7 +146,7 @@ def main():
             check("the backend serves the built page", '<div id="root">' in page)
         else:
             print("  skip  web/dist is not built (cd web && npm install && npm run build)")
-        print("\nEnd-to-end check PASSED. Phase 1's loop works on this machine.")
+        print("\nEnd-to-end check PASSED. The whole loop works on this machine.")
     finally:
         backend.terminate()
         try:

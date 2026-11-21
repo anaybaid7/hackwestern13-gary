@@ -7,13 +7,25 @@ Run it from this folder:
 
 Then open http://localhost:8000/docs to try every endpoint in the browser.
 
-Phase 1 keeps everything in memory, so a restart starts fresh. Postgres on
-Tiger Data replaces Store in Phase 3 (issue #16). The shapes are in contract/.
+With nothing set it keeps everything in memory, so a restart starts fresh.
+Set DATABASE_URL and it uses Postgres on Tiger Data instead (store.py), and a
+restart keeps Gary's state. The shapes are in contract/README.md.
+
+Settings, all optional, from the environment or from a .env file beside this
+file (or in the repo root):
+
+    DATABASE_URL       postgres://... on Tiger Data. Unset: memory
+    SCOUT_KEY          the scout must send it as X-Scout-Key to post quests
+    GARY_ADMIN_KEY     POST /api/dev/reset must send it as X-Admin-Key
+    GARY_NAP_SECONDS   quiet time before Gary naps. Default 8 hours; 60 for a demo
+    GARY_TZ            where days and weeks turn over. Default America/Toronto
+    GARY_SEED          the quests a fresh backend starts with
 """
 import datetime as dt
-import json
 import os
 import threading
+import uuid
+import zoneinfo
 from pathlib import Path
 from typing import Any, Optional
 
@@ -22,12 +34,49 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import rules
+from store import make_store
 
-ROOT = Path(__file__).resolve().parent.parent
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
 CONTRACT = ROOT / "contract"
-FRIEND, OUTDOOR = rules.load_labels(CONTRACT / "labels.json")
 
+
+def load_env(path, environ=os.environ):
+    """KEY=value lines from a .env file. What is already set wins."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def load_settings(paths, environ=os.environ):
+    """Read the .env files, unless GARY_NO_ENV_FILE is set. The tests and the
+    scripts that start a throwaway backend set it, so that a developer's own
+    .env, with a real database in it, is never used by a test."""
+    if environ.get("GARY_NO_ENV_FILE"):
+        return False
+    for path in paths:
+        load_env(path, environ)
+    return True
+
+
+load_settings([HERE / ".env", ROOT / ".env"])
+
+FRIEND, OUTDOOR = rules.load_labels(CONTRACT / "labels.json")
+OUTDOOR_LABELS = sorted(name for name, is_outdoor in OUTDOOR.items() if is_outdoor)
 QUEST_REQUIRED = ("id", "title", "place", "time", "target", "xp")
+EVENT_TYPES = ("discovery", "miss", "mood")
+CLOCK_TOLERANCE = 2.0  # seconds. A device clock closer than this to ours is taken as right
+
+TZ_NAME = os.environ.get("GARY_TZ", "America/Toronto")
+try:
+    TZ = zoneinfo.ZoneInfo(TZ_NAME)
+except Exception:  # no timezone data on this machine
+    TZ, TZ_NAME = dt.timezone.utc, "UTC"
 
 
 def now():
@@ -39,33 +88,13 @@ def nap_seconds():
     return float(os.environ.get("GARY_NAP_SECONDS", rules.NAP_SECONDS))
 
 
-class Store:
-    """Everything the backend remembers. In memory for Phase 1."""
-
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.reset()
-
-    def reset(self):
-        self.events = []        # every event, in arrival order
-        self.event_ids = set()  # so the same upload twice counts once
-        self.moods = []         # private. Never part of /api/state
-        self.quests = []        # oldest first
-        seed = Path(os.environ.get("GARY_SEED", CONTRACT / "examples" / "quests.json"))
-        if seed.exists():
-            for quest in json.loads(seed.read_text(encoding="utf-8")).get("quests", []):
-                self.put_quest(quest)
-
-    def put_quest(self, quest):
-        for i, old in enumerate(self.quests):
-            if old["id"] == quest["id"]:
-                self.quests[i] = quest
-                return
-        self.quests.append(quest)
+def stamp(when):
+    return when.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-store = Store()
-app = FastAPI(title="Gary the Goat", version="0.1.0")
+store = make_store(Path(os.environ.get("GARY_SEED", CONTRACT / "examples" / "quests.json")))
+lock = threading.Lock()  # one request at a time touches the store
+app = FastAPI(title="Gary the Goat", version="0.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -78,6 +107,60 @@ def as_list(payload, key):
     if not isinstance(payload, list) or not all(isinstance(item, dict) for item in payload):
         raise HTTPException(422, 'send {"%s": [...]} or a single object' % key)
     return payload
+
+
+def event_time(device_ts, sent_at, received):
+    """When an event really happened, by our clock. -> (datetime, was it changed)
+
+    A Pi that starts with no network may not know the time, so its journal can
+    be stamped hours or years off. sync.py sends what the device's clock reads
+    at upload time ("sent_at"). The gap between that and our clock is how wrong
+    the device is, and every event in the upload is moved by that much.
+    An event is never dated in the future.
+    """
+    when = rules.parse_ts(device_ts)
+    if when is None:
+        return received, device_ts is not None
+    changed = False
+    if sent_at is not None:
+        skew = (received - sent_at).total_seconds()
+        if abs(skew) > CLOCK_TOLERANCE:
+            when, changed = when + dt.timedelta(seconds=skew), True
+    if when > received:
+        when, changed = received, True
+    return when, changed
+
+
+def check_mood(phase, value):
+    if phase not in ("before", "after") or isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 5:
+        raise HTTPException(422, 'a mood check-in needs "phase": "before" or "after", and "value": 1 to 5')
+
+
+def clean_event(raw, sent_at, received):
+    """One event from a device -> the tidy form the store and the rules use."""
+    if not raw.get("id") or not raw.get("type"):
+        raise HTTPException(422, "every event needs an id and a type")
+    kind = raw["type"]
+    if kind not in EVENT_TYPES:
+        raise HTTPException(422, "type must be one of: %s" % ", ".join(EVENT_TYPES))
+    event = dict(raw)
+    event["id"] = str(raw["id"])
+    when, changed = event_time(raw.get("ts"), sent_at, received)
+    if changed:
+        event["device_ts"] = raw.get("ts")  # what the device wrote, kept for the record
+    event["ts"] = stamp(when)
+    if kind == "discovery":
+        label = str(raw.get("label") or "").strip().lower()
+        if not label:
+            raise HTTPException(422, "a discovery needs a label")
+        event["label"] = label
+        event["friend"] = bool(raw.get("friend"))
+    elif kind == "miss":
+        event["friend"] = bool(raw.get("friend"))
+    else:
+        check_mood(raw.get("phase"), raw.get("value"))
+        event["source"] = "device"
+    return event
 
 
 def check_quest(raw):
@@ -95,57 +178,54 @@ def check_quest(raw):
     except (TypeError, ValueError):
         return None, "xp must be a number"
     return {
-        "id": str(raw["id"]), "title": str(raw["title"]), "place": str(raw["place"]),
+        "id": str(raw["id"]), "title": str(raw["title"]), "place": str(raw["place"]).strip(),
         "time": raw["time"], "minutes": raw.get("minutes"), "target": target, "xp": xp,
         "herd": bool(raw.get("herd", False)), "source": raw.get("source", "manual"),
-        "source_url": raw.get("source_url"), "day": raw.get("day") or now().date().isoformat(),
+        "source_url": raw.get("source_url"), "day": raw.get("day") or rules.local_day(now(), TZ),
     }, None
 
 
-def current():
-    return rules.compute(store.events, store.quests, OUTDOOR, now(), nap_seconds())
+def current(events=None, quests=None):
+    """The state right now. Call with the lock held."""
+    return rules.compute(store.events() if events is None else events,
+                         store.quests() if quests is None else quests,
+                         OUTDOOR, now(), nap_seconds(), TZ)
 
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "events": len(store.events), "quests": len(store.quests)}
+    with lock:
+        return {"ok": True, **store.counts(), **store.info(), "timezone": TZ_NAME}
 
 
 @app.post("/api/events")
 def post_events(payload: Any = Body(...)):
     """The device's journal arrives here. Sending the same id twice is harmless."""
     events = as_list(payload, "events")
-    accepted, duplicates, ids = 0, 0, []
-    with store.lock:
-        for ev in events:
-            if not ev.get("id") or not ev.get("type"):
-                raise HTTPException(422, "every event needs an id and a type")
-            if ev["type"] == "discovery" and not ev.get("label"):
-                raise HTTPException(422, "a discovery needs a label")
-            ids.append(ev["id"])
-            if ev["id"] in store.event_ids:
-                duplicates += 1
-                continue
-            store.event_ids.add(ev["id"])
-            if ev["type"] == "mood":
-                store.moods.append({"ts": ev.get("ts"), "phase": ev.get("phase"), "value": ev.get("value")})
-            else:
-                store.events.append(ev)
-            accepted += 1
+    sent_at = rules.parse_ts(payload.get("sent_at")) if isinstance(payload, dict) else None
+    received = now()
+    clean = [clean_event(raw, sent_at, received) for raw in events]
+    with lock:
+        accepted = len(store.add(clean))
         _, results, _ = current()
     blank = {"xp": 0, "reaction": "mood", "new": False, "quest_id": None}
-    return {"accepted": accepted, "duplicates": duplicates,
-            "results": [dict(id=i, **results.get(i, blank)) for i in ids]}
+    return {"accepted": accepted, "duplicates": len(clean) - accepted,
+            "results": [dict(id=ev["id"], **results.get(ev["id"], blank)) for ev in clean]}
 
 
 @app.get("/api/quests")
 def get_quests(time: Optional[str] = Query(None, pattern="^(short|long)$"), all: bool = False):
-    """Open quests, oldest first. ?time=short|long filters. ?all=true includes finished ones."""
-    with store.lock:
-        _, _, done = current()
-        quests = [q for q in store.quests
-                  if (all or q["id"] not in done) and (time is None or q["time"] == time)]
-    return {"quests": quests}
+    """Open quests. The active one comes first and is marked, so the device
+    prefers it; the rest are oldest first. ?time=short|long filters.
+    ?all=true includes finished ones."""
+    with lock:
+        quests = store.quests()
+        state, _, done = current(quests=quests)
+    active_id = state["quest"]["id"] if state["quest"] else None
+    listed = [dict(q, active=q["id"] == active_id) for q in quests
+              if (all or q["id"] not in done) and (time is None or q["time"] == time)]
+    listed.sort(key=lambda q: not q["active"])  # stable: only the active one moves
+    return {"quests": listed}
 
 
 @app.post("/api/quests")
@@ -155,7 +235,7 @@ def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(No
     if key and x_scout_key != key:
         raise HTTPException(401, "wrong or missing X-Scout-Key")
     accepted, rejected = [], []
-    with store.lock:
+    with lock:
         for raw in as_list(payload, "quests"):
             quest, why = check_quest(raw)
             if quest:
@@ -166,10 +246,32 @@ def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(No
     return {"accepted": accepted, "rejected": rejected}
 
 
+@app.post("/api/quest/choose")
+def choose_quest(payload: dict = Body(...)):
+    """{"time": "short" | "long"} makes a quest of that length the active one.
+    Today's scout quests come first. Asking again moves on to the next one.
+    Returns the quest (null if none of that length is open) and the new state."""
+    time = payload.get("time")
+    if time not in ("short", "long"):
+        raise HTTPException(422, 'send {"time": "short"} or {"time": "long"}')
+    with lock:
+        quests = store.quests()
+        state, _, done = current(quests=quests)
+        showing = state["quest"]["id"] if state["quest"] and state["quest_choice"] == time else None
+        quest = rules.choose(quests, done, time, now(), TZ, showing)
+        if quest is not None:
+            # The choice joins the event stream, so the rules can tell which
+            # quest was active when each sniff happened, and a restart keeps it.
+            store.add([{"id": "choice-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "choice",
+                        "time": time, "quest_id": quest["id"]}])
+            state, _, _ = current(quests=quests)
+    return {"quest": quest, "state": state}
+
+
 @app.get("/api/state")
 def get_state():
     """Everything the web page draws. Mood is never in here."""
-    with store.lock:
+    with lock:
         state, _, _ = current()
     return state
 
@@ -177,29 +279,31 @@ def get_state():
 @app.post("/api/mood")
 def post_mood(payload: dict = Body(...)):
     """A private check-in: {"phase": "before" | "after", "value": 1..5}."""
-    phase, value = payload.get("phase"), payload.get("value")
-    if phase not in ("before", "after") or not isinstance(value, int) or not 1 <= value <= 5:
-        raise HTTPException(422, 'send {"phase": "before" or "after", "value": 1 to 5}')
-    with store.lock:
-        store.moods.append({"ts": now().strftime("%Y-%m-%dT%H:%M:%SZ"), "phase": phase, "value": value})
+    check_mood(payload.get("phase"), payload.get("value"))
+    with lock:
+        store.add([{"id": "mood-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "mood",
+                    "phase": payload["phase"], "value": payload["value"], "source": "web"}])
     return {"ok": True}
 
 
 @app.get("/api/wellness")
 def get_wellness():
-    """Private. Only the person themself sees this. Bare-bones until issue #20."""
-    with store.lock:
-        state, _, _ = current()
-        moods = list(store.moods)
-    finds = state["journal"]
-    return {"private": True, "checkins": moods, "finds": len(finds),
-            "shared": sum(1 for f in finds if f["friend"]), "solo": sum(1 for f in finds if not f["friend"])}
+    """Private: only the person themself sees this. Check-ins, before and
+    after pairs, estimated outdoor minutes per day, and solo versus shared
+    finds. The wording never says an outing caused a feeling."""
+    with lock:
+        events, moods = store.events(), store.moods()
+        days = store.outdoor_by_day(OUTDOOR_LABELS, TZ_NAME)
+    return rules.wellness(moods, events, OUTDOOR, TZ, days)
 
 
 @app.post("/api/dev/reset")
-def dev_reset():
+def dev_reset(x_admin_key: Optional[str] = Header(None)):
     """Forget every event and mood and reload the seed quests. For demos and tests."""
-    with store.lock:
+    key = os.environ.get("GARY_ADMIN_KEY")
+    if key and x_admin_key != key:
+        raise HTTPException(401, "wrong or missing X-Admin-Key")
+    with lock:
         store.reset()
     return {"ok": True}
 

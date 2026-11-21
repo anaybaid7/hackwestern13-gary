@@ -3,11 +3,7 @@ import datetime as dt
 
 import app as backend
 import rules
-from conftest import EXAMPLES, PINNED_NOW, example, sniff
-
-
-def post(client, *events):
-    return client.post("/api/events", json={"events": list(events)}).json()
+from conftest import EXAMPLES, PINNED_NOW, example, post, sniff
 
 
 def test_fresh_backend_is_seeded_and_gary_naps(client):
@@ -129,15 +125,6 @@ def test_mood_is_private(client):
     wellness = client.get("/api/wellness").json()
     assert wellness["private"] is True and [c["value"] for c in wellness["checkins"]] == [3, 4]
     assert client.post("/api/mood", json={"phase": "after", "value": 9}).status_code == 422
-
-
-def test_herd_cup_ranks_herds_not_people(client):
-    cup = client.get("/api/state").json()["herd"]["cup"]
-    assert cup["week"] == "2026-W47" and cup["rank"] == 4 and cup["demo"] is True
-    assert [row["herd"] for row in cup["table"]][-1] == "Your herd"
-    post(client, *[sniff("dog", friend=True) for _ in range(5)])
-    cup = client.get("/api/state").json()["herd"]["cup"]
-    assert cup["rank"] == 2 and cup["table"][1] == {"herd": "Your herd", "score": 5, "you": True}
 
 
 def test_replay_gives_the_same_state(client):

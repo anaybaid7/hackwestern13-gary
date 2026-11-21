@@ -15,25 +15,39 @@ or a removal needs all four of you to agree, in an issue.
 | `examples/event.miss.json` | A Sniff Test that found nothing nameable |
 | `examples/event.mood.json` | A private mood check-in |
 | `examples/quest.json`, `quests.json` | One quest, and the three seed quests |
+| `examples/quests.scout.json` | Hand-written examples of what one scout run posts |
 | `examples/state.json` | Everything the web page draws |
+| `examples/wellness.json` | The private wellness view |
+| `examples/story.json` | Ten states in a row: a Saturday and a Sunday with Gary. The web page's mock mode plays it |
 
-`state.json` is exactly what the backend returns after the three example
-events are posted to a fresh backend. `backend/tests` checks that.
+`state.json`, `wellness.json` and `story.json` are written by
+`python3 scripts/make_examples.py` from the real backend, with the clock
+pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
+
+- `state.json` is what the backend returns after the three example events are
+  posted to a fresh backend.
+- `wellness.json` is the wellness view after the same three events and one
+  "after" check-in.
 
 ## Endpoints
 
 | Call | Who uses it | Body | Returns |
 | --- | --- | --- | --- |
-| `POST /api/events` | device (`sync.py`) | `{"events": [Event]}` | `{"accepted", "duplicates", "results": [{"id", "xp", "reaction", "new", "quest_id"}]}` |
-| `GET /api/quests?time=short\|long` | device, web | | `{"quests": [Quest]}`, open ones only. `?all=true` adds finished ones |
+| `POST /api/events` | device (`sync.py`) | `{"events": [Event], "sent_at": "..."}` | `{"accepted", "duplicates", "results": [{"id", "xp", "reaction", "new", "quest_id"}]}` |
+| `GET /api/quests?time=short\|long` | device, web | | `{"quests": [Quest]}`, open ones only, **the active one first** and marked `"active": true`. `?all=true` adds finished ones |
 | `POST /api/quests` | scout | `{"quests": [Quest]}`, header `X-Scout-Key` if the server sets `SCOUT_KEY` | `{"accepted": [ids], "rejected": [{"id", "why"}]}` |
+| `POST /api/quest/choose` | web | `{"time": "short"\|"long"}` | `{"quest": Quest or null, "state": State}`. Makes a quest of that length the active one. Asking again gives the next one |
 | `GET /api/state` | web | | State |
 | `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}` | `{"ok": true}` |
-| `GET /api/wellness` | web | | private numbers. Never shown to anyone else |
-| `POST /api/dev/reset` | demos, tests | | forgets events, reloads seed quests |
-| `GET /api/health` | deploy checks | | `{"ok": true}` |
+| `GET /api/wellness` | web | | Wellness. Private |
+| `POST /api/dev/reset` | demos, tests | header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | forgets events and moods, reloads seed quests |
+| `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.
+
+`sent_at` is what the device's clock reads when it uploads. A Pi that starts
+with no network may not know the time; the backend uses `sent_at` to move the
+upload's timestamps onto its own clock. It is optional.
 
 ## Event (device → backend)
 
@@ -44,7 +58,7 @@ only. It never decides XP.
 | --- | --- |
 | `id` | Unique. Sending the same id twice counts once |
 | `ts` | When it happened, UTC, `2026-11-21T05:20:00Z` |
-| `type` | `discovery`, `miss` or `mood` |
+| `type` | `discovery`, `miss` or `mood`. Anything else is refused |
 | `device` | Which Gary |
 | `label` | discovery: the thing, a name from `labels.json` |
 | `score` | discovery: the model's confidence, 0 to 1 |
@@ -58,15 +72,16 @@ only. It never decides XP.
 
 | Field | Meaning |
 | --- | --- |
-| `id` | Unique. Posting a known id replaces that quest |
+| `id` | Unique. Posting a known id replaces that quest, in place |
 | `title` | What Gary says: "Find a bench by the river at Harris Park" |
-| `place` | A real place. Each place is one map tile |
+| `place` | A real place. Each place is one map tile. Capitals and spacing do not matter |
 | `time`, `minutes` | `short` or `long`, and a rough length |
 | `target` | The thing to find. **Must be a name in `labels.json`**, or the backend refuses the quest |
 | `xp` | 20 for short, 40 for long |
 | `herd` | `true` means it only completes with a friend in frame |
 | `source`, `source_url` | `tinyfish` and the page the agent read, or `seed` |
-| `day` | `2026-11-21` |
+| `day` | `2026-11-21`, the local day. "Today's" quests are the ones dated today |
+| `active` | Only in `GET /api/quests`: this is the quest on the card |
 
 ## State (backend → web)
 
@@ -76,11 +91,28 @@ only. It never decides XP.
 | `gary.xp`, `stage_xp`, `next_stage_xp` | For the progress bar. `next_stage_xp` is `null` at the last stage |
 | `gary.napping` | It has been quiet. Show the napping pose. Never sad |
 | `gary.welcome_back` | The last sniff ended a nap. Show the welcome-back line |
-| `quest`, `quests_open` | The quest to show now, and how many are open |
-| `journal` | Finds, newest first, each with the `xp` it earned |
+| `quest` | The quest to show now: the chosen one, or the oldest open one if nothing was chosen. `null` when all are done |
+| `quest_choice` | `short`, `long`, or `null` if the person has not chosen |
+| `quest_options` | `{"short": Quest or null, "long": Quest or null}`: what each button would give |
+| `quests_open` | How many quests are open |
+| `journal` | Finds, newest first (at most 50), each with the `xp` it earned and the `place` of the quest it finished, or `null` |
 | `guide` | Field guide: `total` things, and the names `found` |
-| `map` | Up to 25 tiles: `place`, `quest_id`, `cleared`. Pad to 5 × 5 with fog |
-| `herd.badges`, `herd.shared` | Herd Mode badges and how many finds had a friend in frame |
-| `herd.cup` | Weekly Herd Cup: `week`, your `rank`, and a short `table` of herds. `demo: true` means the rivals are seeded |
+| `map` | Up to 25 tiles. Pad to 5 × 5 with fog. Each: `place`, `quest_id`, `cleared`, `cleared_at`, and `finds`: what was found there (`label`, `ts`, `friend`, `quest_id`) |
+| `herd.badges` | Earned together, never taken away: `first-herd`, `herd-quest`, `herd-of-five`, `trail-mates` |
+| `herd.shared` | How many finds had a friend in frame |
+| `herd.quest` | An open co-op quest, or `null` |
+| `herd.cup` | The weekly Herd Cup: `week`, your `rank` out of `herds`, a `table` of the top three herds plus yours, and `ahead`: the herd just above yours and the `gap` to pass it. Your row also has `quests` and `places`. `demo: true` means the rivals are seeded |
 
 Mood never appears in State.
+
+## Wellness (backend → web, private)
+
+| Field | Meaning |
+| --- | --- |
+| `private` | Always `true`. Show a "only you see this" label |
+| `checkins` | Every check-in, oldest first: `ts`, `phase`, `value`, `source` (`web` or `device`) |
+| `pairs` | A "before" and the "after" of the same outing: `day`, `before`, `after`, `change`, `minutes` |
+| `summary` | One careful sentence, ready to show: "You reported feeling better after 2 of 3 outings." |
+| `outdoor`, `outdoor_minutes` | Estimated minutes outdoors per local day, and the total |
+| `outdoor_note` | How that estimate is made. Show it with the number |
+| `finds`, `solo`, `shared` | How many finds, alone and with a friend in frame |
