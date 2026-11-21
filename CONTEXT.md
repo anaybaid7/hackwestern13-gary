@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 3:00 am, with the Phase 2 pull request.
+Last updated: Sat 21 Nov 2026, 3:00 am, with the Phase 2 pull request (#43).
 
 ## 1. What Gary is
 
