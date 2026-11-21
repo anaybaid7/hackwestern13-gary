@@ -1,7 +1,0 @@
-# Gary's quests for today.
-# Columns are separated by TABs: id, label, points, text
-# "label" must be a name from models/coco_labels.txt (bottle, backpack, bench, dog, bird, bicycle ...).
-# These three work at a hackathon table. Swap in outdoor ones for a real walk.
-demo-1	bottle	10	Find a water bottle
-demo-2	backpack	10	Find a backpack
-demo-3	laptop	10	Find a laptop

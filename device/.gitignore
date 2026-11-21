@@ -1,6 +1,10 @@
-# Files Gary writes while he runs
-finds.jsonl
+# Files Gary and sync.py write while they run
 journal.jsonl
+finds.jsonl
+quests.tsv
+quests.tsv.tmp
+sync.state
+sync.state.tmp
 latency.csv
 gary.pid
 *.bak

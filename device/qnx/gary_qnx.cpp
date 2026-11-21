@@ -1,26 +1,33 @@
 // gary_qnx.cpp - Gary the Goat device loop for QNX 8 on a Raspberry Pi 5.
 //
-//   QNX Camera API -> TFLite object detector -> quest match -> sound + log
+//   QNX Camera API -> TFLite object detector -> SNIFF TEST -> journal + sound
+//
+// The camera and the model run all the time, so Gary always knows what is in
+// view. Nothing is recorded until someone presses the button. That press is
+// the Sniff Test: Gary names what he sees, writes one line in journal.jsonl,
+// and reacts. A friend in the frame marks the find as Herd Mode.
 //
 // Camera capture uses the RpiCam wrapper from QNX's AI workshop (Apache-2.0):
 //   https://github.com/qnx/QNX-AI-workshop
 // The TFLite calls are the ones that workshop's handtracking.cpp uses.
 //
-// It reads the same files as gary_device.py (models/, quests.tsv, sounds/) and
-// appends to the same finds.jsonl, so the two versions are interchangeable.
+// It reads and writes the same files as gary_device.py, so the two versions
+// are interchangeable. Each journal line is an Event from contract/README.md.
+// The device records facts only: XP, stages and the map belong to the backend.
 //
-// Run it from the project folder (the one that holds models/ and quests.tsv):
+// Run it from the device folder (the one that holds models/ and quests.tsv):
 //   ./qnx/build/gary                          camera unit 5 = USB webcam
 //   ./qnx/build/gary --image test/pets.jpg    model self-test, no camera
-// Keys:  Enter = "Ask Gary" (he says what he sees),  q + Enter = quit.
-// No keyboard?  kill -USR1 $(cat gary.pid)  asks Gary from any other program,
-// which is how a hardware button can be wired in later.
+// Keys:  Enter = Sniff Test,  q + Enter = quit.
+// From another program:
+//   kill -USR1 $(cat gary.pid)   Sniff Test (how a hardware button is wired in)
+//   kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 //
 // Threads:
 //   camera thread  - owned by the camera library; shrinks each frame and
 //                    leaves the newest one in a one-slot handoff
-//   main thread    - runs the model and makes every decision
-//   audio thread   - plays queued clips, so sound never delays a decision
+//   main thread    - runs the model and answers every sniff
+//   audio thread   - plays queued clips, so sound never delays an answer
 //   key thread     - watches stdin for Enter / q
 
 #include <fcntl.h>
@@ -241,11 +248,13 @@ class Detector {
 };
 
 // ---------------------------------------------------------------------------
-// Quests: quests.tsv = id <TAB> label <TAB> points <TAB> text, '#' = comment
+// Quests: quests.tsv = id <TAB> target <TAB> xp <TAB> text [<TAB> herd]
+// '#' starts a comment. A quest marked "herd" needs a friend in the frame.
 // ---------------------------------------------------------------------------
 struct Quest {
   std::string id, label, text;
-  int points = 0;
+  int xp = 0;
+  bool herd = false;
 };
 
 static std::vector<std::string> split_tabs(const std::string& line) {
@@ -273,10 +282,7 @@ static std::string trimmed(std::string s) {
 static std::vector<Quest> load_quests(const std::string& path) {
   std::vector<Quest> quests;
   std::ifstream f(path);
-  if (!f) {
-    fprintf(stderr, "error: cannot open quests file %s\n", path.c_str());
-    return quests;
-  }
+  if (!f) return quests;  // no quests yet; sniffing still works
   for (std::string line; std::getline(f, line);) {
     const std::string t = trimmed(line);
     if (t.empty() || t[0] == '#') continue;
@@ -290,16 +296,19 @@ static std::vector<Quest> load_quests(const std::string& path) {
     q.label = trimmed(parts[1]);
     std::transform(q.label.begin(), q.label.end(), q.label.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    q.points = std::atoi(parts[2].c_str());
+    q.xp = std::atoi(parts[2].c_str());
     q.text = parts.size() > 3 ? trimmed(parts[3]) : "Find a " + q.label;
+    q.herd = parts.size() > 4 && trimmed(parts[4]) == "herd";
     quests.push_back(q);
   }
   return quests;
 }
 
 // ---------------------------------------------------------------------------
-// Find log: append-only finds.jsonl. State is rebuilt from it at start-up, so
-// pulling the power never loses a completed quest.
+// Journal: append-only journal.jsonl, one JSON event per line. It is the
+// device's only output: sync.py uploads it, and a button or buzzer script can
+// watch it. State is rebuilt from it at start-up, so pulling the power loses
+// nothing.
 // ---------------------------------------------------------------------------
 static std::string json_escape(const std::string& s) {
   std::string out;
@@ -310,68 +319,109 @@ static std::string json_escape(const std::string& s) {
   return out;
 }
 
-class FindLog {
+// The value of "key": "value" in one journal line, or "" if absent or null.
+static std::string json_string_field(const std::string& line, const std::string& key) {
+  const std::string pattern = "\"" + key + "\": \"";
+  const size_t at = line.find(pattern);
+  if (at == std::string::npos) return "";
+  std::string out;
+  for (size_t i = at + pattern.size(); i < line.size(); ++i) {
+    if (line[i] == '\\' && i + 1 < line.size()) {
+      out.push_back(line[++i]);
+      continue;
+    }
+    if (line[i] == '"') return out;
+    out.push_back(line[i]);
+  }
+  return "";  // a torn last line
+}
+
+class Journal {
  public:
-  explicit FindLog(std::string path) : path_(std::move(path)) {
+  Journal(std::string path, std::string device)
+      : path_(std::move(path)), device_(std::move(device)) {
+    // Lines are written by this program or by gary_device.py, both as
+    //   {"id": "...", "ts": "...", "type": "discovery", ..., "label": "bench", ...}
     std::ifstream f(path_);
     for (std::string line; std::getline(f, line);) {
-      // Lines are written by this program or by gary_device.py, both as
-      //   {"ts": "...", "quest_id": "demo-1", ..., "points": 10}
-      static const std::string id_key = "\"quest_id\": \"";
-      static const std::string pts_key = "\"points\": ";
-      const size_t a = line.find(id_key);
-      const size_t p = line.find(pts_key);
-      if (a == std::string::npos || p == std::string::npos) continue;  // torn last line
-      const size_t b = line.find('"', a + id_key.size());
-      if (b == std::string::npos) continue;
-      done_.insert(line.substr(a + id_key.size(), b - (a + id_key.size())));
-      points_ += std::atoi(line.c_str() + p + pts_key.size());
+      if (line.find("\"type\": \"discovery\"") == std::string::npos) continue;
+      const std::string label = json_string_field(line, "label");
+      const std::string quest = json_string_field(line, "quest_id");
+      if (!label.empty()) seen_.insert(label);
+      if (!quest.empty()) done_.insert(quest);
     }
   }
 
-  bool done(const std::string& id) const { return done_.count(id) > 0; }
-  int points() const { return points_; }
+  bool done(const std::string& quest_id) const { return done_.count(quest_id) > 0; }
+  bool seen(const std::string& label) const { return seen_.count(label) > 0; }
+  size_t kinds() const { return seen_.size(); }
 
-  void add(const Quest& q, float score, bool friend_bonus, int points) {
-    char stamp[40];
-    const std::time_t now = std::time(nullptr);
+  // quest_id is empty when the sniff completed no quest.
+  void add_discovery(const std::string& label, float score, bool friend_here, bool is_new,
+                     const std::string& quest_id, double latency_ms) {
+    const std::string quest_json =
+        quest_id.empty() ? std::string("null") : "\"" + json_escape(quest_id) + "\"";
+    char body[512];
+    std::snprintf(body, sizeof body,
+                  "\"label\": \"%s\", \"score\": %.3f, \"friend\": %s, \"new\": %s, "
+                  "\"quest_id\": %s, \"latency_ms\": %.1f",
+                  json_escape(label).c_str(), static_cast<double>(score),
+                  friend_here ? "true" : "false", is_new ? "true" : "false", quest_json.c_str(),
+                  latency_ms);
+    append("discovery", body);
+    seen_.insert(label);
+    if (!quest_id.empty()) done_.insert(quest_id);
+  }
+
+  void add_miss(bool friend_here, double latency_ms) {
+    char body[96];
+    std::snprintf(body, sizeof body, "\"friend\": %s, \"latency_ms\": %.1f",
+                  friend_here ? "true" : "false", latency_ms);
+    append("miss", body);
+  }
+
+ private:
+  void append(const char* type, const char* body) {
+    ++seq_;
+    const auto now = std::chrono::system_clock::now();
+    const long long epoch_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+    const std::time_t secs = std::chrono::system_clock::to_time_t(now);
     std::tm tm_utc{};
-    gmtime_r(&now, &tm_utc);
-    std::strftime(stamp, sizeof stamp, "%Y-%m-%dT%H:%M:%S+00:00", &tm_utc);
+    gmtime_r(&secs, &tm_utc);
+    char stamp[32];
+    std::strftime(stamp, sizeof stamp, "%Y-%m-%dT%H:%M:%SZ", &tm_utc);
 
-    char line[512];
+    const std::string device = json_escape(device_);
+    char line[900];
     const int len = std::snprintf(
         line, sizeof line,
-        "{\"ts\": \"%s\", \"quest_id\": \"%s\", \"label\": \"%s\", \"score\": %.3f, "
-        "\"friend\": %s, \"points\": %d}\n",
-        stamp, json_escape(q.id).c_str(), json_escape(q.label).c_str(),
-        static_cast<double>(score), friend_bonus ? "true" : "false", points);
+        "{\"id\": \"%s-%lld-%d\", \"ts\": \"%s\", \"type\": \"%s\", \"device\": \"%s\", %s}\n",
+        device.c_str(), epoch_ms, seq_, stamp, type, device.c_str(), body);
 
     const int fd = open(path_.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (fd < 0) {
       fprintf(stderr, "warn: cannot write %s: %s\n", path_.c_str(), strerror(errno));
-    } else {
-      const size_t n = static_cast<size_t>(std::clamp(len, 0, static_cast<int>(sizeof line) - 1));
-      for (size_t off = 0; off < n;) {
-        const ssize_t w = write(fd, line + off, n - off);
-        if (w < 0 && errno == EINTR) continue;
-        if (w <= 0) {
-          fprintf(stderr, "warn: write to %s failed: %s\n", path_.c_str(), strerror(errno));
-          break;
-        }
-        off += static_cast<size_t>(w);
-      }
-      fsync(fd);  // on disk before Gary celebrates
-      close(fd);
+      return;
     }
-    done_.insert(q.id);
-    points_ += points;
+    const size_t n = static_cast<size_t>(std::clamp(len, 0, static_cast<int>(sizeof line) - 1));
+    for (size_t off = 0; off < n;) {
+      const ssize_t w = write(fd, line + off, n - off);
+      if (w < 0 && errno == EINTR) continue;
+      if (w <= 0) {
+        fprintf(stderr, "warn: write to %s failed: %s\n", path_.c_str(), strerror(errno));
+        break;
+      }
+      off += static_cast<size_t>(w);
+    }
+    fsync(fd);  // on disk before Gary reacts
+    close(fd);
   }
 
- private:
-  std::string path_;
-  std::set<std::string> done_;
-  int points_ = 0;
+  std::string path_, device_;
+  std::set<std::string> seen_;  // labels Gary has sniffed before
+  std::set<std::string> done_;  // quest ids already completed
+  int seq_ = 0;
 };
 
 // ---------------------------------------------------------------------------
@@ -550,7 +600,21 @@ static std::string clip_name(std::string label) {
 // Shared state between threads
 // ---------------------------------------------------------------------------
 static std::atomic<bool> g_run{true};
-static std::atomic<bool> g_ask{false};
+static std::atomic<bool> g_ask{false};      // the button was pressed
+static std::atomic<long long> g_ask_ns{0};  // when, on the monotonic clock
+static std::atomic<bool> g_reload{false};   // quests.tsv changed
+
+static long long mono_ns() {
+  timespec ts{};
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return static_cast<long long>(ts.tv_sec) * 1000000000LL + ts.tv_nsec;
+}
+
+// The button: Enter, or kill -USR1 from another program.
+static void press_button() {
+  g_ask_ns.store(mono_ns());
+  g_ask.store(true);
+}
 
 // Frame handoff: one slot, newest wins. Frames the model misses are dropped.
 static std::mutex g_frame_mtx;
@@ -560,8 +624,9 @@ static Clock::time_point g_frame_stamp;
 static bool g_frame_ready = false;
 
 // Signal handlers only flip a flag; the main loop does the work.
-static void on_stop_signal(int) { g_run.store(false); }  // Ctrl-C, kill
-static void on_ask_signal(int) { g_ask.store(true); }    // kill -USR1 = Ask Gary
+static void on_stop_signal(int) { g_run.store(false); }    // Ctrl-C, kill
+static void on_sniff_signal(int) { press_button(); }       // kill -USR1 = Sniff Test
+static void on_reload_signal(int) { g_reload.store(true); }  // kill -HUP = reload quests
 
 static void install_handler(int sig, void (*fn)(int)) {
   struct sigaction sa;
@@ -610,7 +675,7 @@ static void key_loop() {
         g_frame_cv.notify_all();
         return;
       }
-      g_ask.store(true);
+      press_button();
     }
   }
 }
@@ -629,6 +694,12 @@ static void raise_priority(int priority) {
     printf("warn: could not set priority %d: %s\n", priority, strerror(rc));
 }
 
+// quests.tsv is written by sync.py. Until it exists, use the seed quests.
+static std::string quests_file(const std::string& explicit_path) {
+  if (!explicit_path.empty()) return explicit_path;
+  return access("quests.tsv", R_OK) == 0 ? "quests.tsv" : "quests.seed.tsv";
+}
+
 static double percentile(std::vector<double> v, double pct) {
   if (v.empty()) return 0.0;
   std::sort(v.begin(), v.end());
@@ -640,8 +711,9 @@ struct Options {
   int unit = 5;  // USB camera on a Raspberry Pi 5 (CAM/DISP 0 is 3, CAM/DISP 1 is 4)
   std::string model = "models/ssd_mobilenet_v2_coco_quant_postprocess.tflite";
   std::string labels = "models/coco_labels.txt";
-  std::string quests = "quests.tsv";
-  std::string log = "finds.jsonl";
+  std::string quests;  // empty = quests.tsv, or quests.seed.tsv until sync.py has run
+  std::string log = "journal.jsonl";
+  std::string device = "gary-01";
   std::string sounds = "sounds";
   std::string audio_cmd = "mmrplay";
   std::string friend_label = "person";
@@ -658,8 +730,10 @@ static void usage() {
       "  --image PATH      run the model once on a picture and exit (no camera needed)\n"
       "  --model PATH      TFLite detector\n"
       "  --labels PATH     label file, one name per line\n"
-      "  --quests PATH     quests.tsv\n"
-      "  --log PATH        finds.jsonl\n"
+      "  --quests PATH     quests file (default quests.tsv, or quests.seed.tsv\n"
+      "                    until sync.py has run)\n"
+      "  --log PATH        the journal (default journal.jsonl)\n"
+      "  --device NAME     name written into every journal line (default gary-01)\n"
       "  --sounds DIR      folder of WAV clips\n"
       "  --audio-cmd CMD   player command (default mmrplay)\n"
       "  --clip-timeout S  stop a clip that plays longer than S seconds (default 10)\n"
@@ -670,8 +744,9 @@ static void usage() {
       "  --priority N      run the decision thread at round-robin priority N (try 20)\n"
       "  --friend-label L  label that earns the friend bonus (default person)\n"
       "  --mute            no sound\n"
-      "While it runs: Enter = Ask Gary, q + Enter = quit.\n"
-      "From another program: kill -USR1 $(cat gary.pid) = Ask Gary.\n");
+      "While it runs: Enter = Sniff Test, q + Enter = quit.\n"
+      "From another program: kill -USR1 $(cat gary.pid) = Sniff Test,\n"
+      "                      kill -HUP  $(cat gary.pid) = reload quests.tsv.\n");
 }
 
 static bool parse(int argc, char** argv, Options& o) {
@@ -696,6 +771,7 @@ static bool parse(int argc, char** argv, Options& o) {
     else if (a == "--labels") text = &o.labels;
     else if (a == "--quests") text = &o.quests;
     else if (a == "--log") text = &o.log;
+    else if (a == "--device") text = &o.device;
     else if (a == "--sounds") text = &o.sounds;
     else if (a == "--audio-cmd") text = &o.audio_cmd;
     else if (a == "--friend-label") text = &o.friend_label;
@@ -757,7 +833,8 @@ int main(int argc, char** argv) {
 
   install_handler(SIGINT, on_stop_signal);
   install_handler(SIGTERM, on_stop_signal);
-  install_handler(SIGUSR1, on_ask_signal);
+  install_handler(SIGUSR1, on_sniff_signal);
+  install_handler(SIGHUP, on_reload_signal);
   PidFile pid_file;
 
   // Started first, so the audio and key threads stay at normal priority.
@@ -777,26 +854,27 @@ int main(int argc, char** argv) {
   Detector detector;
   if (!detector.load(opt.model, opt.labels, opt.threads)) return 1;
 
-  const std::vector<Quest> quests = load_quests(opt.quests);
-  if (quests.empty()) {
-    fprintf(stderr, "error: no quests loaded from %s\n", opt.quests.c_str());
-    return 1;
-  }
-  FindLog log(opt.log);
+  std::vector<Quest> quests = load_quests(quests_file(opt.quests));
+  Journal journal(opt.log, opt.device);
   Stability stable(opt.window, opt.need);
 
-  int already = 0;
-  for (const auto& q : quests) {
-    if (!detector.knows(q.label))
-      printf("WARNING: quest %s wants '%s', which this model cannot see.\n", q.id.c_str(),
-             q.label.c_str());
-    if (log.done(q.id)) ++already;
-  }
-  printf("Gary is awake. Model input %dx%d. %zu quests, %d already done, %d points.\n",
-         detector.in_w, detector.in_h, quests.size(), already, log.points());
-  for (const auto& q : quests)
-    printf("  [%s] %s  (%s, %d pts)\n", log.done(q.id) ? "x" : " ", q.text.c_str(),
-           q.label.c_str(), q.points);
+  auto print_quests = [&] {
+    int already = 0;
+    for (const auto& q : quests) {
+      if (!detector.knows(q.label))
+        printf("WARNING: quest %s wants '%s', which this model cannot see.\n", q.id.c_str(),
+               q.label.c_str());
+      if (journal.done(q.id)) ++already;
+    }
+    printf("%zu quests, %d done.\n", quests.size(), already);
+    for (const auto& q : quests)
+      printf("  [%s] %s  (%s%s)\n", journal.done(q.id) ? "x" : " ", q.text.c_str(),
+             q.label.c_str(), q.herd ? ", needs a friend" : "");
+  };
+  printf("Gary is awake. Model input %dx%d. %zu kinds of thing in the journal. ", detector.in_w,
+         detector.in_h, journal.kinds());
+  print_quests();
+  printf("Press Enter to sniff. q + Enter quits.\n");
   fflush(stdout);
 
   RpiCam cam(static_cast<camera_unit_t>(opt.unit));
@@ -831,7 +909,7 @@ int main(int argc, char** argv) {
 
   speaker.play({"hello"});
 
-  std::map<std::string, float> confirmed;
+  std::map<std::string, float> confirmed;  // what Gary is sure he sees right now
   // Per-frame timings: frame-to-decision ms, model ms. Only the most recent
   // kKeepTimings are kept, so a device left on for days does not grow.
   constexpr size_t kKeepTimings = 200000;
@@ -839,26 +917,97 @@ int main(int argc, char** argv) {
   size_t dropped = 0, frames_total = 0, window_start = 0;
   auto last_report = Clock::now();
   int empty_waits = 0;
+  std::vector<double> sniff_ms;  // button press to answer
+  int discoveries = 0, fresh = 0, misses = 0;
 
-  auto answer_ask = [&] {
-    if (!g_ask.exchange(false)) return;
-    std::vector<std::pair<std::string, float>> seen(confirmed.begin(), confirmed.end());
-    std::sort(seen.begin(), seen.end(),
-              [](const auto& a, const auto& b) { return a.second > b.second; });
-    if (seen.size() > 3) seen.resize(3);
-    if (seen.empty()) {
-      printf("\nGary sees nothing he can name.\n");
-      speaker.play({"nothing"});
-    } else {
-      std::vector<std::string> clips{"ask"};
-      printf("\nGary sees:");
-      for (const auto& s : seen) {
-        printf(" %s (%.0f%%)", s.first.c_str(), s.second * 100.f);
-        clips.push_back(clip_name(s.first));
-      }
-      printf("\n");
-      speaker.play(clips);
+  // The Sniff Test: name what is in view right now and write it down.
+  auto handle_sniff = [&] {
+    if (g_reload.exchange(false)) {
+      quests = load_quests(quests_file(opt.quests));
+      printf("\nQuests reloaded: ");
+      print_quests();
+      fflush(stdout);
     }
+    if (!g_ask.exchange(false)) return;
+    const long long pressed = g_ask_ns.load();
+    auto latency = [pressed] { return static_cast<double>(mono_ns() - pressed) / 1e6; };
+    const bool friend_here = confirmed.count(opt.friend_label) > 0;
+
+    // The surest thing in view, leaving the friend out.
+    std::string label;
+    float score = 0.f;
+    for (const auto& kv : confirmed) {
+      if (kv.first == opt.friend_label) continue;
+      if (label.empty() || kv.second > score) {
+        label = kv.first;
+        score = kv.second;
+      }
+    }
+    if (label.empty()) {
+      const double ms = latency();
+      journal.add_miss(friend_here, ms);
+      sniff_ms.push_back(ms);
+      ++misses;
+      printf("\nSNIFF: nothing Gary can name%s.  [%.1f ms]\n",
+             friend_here ? " (he does see a friend)" : "", ms);
+      speaker.play({"nothing"});
+      fflush(stdout);
+      return;
+    }
+
+    // An open quest's target wins if it is in view.
+    const Quest* quest = nullptr;
+    float quest_score = 0.f;
+    for (const auto& q : quests) {
+      if (journal.done(q.id) || q.label == opt.friend_label) continue;
+      const auto hit = confirmed.find(q.label);
+      if (hit == confirmed.end()) continue;
+      if (!quest || hit->second > quest_score) {
+        quest = &q;
+        quest_score = hit->second;
+      }
+    }
+    if (quest) {
+      label = quest->label;
+      score = quest_score;
+    }
+    // A herd quest only completes with a friend in the frame.
+    const Quest* completed = (quest && (friend_here || !quest->herd)) ? quest : nullptr;
+    const bool is_new = !journal.seen(label);
+    const double ms = latency();
+    journal.add_discovery(label, score, friend_here, is_new,
+                          completed ? completed->id : std::string(), ms);
+    sniff_ms.push_back(ms);
+    ++discoveries;
+    if (is_new) ++fresh;
+
+    std::string line = "\nSNIFF: " + label + " (" +
+                       std::to_string(static_cast<int>(std::lround(score * 100.f))) + "%).";
+    std::vector<std::string> clips;
+    if (completed) {
+      line += " Quest complete: " + completed->text + ".";
+      clips.push_back("quest");
+    } else if (is_new) {
+      line += " New discovery.";
+      clips.push_back("new");
+    } else {
+      line += " Gary has seen one before.";
+      clips.push_back("again");
+    }
+    if (friend_here) {
+      line += " Herd Mode: a friend is in frame.";
+      clips.push_back("herd");
+    } else if (quest && quest->herd) {
+      line += " That quest needs a friend in frame.";
+    }
+    if (speaker.has(clip_name(label))) clips.push_back(clip_name(label));  // a spoken label
+    if (completed && std::all_of(quests.begin(), quests.end(),
+                                 [&](const Quest& x) { return journal.done(x.id); })) {
+      line += " All of today's quests are done.";
+      clips.push_back("done");
+    }
+    printf("%s  [%.1f ms]\n", line.c_str(), ms);
+    speaker.play(clips);
     fflush(stdout);
   };
 
@@ -870,13 +1019,13 @@ int main(int argc, char** argv) {
       const bool got = g_frame_cv.wait_for(lk, std::chrono::milliseconds(500),
                                            [] { return g_frame_ready || !g_run.load(); });
       if (!g_run.load()) break;
-      if (!got) {  // no frame for half a second: stay responsive to the keys
+      if (!got) {  // no frame for half a second: stay responsive to the button
         lk.unlock();
         if (++empty_waits == 6) {
           printf("No frames from camera unit %d yet. Is the webcam in a blue USB port?\n", opt.unit);
           fflush(stdout);
         }
-        answer_ask();
+        handle_sniff();
         continue;
       }
       frame = std::move(g_frame);
@@ -894,33 +1043,11 @@ int main(int argc, char** argv) {
       if (d.score >= opt.threshold) best[d.label] = std::max(best[d.label], d.score);
     confirmed = stable.update(best);
 
-    const bool friend_here = confirmed.count(opt.friend_label) > 0;
-    for (const auto& q : quests) {
-      if (log.done(q.id)) continue;
-      const auto hit = confirmed.find(q.label);
-      if (hit == confirmed.end()) continue;
-      const bool bonus = friend_here && q.label != opt.friend_label;
-      const int points = q.points * (bonus ? 2 : 1);
-      log.add(q, hit->second, bonus, points);
-      printf("\nFOUND: %s  (+%d points%s)  total %d\n", q.text.c_str(), points,
-             bonus ? ", friend bonus" : "", log.points());
-      std::vector<std::string> clips{bonus ? "friend" : "found"};
-      if (speaker.has(clip_name(q.label))) clips.push_back(clip_name(q.label));
-      const bool all_done = std::all_of(quests.begin(), quests.end(),
-                                        [&](const Quest& x) { return log.done(x.id); });
-      if (all_done) {
-        clips.push_back("done");
-        printf("All of today's quests are done. Gary is very pleased.\n");
-      }
-      speaker.play(clips);
-      fflush(stdout);
-    }
-
-    // The decision is made: stop the clock. "Frame" = the frame reaching this
-    // program; time inside the camera and the USB link is not included.
+    // Gary now knows what is in view: stop the clock. "Frame" = the frame
+    // reaching this program; time inside the camera and USB link is not included.
     timings.emplace_back(ms_between(stamp, Clock::now()), model_ms);
     ++frames_total;
-    answer_ask();
+    handle_sniff();
 
     const auto now = Clock::now();
     const double since = ms_between(last_report, now) / 1000.0;
@@ -968,9 +1095,13 @@ int main(int argc, char** argv) {
       fclose(f);
     }
   }
+  if (!sniff_ms.empty())
+    printf("Sniffs: %zu (%d discoveries, %d new, %d misses). Answered in p50 %.0f ms, max %.0f ms.\n",
+           sniff_ms.size(), discoveries, fresh, misses, percentile(sniff_ms, 50),
+           percentile(sniff_ms, 100));
   int done = 0;
   for (const auto& q : quests)
-    if (log.done(q.id)) ++done;
-  printf("Points: %d. Quests done: %d of %zu.\n", log.points(), done, quests.size());
+    if (journal.done(q.id)) ++done;
+  printf("Quests done: %d of %zu.\n", done, quests.size());
   return 0;
 }
