@@ -150,3 +150,31 @@ def test_a_herd_quest_can_be_chosen_and_then_skipped(client):
     post(client, sniff("backpack", friend=True))
     state = state_of(client)
     assert state["herd"]["quest"] is None and state["quest"]["id"] == "q-harris-bench"
+
+
+def test_a_reset_that_keeps_the_quests_opens_them_all_again(client):
+    # the page's "Reset Gary" button: start over without losing the scout's quests
+    scout_quest = quest("q-scout-duck", "duck", "Sifton Bog")
+    client.post("/api/quests", json={"quests": [scout_quest]})
+    client.post("/api/mood", json={"phase": "before", "value": 2})
+    post(client, sniff("bottle"), sniff("duck"))
+    before = state_of(client)
+    assert before["gary"]["xp"] > 0 and len(before["journal"]) == 2
+    open_before = before["quests_open"]
+
+    out = client.post("/api/dev/reset", json={"keep_quests": True}).json()
+    assert out == {"ok": True, "quests_kept": True}
+    after = state_of(client)
+    assert after["gary"]["xp"] == 0 and after["journal"] == []
+    assert after["quests_open"] == open_before + 2, "the two finished quests are open again"
+    assert "q-scout-duck" in [q["id"] for q in client.get("/api/quests").json()["quests"]]
+    assert client.get("/api/wellness").json()["checkins"] == []
+    assert client.get("/api/health").json()["events"] == 0
+
+    # without the option it is the old reset: only the built-in quests remain
+    assert client.post("/api/dev/reset").json() == {"ok": True, "quests_kept": False}
+    assert "q-scout-duck" not in [q["id"] for q in client.get("/api/quests").json()["quests"]]
+    # and other bodies do not switch the option on
+    for body in ({"keep_quests": "yes"}, {}, [], "keep"):
+        assert client.post("/api/dev/reset", json=body).json()["quests_kept"] is False
+

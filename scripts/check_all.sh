@@ -37,6 +37,14 @@ fi
 step "Device scripts: button, buzzer, sync, start and stop"
 "$PY" device/tests/test_device.py || fail "device script tests"
 
+step "QNX program: reading the YOLO model's output"
+if command -v c++ >/dev/null 2>&1; then
+  (c++ -std=c++20 -Wall -Wextra -Werror device/qnx/yolo_test.cpp -o "${TMPDIR:-/tmp}/gary_yolo_test" \
+    && "${TMPDIR:-/tmp}/gary_yolo_test") || fail "device/qnx yolo test"
+else
+  skip "device/qnx yolo test (a C++ compiler)"
+fi
+
 step "QNX program on this machine, with stand-ins"
 if command -v g++ >/dev/null 2>&1 && [ "$(uname -s)" = "Linux" ] \
    && [ -f /usr/include/opencv4/opencv2/imgcodecs.hpp ]; then

@@ -675,9 +675,34 @@ button:disabled {
   background: var(--lcd);
 }
 
+/* one cell per place, lit when it is uncovered */
+.explored {
+  display: flex;
+  gap: 3px;
+  margin-top: -6px;
+}
+
+.explored-cell {
+  flex: 1;
+  max-width: 28px;
+  height: 8px;
+  border: 2px solid var(--ink);
+  background: var(--fogged);
+}
+
+.explored-cell.on {
+  background: var(--lcd);
+}
+
+.explored-cell.fresh {
+  animation: pulse 0.5s steps(2) 4;
+}
+
 .world {
   position: relative;
+  height: 420px; /* for browsers without dvh (Safari before 15.4, older Chrome): the map would otherwise have no height */
   height: clamp(320px, 60dvh, 540px);
+  isolation: isolate; /* keeps Leaflet's own z-indexes (400 to 700) inside the map, under pop-ups */
   border: var(--line);
   box-shadow: 6px 6px 0 var(--ink);
   background: var(--fogged);
@@ -728,6 +753,57 @@ button:disabled {
 
 .locate:disabled {
   opacity: 0.45;
+}
+
+/* jump to the quest, or fit every place on screen */
+.map-tools {
+  position: absolute;
+  z-index: 500;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.map-tools button {
+  height: 32px;
+  padding: 0 10px;
+  border: var(--line);
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--pixel);
+  font-size: 11px;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+
+.map-tools button:first-child {
+  background: var(--coral);
+  color: var(--cream);
+}
+
+.map-tools button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.map-tools button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* street tiles did not arrive: say so, small, over the map */
+.map-note {
+  position: absolute;
+  z-index: 500;
+  left: 10px;
+  right: 56px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border: 2px solid var(--ink);
+  background: var(--cream);
+  font-size: 11px;
 }
 
 /* a pin's point sits on its place; the marker box itself has no size */
@@ -784,6 +860,38 @@ button:disabled {
   50% { margin-top: -3px; }
 }
 
+/* the quest: a beacon ring going out from its pin */
+.tile.here .pin::after,
+.tile.fresh .pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 3px solid var(--coral);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: beacon 1.6s ease-out infinite;
+}
+
+/* a place that has just cleared: one lime burst */
+.tile.fresh .pin::after {
+  border-color: var(--lcd);
+  animation: beacon 0.9s ease-out 3;
+}
+
+@keyframes beacon {
+  from { transform: scale(0.6); opacity: 1; }
+  to { transform: scale(3); opacity: 0; }
+}
+
+/* the route between uncovered places, in the order they were uncovered */
+.trail {
+  stroke-linecap: square;
+}
+
 .tile-name {
   display: none; /* a name shows on hover, focus or tap, never all at once */
   position: absolute;
@@ -837,6 +945,54 @@ button:disabled {
 
 .tile-finds li::before {
   content: '▪ ';
+}
+
+.sheet .away {
+  color: var(--ink-2);
+}
+
+/* what the marks on the map mean */
+.map-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-family: var(--pixel);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.map-key li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.key-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink);
+  background: var(--cream);
+  font-size: 9px;
+}
+
+.key-quest {
+  background: var(--coral);
+  color: var(--cream);
+}
+
+.key-flag {
+  border: 0;
+  border-left: 3px solid var(--ink);
+  background: linear-gradient(var(--coral), var(--coral)) 0 0 / 11px 8px no-repeat;
+}
+
+.key-trail {
+  width: 22px;
+  height: 4px;
+  border: 0;
+  background: repeating-linear-gradient(90deg, var(--ink) 0 3px, transparent 3px 8px);
 }
 
 /* ---- journal ----------------------------------------------------------- */
@@ -1176,6 +1332,39 @@ button:disabled {
   background: var(--orange);
 }
 
+/* Settings: the reset for testing */
+.reset,
+.reset-sure {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.reset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reset-sure label {
+  font-family: var(--pixel);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.reset-sure input {
+  width: 100%;
+  padding: 10px;
+  border: var(--line);
+  border-radius: 0;
+  background: #fff;
+  font: inherit;
+}
+
+.reset [role='alert'] {
+  color: var(--coral-deep);
+}
+
 /* Two rules the page's markup still asks for, which the Pocket Pixel rewrite
    of this file left out: the spacing inside the wellness view (its body is
    sitting on ".cup-row.you" above), and the small line under "Your herd" in
@@ -1388,3 +1577,6 @@ button:disabled {
     animation: none !important;
   }
 }
+
+/* link to the device's live camera view, shown only when VITE_LIVE_URL is set */
+.live-link { display: inline-block; margin-top: 8px; }

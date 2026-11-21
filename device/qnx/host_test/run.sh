@@ -37,20 +37,22 @@ printf 't-bottle\tbottle\t10\tFind a bottle\nt-backpack\tbackpack\t10\tFind a ba
 # Six presses, placed by run number so the result does not depend on speed:
 #   15 bottle | 45 backpack, no friend | 50 backpack again | 75 nothing
 #   100 laptop + person | 115 laptop again
+# The stand-in model speaks SSD, with class ids from coco_labels.txt.
+SSD="--model models/ssd_mobilenet_v2_coco_quant_postprocess.tflite --labels models/coco_labels.txt --extra-model none"
 echo "Running the scene..."
 cd "$DEVICE"
 GARY_FAKE_PRESSES=15,45,50,75,100,115 GARY_FAKE_QUIT=125 GARY_FAKE_MODEL_MS=2 GARY_FAKE_FRAME_MS=3 \
-    "$OUT/gary" --mute --quests "$OUT/quests.tsv" --log "$OUT/journal.jsonl" < /dev/null > "$OUT/first.txt"
+    "$OUT/gary" --mute $SSD --quests "$OUT/quests.tsv" --log "$OUT/journal.jsonl" < /dev/null > "$OUT/first.txt"
 cp latency.csv "$OUT/latency.csv"
 # A second start must rebuild its state from the journal alone.
 GARY_FAKE_QUIT=3 GARY_FAKE_MODEL_MS=2 GARY_FAKE_FRAME_MS=3 \
-    "$OUT/gary" --mute --quests "$OUT/quests.tsv" --log "$OUT/journal.jsonl" < /dev/null > "$OUT/second.txt"
+    "$OUT/gary" --mute $SSD --quests "$OUT/quests.tsv" --log "$OUT/journal.jsonl" < /dev/null > "$OUT/second.txt"
 # The power is pulled in the middle of a write: the journal ends in half a
 # line. The next sniff must still land on a line of its own.
 cp "$OUT/journal.jsonl" "$OUT/torn.jsonl"
 printf '{"id": "gary-01-1-99", "ts": "20' >> "$OUT/torn.jsonl"
 GARY_FAKE_PRESSES=15 GARY_FAKE_QUIT=20 GARY_FAKE_MODEL_MS=2 GARY_FAKE_FRAME_MS=3 \
-    "$OUT/gary" --mute --quests "$OUT/quests.tsv" --log "$OUT/torn.jsonl" < /dev/null > "$OUT/third.txt"
+    "$OUT/gary" --mute $SSD --quests "$OUT/quests.tsv" --log "$OUT/torn.jsonl" < /dev/null > "$OUT/third.txt"
 rm -f latency.csv gary.pid
 
 python3 - "$OUT" <<'PY'

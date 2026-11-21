@@ -20,7 +20,7 @@ describe('one setting switches between mock and live', () => {
   })
 
   test('both services offer the same calls', () => {
-    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now', 'unlock', 'forgetKey']
+    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now', 'unlock', 'forgetKey', 'resetGary']
     const live = createLive('http://x')
     const mock = createMock()
     for (const name of calls) {
@@ -118,6 +118,38 @@ describe('live: the passphrase of the private page', () => {
   test('a 401 anywhere else is an ordinary error, not a locked page', async () => {
     const live = createLive('', vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })))
     await expect(live.getState()).rejects.toMatchObject({ message: 'HTTP 401', locked: false })
+  })
+})
+
+describe('the reset for testing', () => {
+  test('live: asks the backend to forget the sniffs and keep the quests; an admin key is sent only when given', async () => {
+    const seen = []
+    const fetchFn = vi.fn(async (url, options) => {
+      seen.push({ url, options })
+      return { ok: true, status: 200, json: async () => ({ ok: true, quests_kept: true }) }
+    })
+    const live = createLive('http://x', fetchFn)
+    expect(await live.resetGary()).toEqual({ ok: true, quests_kept: true })
+    expect(seen[0].url).toBe('http://x/api/dev/reset')
+    expect(seen[0].options.method).toBe('POST')
+    expect(JSON.parse(seen[0].options.body)).toEqual({ keep_quests: true })
+    expect(seen[0].options.headers['X-Admin-Key']).toBeUndefined()
+    await live.resetGary('open-sesame')
+    expect(seen[1].options.headers['X-Admin-Key']).toBe('open-sesame')
+  })
+
+  test('live: a server that wants its admin key says so, and any other failure is an ordinary error', async () => {
+    const refuse = (status) => createLive('http://x', async () => ({ ok: false, status, json: async () => ({}) }))
+    await expect(refuse(401).resetGary()).rejects.toMatchObject({ needsKey: true })
+    await expect(refuse(500).resetGary()).rejects.toMatchObject({ needsKey: false, message: 'HTTP 500' })
+  })
+
+  test('mock: starting over goes back to the first step of the story', async () => {
+    const mock = createMock({ step: 5 })
+    await mock.postMood('before', 4)
+    await mock.resetGary()
+    expect(mock.story.index).toBe(0)
+    expect((await mock.getWellness()).checkins).toEqual(story.steps[0].wellness.checkins)
   })
 })
 

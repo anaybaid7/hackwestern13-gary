@@ -76,6 +76,7 @@
 #include "tensorflow/lite/model_builder.h"
 
 #include "rpi_cam.hpp"
+#include "yolo.hpp"  // Detection, decode_yolo
 
 #ifndef EOK
 #define EOK 0
@@ -90,15 +91,12 @@ static double ms_between(Clock::time_point a, Clock::time_point b) {
 }
 
 // ---------------------------------------------------------------------------
-// Detector: SSD-style TFLite model with the standard four outputs
-//   0 boxes [1,N,4] (ymin,xmin,ymax,xmax in 0..1)   1 classes [1,N]
-//   2 scores [1,N]                                    3 count [1]
+// Detector: a TFLite model of either kind
+//   SSD, four outputs: 0 boxes [1,N,4] (ymin,xmin,ymax,xmax in 0..1)
+//                      1 classes [1,N]   2 scores [1,N]   3 count [1]
+//   YOLO (models/make_model.py), one output [1, 4+K, A]; see yolo.hpp
+// Input [1,H,W,3] or [1,3,H,W], uint8 or float32.
 // ---------------------------------------------------------------------------
-struct Detection {
-  std::string label;
-  float score = 0.f;
-  float x0 = 0.f, y0 = 0.f, x1 = 0.f, y1 = 0.f;
-};
 
 class Detector {
  public:
@@ -131,12 +129,13 @@ class Detector {
     }
 
     const TfLiteTensor* in = interp_->input_tensor(0);
-    if (!in || !in->dims || in->dims->size != 4 || in->dims->data[3] != 3) {
-      fprintf(stderr, "error: model input is not [1,H,W,3]\n");
+    if (!in || !in->dims || in->dims->size != 4 || (in->dims->data[3] != 3 && in->dims->data[1] != 3)) {
+      fprintf(stderr, "error: model input is not [1,H,W,3] or [1,3,H,W]\n");
       return false;
     }
-    in_h = in->dims->data[1];
-    in_w = in->dims->data[2];
+    nchw_ = in->dims->data[3] != 3;
+    in_h = in->dims->data[nchw_ ? 2 : 1];
+    in_w = in->dims->data[nchw_ ? 3 : 2];
     if (in->type == kTfLiteFloat32) {
       float_input_ = true;
     } else if (in->type == kTfLiteUInt8) {
@@ -146,19 +145,31 @@ class Detector {
       return false;
     }
 
-    if (interp_->outputs().size() < 4) {
-      fprintf(stderr, "error: model does not have the 4 detection outputs\n");
+    if (interp_->outputs().size() == 1) {
+      const TfLiteTensor* o = interp_->output_tensor(0);
+      const int rows = static_cast<int>(labels_.size()) + 4;
+      if (!o || !o->dims || o->dims->size != 3 || o->type != kTfLiteFloat32 ||
+          (o->dims->data[1] != rows && o->dims->data[2] != rows)) {
+        fprintf(stderr, "error: the YOLO output does not match %s (%zu names, so %d rows)\n",
+                labels_path.c_str(), labels_.size(), rows);
+        return false;
+      }
+      yolo_ = true;
+      anchors_first_ = o->dims->data[1] != rows;
+      capacity_ = anchors_first_ ? o->dims->data[1] : o->dims->data[2];
+    } else if (interp_->outputs().size() < 4) {
+      fprintf(stderr, "error: model has neither 1 (YOLO) nor 4 (SSD) detection outputs\n");
       return false;
     }
-    const TfLiteTensor* boxes = interp_->output_tensor(0);
-    const TfLiteTensor* scores = interp_->output_tensor(2);
+    const TfLiteTensor* boxes = yolo_ ? nullptr : interp_->output_tensor(0);
+    const TfLiteTensor* scores = yolo_ ? nullptr : interp_->output_tensor(2);
     const bool boxes_ok = boxes && boxes->dims && boxes->dims->size == 3 && boxes->dims->data[2] == 4;
     const bool scores_ok = scores && scores->dims && scores->dims->size == 2;
-    if (!boxes_ok || !scores_ok) {
+    if (!yolo_ && (!boxes_ok || !scores_ok)) {
       fprintf(stderr, "error: model outputs are not in the order boxes, classes, scores, count\n");
       return false;
     }
-    capacity_ = scores->dims->data[1];
+    if (!yolo_) capacity_ = scores->dims->data[1];
     if (capacity_ <= 0) return false;
 
     // One throwaway run, so the first real frame is not slowed by lazy setup.
@@ -192,12 +203,22 @@ class Detector {
     else
       cv::resize(bgr, small, cv::Size(in_w, in_h), 0, 0, cv::INTER_LINEAR);
 
-    if (float_input_) {
+    if (float_input_ && nchw_) {
+      // [1,3,H,W]: one plane per colour, written straight into the tensor
+      float* dst = interp_->typed_input_tensor<float>(0);
+      cv::Mat rgb, scaled;
+      cv::cvtColor(small, rgb, cv::COLOR_BGR2RGB);
+      rgb.convertTo(scaled, CV_32F, yolo_ ? 1.0 / 255.0 : 1.0 / 127.5, yolo_ ? 0.0 : -1.0);
+      const size_t plane = static_cast<size_t>(in_w) * in_h;
+      std::vector<cv::Mat> planes = {cv::Mat(in_h, in_w, CV_32F, dst), cv::Mat(in_h, in_w, CV_32F, dst + plane),
+                                     cv::Mat(in_h, in_w, CV_32F, dst + 2 * plane)};
+      cv::split(scaled, planes);
+    } else if (float_input_) {
       float* dst = interp_->typed_input_tensor<float>(0);
       cv::Mat rgb;
       cv::cvtColor(small, rgb, cv::COLOR_BGR2RGB);
       cv::Mat in_mat(in_h, in_w, CV_32FC3, dst);
-      rgb.convertTo(in_mat, CV_32F, 1.0 / 127.5, -1.0);
+      rgb.convertTo(in_mat, CV_32F, yolo_ ? 1.0 / 255.0 : 1.0 / 127.5, yolo_ ? 0.0 : -1.0);
       if (in_mat.data != reinterpret_cast<uchar*>(dst))
         std::memcpy(dst, in_mat.data, static_cast<size_t>(in_w) * in_h * 3 * sizeof(float));
     } else {
@@ -210,6 +231,13 @@ class Detector {
 
     if (interp_->Invoke() != kTfLiteOk) return out;
 
+    if (yolo_) {
+      const float* raw = interp_->typed_output_tensor<float>(0);
+      if (!raw) return out;
+      for (auto& d : decode_yolo(raw, capacity_, anchors_first_, labels_, min_score))
+        if (!d.label.empty() && d.label != "n/a") out.push_back(std::move(d));
+      return out;
+    }
     const float* boxes = interp_->typed_output_tensor<float>(0);
     const float* classes = interp_->typed_output_tensor<float>(1);
     const float* scores = interp_->typed_output_tensor<float>(2);
@@ -244,7 +272,10 @@ class Detector {
   std::unique_ptr<tflite::Interpreter> interp_;
   std::vector<std::string> labels_;
   bool float_input_ = false;
-  int capacity_ = 0;
+  bool nchw_ = false;           // input [1,3,H,W] rather than [1,H,W,3]
+  bool yolo_ = false;           // one YOLO output rather than SSD's four
+  bool anchors_first_ = false;  // YOLO output [1,A,4+K] rather than [1,4+K,A]
+  int capacity_ = 0;            // SSD: boxes per run. YOLO: anchors
 };
 
 // ---------------------------------------------------------------------------
@@ -647,7 +678,9 @@ static void install_handler(int sig, void (*fn)(int)) {
   std::memset(&sa, 0, sizeof sa);
   sa.sa_handler = fn;
   sigemptyset(&sa.sa_mask);
+#ifdef SA_RESTART
   sa.sa_flags = SA_RESTART;  // interrupted reads and writes carry on
+#endif  // QNX has none; the journal write and the key poll retry on EINTR themselves
   sigaction(sig, &sa, nullptr);
 }
 
@@ -723,8 +756,12 @@ static double percentile(std::vector<double> v, double pct) {
 
 struct Options {
   int unit = 5;  // USB camera on a Raspberry Pi 5 (CAM/DISP 0 is 3, CAM/DISP 1 is 4)
+  // Two models on every frame: SSD for everyday things and people, and an Open
+  // Images YOLO for nature (squirrel, tree, duck), which SSD cannot name.
   std::string model = "models/ssd_mobilenet_v2_coco_quant_postprocess.tflite";
   std::string labels = "models/coco_labels.txt";
+  std::string extra_model = "models/gary_detector.tflite";  // "none" = SSD alone, faster
+  std::string extra_labels = "models/gary_nature_labels.txt";
   std::string quests;  // empty = quests.tsv, or quests.seed.tsv until sync.py has run
   std::string log = "journal.jsonl";
   std::string device = "gary-01";
@@ -744,6 +781,9 @@ static void usage() {
       "  --image PATH      run the model once on a picture and exit (no camera needed)\n"
       "  --model PATH      TFLite detector\n"
       "  --labels PATH     label file, one name per line\n"
+      "  --extra-model P   a second detector, run on the same frames (default the\n"
+      "                    nature model; \"none\" for one model only)\n"
+      "  --extra-labels P  its label file (\"n/a\" lines are ignored)\n"
       "  --quests PATH     quests file (default quests.tsv, or quests.seed.tsv\n"
       "                    until sync.py has run)\n"
       "  --log PATH        the journal (default journal.jsonl)\n"
@@ -783,6 +823,8 @@ static bool parse(int argc, char** argv, Options& o) {
     else if (a == "--image") text = &o.image;
     else if (a == "--model") text = &o.model;
     else if (a == "--labels") text = &o.labels;
+    else if (a == "--extra-model") text = &o.extra_model;
+    else if (a == "--extra-labels") text = &o.extra_labels;
     else if (a == "--quests") text = &o.quests;
     else if (a == "--log") text = &o.log;
     else if (a == "--device") text = &o.device;
@@ -810,8 +852,10 @@ static bool parse(int argc, char** argv, Options& o) {
 // from "is it the camera" when something misbehaves.
 static int run_image(const Options& opt) {
 #ifdef GARY_HAS_IMGCODECS
-  Detector detector;
+  Detector detector, extra;
   if (!detector.load(opt.model, opt.labels, opt.threads)) return 1;
+  const bool has_extra = opt.extra_model != "none";
+  if (has_extra && !extra.load(opt.extra_model, opt.extra_labels, opt.threads)) return 1;
   const cv::Mat img = cv::imread(opt.image, cv::IMREAD_COLOR);
   if (img.empty()) {
     fprintf(stderr, "error: cannot read image %s\n", opt.image.c_str());
@@ -819,6 +863,7 @@ static int run_image(const Options& opt) {
   }
   const auto t0 = Clock::now();
   auto found = detector.detect(img, std::min(0.3f, opt.threshold));
+  if (has_extra) found = merge(std::move(found), extra.detect(img, std::min(0.3f, opt.threshold)));
   const double ms = ms_between(t0, Clock::now());
   std::sort(found.begin(), found.end(),
             [](const Detection& a, const Detection& b) { return a.score > b.score; });
@@ -865,8 +910,11 @@ int main(int argc, char** argv) {
   // From here on, new threads inherit the priority: the model's workers do.
   raise_priority(opt.priority);
 
-  Detector detector;
+  Detector detector, extra;
   if (!detector.load(opt.model, opt.labels, opt.threads)) return 1;
+  const bool has_extra = opt.extra_model != "none";
+  if (has_extra && !extra.load(opt.extra_model, opt.extra_labels, opt.threads)) return 1;
+  auto knows = [&](const std::string& label) { return detector.knows(label) || (has_extra && extra.knows(label)); };
 
   std::vector<Quest> quests = load_quests(quests_file(opt.quests));
   Journal journal(opt.log, opt.device);
@@ -875,7 +923,7 @@ int main(int argc, char** argv) {
   auto print_quests = [&] {
     int already = 0;
     for (const auto& q : quests) {
-      if (!detector.knows(q.label))
+      if (!knows(q.label))
         printf("WARNING: quest %s wants '%s', which this model cannot see.\n", q.id.c_str(),
                q.label.c_str());
       if (journal.done(q.id)) ++already;
@@ -901,10 +949,17 @@ int main(int argc, char** argv) {
 
   // Runs on the camera library's thread, so it stays short: shrink the frame
   // to the model's size (into memory we own) and leave it in the slot.
-  const int in_w = detector.in_w, in_h = detector.in_h;
+  // the larger of the two inputs, so neither model is fed an enlarged image
+  const int in_w = std::max(detector.in_w, has_extra ? extra.in_w : 0);
+  const int in_h = std::max(detector.in_h, has_extra ? extra.in_h : 0);
   auto on_frame = [in_w, in_h](const cv::Mat& bgr) {
     if (!g_run.load() || bgr.empty()) return;
     const auto arrived = Clock::now();
+#ifdef GARY_HAS_IMGCODECS
+    // GARY_SAVE_FRAME=frame.jpg: keep one camera frame, to check what the model is given
+    static std::atomic<int> seen{0};
+    if (const char* path = std::getenv("GARY_SAVE_FRAME"); path && seen.fetch_add(1) == 30) cv::imwrite(path, bgr);
+#endif
     cv::Mat small;
     cv::resize(bgr, small, cv::Size(in_w, in_h), 0, 0, cv::INTER_LINEAR);
     {
@@ -1061,7 +1116,8 @@ int main(int argc, char** argv) {
     empty_waits = 0;
 
     const auto t0 = Clock::now();
-    const auto detections = detector.detect(frame, std::min(0.3f, opt.threshold));
+    auto detections = detector.detect(frame, std::min(0.3f, opt.threshold));
+    if (has_extra) detections = merge(std::move(detections), extra.detect(frame, std::min(0.3f, opt.threshold)));
     const double model_ms = ms_between(t0, Clock::now());
 
     std::map<std::string, float> best;
@@ -1075,6 +1131,25 @@ int main(int argc, char** argv) {
     timings.push_back({ms_between(stamp, decided), model_ms, ms_between(started, decided)});
     ++frames_total;
     handle_sniff();
+#ifdef GARY_HAS_IMGCODECS
+    // GARY_LIVE=live/frame.jpg: what Gary sees, with his boxes, for a live view
+    // (qnx/live.sh serves it). Drawn after the decision, so a sniff never waits.
+    if (static const char* live = std::getenv("GARY_LIVE"); live) {
+      cv::Mat view;
+      cv::resize(frame, view, cv::Size(640, 480));
+      for (const auto& d : detections) {
+        if (d.score < opt.threshold) continue;
+        const cv::Scalar colour = d.label == opt.friend_label ? cv::Scalar(255, 160, 60) : cv::Scalar(80, 230, 120);
+        const cv::Point a(static_cast<int>(d.x0 * 640), static_cast<int>(d.y0 * 480));
+        cv::rectangle(view, a, cv::Point(static_cast<int>(d.x1 * 640), static_cast<int>(d.y1 * 480)), colour, 3);
+        char text[64];
+        snprintf(text, sizeof text, "%s %.0f%%", d.label.c_str(), d.score * 100.0f);
+        cv::putText(view, text, a + cv::Point(4, 24), cv::FONT_HERSHEY_SIMPLEX, 0.8, colour, 2);
+      }
+      const std::string tmp = std::string(live) + ".tmp.jpg";
+      if (cv::imwrite(tmp, view)) std::rename(tmp.c_str(), live);  // whole frames only
+    }
+#endif
 
     const auto now = Clock::now();
     const double since = ms_between(last_report, now) / 1000.0;

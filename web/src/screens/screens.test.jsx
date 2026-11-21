@@ -12,7 +12,7 @@ import MapScreen from './MapScreen.jsx'
 import Settings from './Settings.jsx'
 import You, { suggestPhase } from './You.jsx'
 import CheckIn from '../components/CheckIn.jsx'
-import { LONDON, layout, placeKey } from '../places.js'
+import { LONDON, away, layout, metresBetween, placeKey } from '../places.js'
 
 afterEach(cleanup)
 
@@ -31,6 +31,13 @@ describe('Gary (issue #25)', () => {
     expect(screen.getByText(/A bench\. I respect anything that holds still\./)).toBeTruthy()
     // the home screen stays calm: the finds live in the journal
     expect(screen.queryByText('+80 XP')).toBeNull()
+    expect(screen.queryByText(/What Gary sees/)).toBeNull() // no device address, no link
+  })
+
+  test('links to what Gary sees when the device serves a live view', () => {
+    render(<Home state={example} flash={NO_FLASH} liveUrl="http://192.168.3.2:8090" />)
+    const link = screen.getByRole('link', { name: /What Gary sees/ })
+    expect(link.getAttribute('href')).toBe('http://192.168.3.2:8090')
   })
 
   test('a fresh Gary naps: no guilt, no pressure, nothing lost', () => {
@@ -227,6 +234,45 @@ describe('Map (issue #26)', () => {
     expect(screen.getByRole('button', { name: 'Location is off' }).disabled).toBe(true)
   })
 
+  test('the cleared places are joined by a trail, in the order they were uncovered', () => {
+    const one = render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(one.container.querySelector('path.trail')).toBeNull() // one place is not a trail
+    one.unmount()
+    const { container } = render(<MapScreen map={step(9).map} flash={NO_FLASH} quest={step(9).quest} />)
+    expect(container.querySelectorAll('path.trail').length).toBe(1)
+    expect(container.querySelectorAll('path.trail-under').length).toBe(1)
+    expect(container.querySelectorAll('.tile').length).toBe(step(9).map.length) // the trail is not a pin
+  })
+
+  test('one cell per place, lit for each uncovered one', () => {
+    const { container } = render(<MapScreen map={step(9).map} flash={NO_FLASH} />)
+    expect(container.querySelectorAll('.explored-cell').length).toBe(step(9).map.length)
+    expect(container.querySelectorAll('.explored-cell.on').length).toBe(step(9).map.filter((t) => t.cleared).length)
+  })
+
+  test('"Quest" jumps to the quest\'s place; with no quest it is off', () => {
+    const { unmount } = render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(screen.getByRole('button', { name: 'Quest' }).disabled).toBe(true)
+    unmount()
+    render(<MapScreen map={example.map} flash={NO_FLASH} quest={example.quest} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Quest' }))
+    expect(screen.getByRole('heading', { name: 'Hack Western, your table' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'All places' })) // fits every pin; nothing to assert but that it does not throw
+    expect(screen.getByText('Fog')).toBeTruthy() // the key says what the marks mean
+    expect(screen.getByText('Your trail')).toBeTruthy()
+  })
+
+  test('how far a place is, worked out from your own location in the browser', () => {
+    navigator.geolocation = {
+      watchPosition: (ok) => (ok({ coords: { latitude: 42.9849, longitude: -81.2453, accuracy: 20 } }), 9),
+      clearWatch: () => {},
+    }
+    render(<MapScreen map={example.map} flash={NO_FLASH} />)
+    expect(screen.queryByText(/from you/)).toBeNull() // nothing picked, nothing said
+    fireEvent.click(screen.getByRole('button', { name: 'Harris Park, uncovered' }))
+    expect(screen.getByText('About 900 m from you, as the crow flies.')).toBeTruthy()
+  })
+
   test('many places still draw', () => {
     const many = Array.from({ length: 25 }, (_, i) => ({ place: `Place ${i}`, quest_id: `q-${i}`, cleared: i % 2 === 0, finds: [] }))
     const { container } = render(<MapScreen map={many} flash={NO_FLASH} />)
@@ -245,6 +291,15 @@ describe('Where places sit on the map', () => {
     expect(Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])).toBeLessThan(0.008)
   })
 
+  test('distances read plainly', () => {
+    expect(Math.round(metresBetween([42.9849, -81.2453], [42.9849, -81.2453]))).toBe(0)
+    expect(Math.round(metresBetween([43, -81], [43.01, -81]))).toBe(1112) // a hundredth of a degree north
+    expect(away(null, [43, -81])).toBeNull()
+    expect(away([43, -81], [43.0001, -81])).toBe('You are here.')
+    expect(away([43, -81], [43.003, -81])).toBe('About 350 m from you, as the crow flies.')
+    expect(away([43, -81], [43.02, -81])).toBe('About 2.2 km from you, as the crow flies.')
+  })
+
   test('a place nobody has placed lands near downtown, always in the same spot', () => {
     const one = layout(['Some Brand New Park']).get('Some Brand New Park')
     expect(layout(['Some Brand New Park']).get('Some Brand New Park')).toEqual(one)
@@ -254,24 +309,24 @@ describe('Where places sit on the map', () => {
 })
 
 describe('Field guide and journal (issue #27)', () => {
-  test('all 79 things: found ones named and in colour, the rest locked silhouettes', () => {
+  test('all 90 things: found ones named and in colour, the rest locked silhouettes', () => {
     const { container } = render(<Guide guide={example.guide} journal={example.journal} now={at(example.journal[0].ts)} flash={NO_FLASH} />)
     expect(container.querySelectorAll('.specimen').length).toBe(0) // the finds tab comes first
     fireEvent.click(screen.getByRole('button', { name: 'Field guide' }))
-    expect(screen.getByText('1 of 79 found')).toBeTruthy()
-    expect(container.querySelectorAll('.specimen').length).toBe(79)
+    expect(screen.getByText('1 of 90 found')).toBeTruthy()
+    expect(container.querySelectorAll('.specimen').length).toBe(90)
     expect(container.querySelectorAll('.specimen.got').length).toBe(1)
-    expect(container.querySelectorAll('.specimen.locked').length).toBe(78)
+    expect(container.querySelectorAll('.specimen.locked').length).toBe(89)
     expect(container.querySelector('.specimen.got').textContent).toContain('bench')
-    expect(container.querySelectorAll('.specimen.locked .thing-icon.locked').length).toBe(78)
+    expect(container.querySelectorAll('.specimen.locked .thing-icon.locked').length).toBe(89)
     expect(container.querySelector('.specimen.locked').getAttribute('aria-label')).toBe('Not found yet')
-    expect(screen.getByText('1 of 33')).toBeTruthy() // outdoors
+    expect(screen.getByText('1 of 44')).toBeTruthy() // outdoors
     expect(screen.getByText('0 of 46')).toBeTruthy() // indoors
   })
 
   test('the counter comes from the state, not from counting on the page', () => {
-    render(<Guide guide={{ total: 79, found: step(9).guide.found }} journal={[]} now={at(story.steps[9].now)} flash={NO_FLASH} />)
-    expect(screen.getByText('4 of 79 found')).toBeTruthy()
+    render(<Guide guide={{ total: 90, found: step(9).guide.found }} journal={[]} now={at(story.steps[9].now)} flash={NO_FLASH} />)
+    expect(screen.getByText('4 of 90 found')).toBeTruthy()
   })
 
   test("today's finds, newest first, with marks and the device's time; older ones under Earlier", () => {
@@ -560,5 +615,99 @@ describe('The check-in pop-up and Settings', () => {
     expect(screen.getByText(/Herds are ranked\. People never are\./)).toBeTruthy()
     expect(screen.getByText("Check-ins never show in Gary's world or the herd.")).toBeTruthy()
     window.localStorage.clear()
+  })
+
+  test('the Sound switch remembers its choice and says hello when it is turned on', () => {
+    const played = []
+    vi.stubGlobal('Audio', class {
+      constructor(url) {
+        this.url = url
+      }
+      play() {
+        played.push(this.url)
+        return Promise.resolve()
+      }
+    })
+    try {
+      window.localStorage.clear()
+      render(<Settings service={fakeService(exampleWellness)} stamp="a" status="live" />)
+      const box = screen.getByRole('checkbox', { name: "Play Gary's sounds on this device" })
+      expect(box.checked).toBe(true) // on unless switched off
+      fireEvent.click(box)
+      expect(box.checked).toBe(false)
+      expect(window.localStorage.getItem('gary.sound')).toBe('no')
+      expect(played).toEqual([]) // switching off is silent
+      fireEvent.click(box)
+      expect(window.localStorage.getItem('gary.sound')).toBe('yes')
+      expect(played.length).toBe(1)
+    } finally {
+      window.localStorage.clear()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test('Reset Gary asks first, then starts over and tells the page to look again', async () => {
+    const service = { ...fakeService(exampleWellness), resetGary: vi.fn(async () => ({ ok: true })) }
+    const onReset = vi.fn()
+    render(<Settings service={service} stamp="a" status="live" onReset={onReset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    expect(screen.getByText('Forget every sniff and check-in?')).toBeTruthy()
+    expect(service.resetGary).not.toHaveBeenCalled() // one tap is never enough
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByText('Forget every sniff and check-in?')).toBeNull()
+    expect(service.resetGary).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('Gary is reset.')).toBeTruthy()
+    expect(service.resetGary).toHaveBeenCalledTimes(1)
+    expect(service.resetGary).toHaveBeenCalledWith('')
+    expect(onReset).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/sh start_gary\.sh --fresh/)).toBeTruthy() // the Pi keeps its own list
+    expect(screen.queryByLabelText('This server wants its admin key')).toBeNull()
+  })
+
+  test('on a server with an admin key, Reset Gary asks for it and does nothing without it', async () => {
+    const service = {
+      ...fakeService(exampleWellness),
+      resetGary: vi.fn(async (key) => {
+        if (key !== 'open-sesame') throw Object.assign(new Error('HTTP 401'), { needsKey: true })
+        return { ok: true }
+      }),
+    }
+    const onReset = vi.fn()
+    render(<Settings service={service} stamp="a" status="live" onReset={onReset} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    const field = await screen.findByLabelText('This server wants its admin key')
+    expect(field.type).toBe('password')
+    expect(screen.getByRole('button', { name: 'Yes, reset' }).disabled).toBe(true) // no key, no reset
+    expect(onReset).not.toHaveBeenCalled()
+
+    fireEvent.change(field, { target: { value: 'wrong' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('That admin key was not accepted.')).toBeTruthy()
+    expect(onReset).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('This server wants its admin key'), { target: { value: 'open-sesame' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect(await screen.findByText('Gary is reset.')).toBeTruthy()
+    expect(onReset).toHaveBeenCalledTimes(1)
+    expect(screen.queryByText('That admin key was not accepted.')).toBeNull()
+  })
+
+  test('a reset that fails for another reason says so and leaves the choice open', async () => {
+    const service = {
+      ...fakeService(exampleWellness),
+      resetGary: vi.fn(async () => {
+        throw Object.assign(new Error('HTTP 500'), { needsKey: false })
+      }),
+    }
+    render(<Settings service={service} stamp="a" status="live" onReset={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Gary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset' }))
+    expect((await screen.findByRole('alert')).textContent).toBe('Gary could not be reset (HTTP 500).')
+    expect(screen.getByRole('button', { name: 'Yes, reset' }).disabled).toBe(false)
   })
 })

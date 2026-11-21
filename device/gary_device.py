@@ -23,8 +23,10 @@ While it runs
         kill -HUP  $(cat gary.pid)   reload quests.tsv (sync.py does this)
 
 Files it reads
-    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite   the detector
-    models/coco_labels.txt                                 class id -> name
+    models/ssd_mobilenet_v2_coco_quant_postprocess.tflite + coco_labels.txt
+                                 the main detector: 80 everyday things and people
+    models/gary_detector.tflite + gary_nature_labels.txt
+                                 the extra detector, for nature (models/make_model.py)
     quests.tsv                                             id, target, xp, text, [herd]
                                                            (written by sync.py; until it exists,
                                                            the seed quests in quests.seed.tsv)
@@ -87,9 +89,48 @@ def _interpreter_class():
         sys.exit("No TFLite runtime found. Run: pip install ai-edge-litert")
 
 
+def decode_yolo(out, labels, min_score, iou=0.5):
+    """YOLO output [4+K, A] (or [A, 4+K]): cx, cy, w, h in 0..1, then one score
+    per class. Returns [(label, score, (x0, y0, x1, y1))], overlaps merged."""
+    if out.shape[0] != len(labels) + 4:
+        out = out.T
+    scores = out[4:]
+    cls = scores.argmax(0)
+    best = scores[cls, np.arange(scores.shape[1])]
+    keep = np.flatnonzero(best >= min_score)
+    if keep.size == 0:
+        return []
+    cx, cy, w, h = out[:4, keep]
+    boxes = np.stack([cx - w / 2, cy - h / 2, w, h], 1)
+    found = []
+    for c in np.unique(cls[keep]):  # merge overlaps within one kind of thing only
+        mine = np.flatnonzero(cls[keep] == c)
+        for j in np.array(cv2.dnn.NMSBoxes(boxes[mine].tolist(), best[keep][mine].tolist(), min_score, iou)).flatten():
+            x, y, bw, bh = boxes[mine[j]]
+            found.append((labels[c], float(best[keep][mine[j]]), (float(x), float(y), float(x + bw), float(y + bh))))
+    return sorted(found, key=lambda f: -f[1])
+
+
+def overlap(a, b):
+    """Intersection over union of two (x0, y0, x1, y1) boxes."""
+    w = min(a[2], b[2]) - max(a[0], b[0])
+    h = min(a[3], b[3]) - max(a[1], b[1])
+    if w <= 0 or h <= 0:
+        return 0.0
+    both = w * h
+    return both / ((a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - both)
+
+
+def merge(main, extra, iou=0.5):
+    """Both detectors' finds. Where they box the same thing, the extra (nature)
+    model's name wins: SSD calls a squirrel a cat."""
+    return [m for m in main if not any(overlap(m[2], e[2]) > iou for e in extra)] + extra
+
+
 class Detector:
-    """SSD-style TFLite detector with the standard 4 outputs:
-    boxes [1,N,4], classes [1,N], scores [1,N], count [1]."""
+    """A TFLite detector of either kind:
+    SSD, with the standard 4 outputs: boxes [1,N,4], classes [1,N], scores [1,N], count [1]
+    YOLO (models/make_model.py), with one output [1, 4+K, A], input NHWC or NCHW."""
 
     def __init__(self, model_path, labels_path, threads=3):
         Interpreter = _interpreter_class()
@@ -97,27 +138,43 @@ class Detector:
         self.interp.allocate_tensors()
         inp = self.interp.get_input_details()[0]
         self.in_index = inp["index"]
-        _, self.in_h, self.in_w, _ = [int(v) for v in inp["shape"]]
+        shape = [int(v) for v in inp["shape"]]
+        self.nchw = shape[1] == 3
+        self.in_h, self.in_w = shape[2:4] if self.nchw else shape[1:3]
         self.in_float = inp["dtype"] == np.float32
         outs = self.interp.get_output_details()
-        if len(outs) < 4:
-            sys.exit("Model does not have the 4 detection outputs this code expects.")
-        self.out_boxes, self.out_classes, self.out_scores, self.out_count = [
-            o["index"] for o in outs[:4]
-        ]
         with open(labels_path, "r", encoding="utf-8") as f:
             self.labels = [line.strip() for line in f]
+        self.yolo = len(outs) == 1
+        if self.yolo:
+            self.out = outs[0]["index"]
+            if len(self.labels) + 4 not in [int(v) for v in outs[0]["shape"]]:
+                sys.exit("The labels file does not match the model: %d names for output %s."
+                         % (len(self.labels), list(outs[0]["shape"])))
+        elif len(outs) < 4:
+            sys.exit("Model does not have the 4 detection outputs this code expects.")
+        else:
+            self.out_boxes, self.out_classes, self.out_scores, self.out_count = [
+                o["index"] for o in outs[:4]
+            ]
 
     def detect(self, frame_bgr, min_score=0.3):
         """Return [(label, score, (x0, y0, x1, y1))] with box values in 0..1."""
         img = cv2.resize(frame_bgr, (self.in_w, self.in_h))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if self.in_float:
-            tensor = (img.astype(np.float32) - 127.5) / 127.5
-        else:
+        if not self.in_float:
             tensor = img
-        self.interp.set_tensor(self.in_index, tensor[np.newaxis, ...])
+        elif self.yolo:
+            tensor = img.astype(np.float32) / 255.0
+        else:
+            tensor = (img.astype(np.float32) - 127.5) / 127.5
+        if self.nchw:
+            tensor = tensor.transpose(2, 0, 1)
+        self.interp.set_tensor(self.in_index, np.ascontiguousarray(tensor[np.newaxis, ...]))
         self.interp.invoke()
+        if self.yolo:
+            return [f for f in decode_yolo(self.interp.get_tensor(self.out)[0], self.labels, min_score)
+                    if f[0] not in ("n/a", "")]
         boxes = self.interp.get_tensor(self.out_boxes)[0]
         classes = self.interp.get_tensor(self.out_classes)[0]
         scores = self.interp.get_tensor(self.out_scores)[0]
@@ -282,14 +339,25 @@ class Stability:
 # --------------------------------------------------------------------------
 # Sound
 # --------------------------------------------------------------------------
-def _tone(freqs, seconds_each=0.14, rate=22050, volume=0.5):
+def _tone(notes, rate=22050, volume=0.5):
+    """notes: [(start Hz, end Hz, seconds)]. A note whose end differs slides
+    between the two (the "wah" of a miss). 0 Hz is a rest. A little of the
+    second and third harmonic makes it carry on a small speaker."""
     samples = []
-    for freq in freqs:
-        n = int(rate * seconds_each)
+    for start, end, seconds in notes:
+        n = int(rate * seconds)
+        phase = 0.0
         for i in range(n):
-            env = min(1.0, i / (0.01 * rate)) * min(1.0, (n - i) / (0.04 * rate))
-            samples.append(volume * env * math.sin(2 * math.pi * freq * i / rate))
+            freq = start + (end - start) * i / max(1, n - 1)
+            phase += 2 * math.pi * freq / rate
+            env = min(1.0, i / (0.01 * rate)) * min(1.0, (n - i) / (0.05 * rate))
+            wave_ = math.sin(phase) + 0.3 * math.sin(2 * phase) + 0.15 * math.sin(3 * phase)
+            samples.append(volume * env * wave_ / 1.45 if freq else 0.0)
     return rate, samples
+
+
+def _notes(freqs, seconds=0.12):
+    return [(f, f, seconds) for f in freqs]
 
 
 def ensure_sounds(folder):
@@ -297,20 +365,22 @@ def ensure_sounds(folder):
     Gary's voice. Drop your own WAV files in with the same names to replace
     them, or add <label>.wav (for example bottle.wav) for spoken labels."""
     os.makedirs(folder, exist_ok=True)
+    # Right answers are quick and rising; a miss slides down, slow and sad, so
+    # the two never sound alike (the buzzer patterns in gary_io.py do the same).
     chimes = {
-        "hello": [523, 659],
-        "new": [659, 880, 1047],              # a new discovery
-        "again": [587],                       # Gary has seen one before
-        "quest": [523, 659, 784, 1047],       # quest complete
-        "herd": [880, 1047, 1319, 1568],      # a friend is in the frame
-        "nothing": [392, 330],                # nothing he can name
-        "done": [523, 659, 784, 1047, 1319],  # every quest finished
+        "hello": _notes([523, 784]),
+        "new": _notes([784, 988, 1319], 0.09),                                # a new discovery
+        "again": _notes([880, 1175], 0.08),                                   # seen one before
+        "quest": _notes([523, 659, 784], 0.08) + [(1047, 1047, 0.45)],        # quest complete: a run up, then hold
+        "herd": _notes([1319, 0, 1568, 0, 1760], 0.06),                       # a friend is in the frame
+        "nothing": [(330, 300, 0.35), (0, 0, 0.08), (294, 196, 0.75)],        # wah... wahhh
+        "done": _notes([523, 659, 784, 1047, 784], 0.1) + [(1047, 1047, 0.6)],  # every quest finished
     }
-    for name, freqs in chimes.items():
+    for name, notes in chimes.items():
         path = os.path.join(folder, name + ".wav")
         if os.path.exists(path):
             continue
-        rate, samples = _tone(freqs)
+        rate, samples = _tone(notes)
         with wave.open(path, "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
@@ -450,8 +520,13 @@ def main():
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--image", help="run on one image file instead of the camera")
     ap.add_argument("--save-debug", help="with --image: save an annotated copy here")
+    # Two models on every frame: SSD for everyday things and people, and an Open
+    # Images YOLO for nature (squirrel, tree, duck), which SSD cannot name.
     ap.add_argument("--model", default=os.path.join(HERE, "models", "ssd_mobilenet_v2_coco_quant_postprocess.tflite"))
     ap.add_argument("--labels", default=os.path.join(HERE, "models", "coco_labels.txt"))
+    ap.add_argument("--extra-model", default=os.path.join(HERE, "models", "gary_detector.tflite"),
+                    help='a second detector run on the same frames, or "none"')
+    ap.add_argument("--extra-labels", default=os.path.join(HERE, "models", "gary_nature_labels.txt"))
     ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
     ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
     ap.add_argument("--device", default="gary-01", help="name written into every journal line")
@@ -469,6 +544,7 @@ def main():
     args = ap.parse_args()
 
     detector = Detector(args.model, args.labels, args.threads)
+    extra = None if args.extra_model == "none" else Detector(args.extra_model, args.extra_labels, args.threads)
     quests = load_quests(quests_file(args.quests))
     if args.reset and os.path.exists(args.log):
         os.rename(args.log, args.log + "." + time.strftime("%Y%m%d-%H%M%S") + ".bak")
@@ -477,7 +553,7 @@ def main():
     speaker = Speaker(args.sounds, args.audio_cmd, args.mute)
     stable = Stability(args.window, args.need)
 
-    known = set(detector.labels)
+    known = set(detector.labels) | (set(extra.labels) if extra else set())
     for q in quests:
         if q.label not in known:
             print("WARNING: quest %s wants '%s', which this model cannot see." % (q.id, q.label))
@@ -625,6 +701,8 @@ def main():
 
             t0 = time.monotonic()
             detections = detector.detect(frame, min_score=min(0.3, args.threshold))
+            if extra:
+                detections = merge(detections, extra.detect(frame, min_score=min(0.3, args.threshold)))
             infer_ms = (time.monotonic() - t0) * 1000.0
 
             best = {}

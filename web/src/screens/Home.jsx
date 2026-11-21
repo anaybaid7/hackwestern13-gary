@@ -6,7 +6,10 @@ import QuestCard from '../components/QuestCard.jsx'
 import { garyLine } from '../voice.js'
 import { STAGE_NAMES } from '../words.js'
 
-export default function Home({ state, flash, onChoose, onShowMap, busy }) {
+// Where the device serves what Gary sees (device/qnx/live.sh), if anywhere.
+const LIVE_URL = import.meta.env.VITE_LIVE_URL
+
+export default function Home({ state, flash, onChoose, onShowMap, busy, liveUrl = LIVE_URL }) {
   const { gary, journal } = state
   const celebrating = Boolean(flash.find)
   return (
@@ -30,6 +33,11 @@ export default function Home({ state, flash, onChoose, onShowMap, busy }) {
           {garyLine(gary, journal[0])}
         </p>
         <Climb gary={gary} />
+        {liveUrl && (
+          <a className="link live-link" href={liveUrl} target="_blank" rel="noreferrer">
+            What Gary sees ↗
+          </a>
+        )}
       </section>
 
       <QuestCard

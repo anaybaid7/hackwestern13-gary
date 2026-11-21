@@ -10,7 +10,7 @@ or a removal needs all four of you to agree, in an issue.
 
 | File | What it is |
 | --- | --- |
-| `labels.json` | The 79 things Gary can recognise, each marked outdoor or indoor. `friend` names the label that means a person is in frame |
+| `labels.json` | The 90 things Gary can recognise, each marked outdoor or indoor. `friend` names the label that means a person is in frame |
 | `examples/event.discovery.json` | A Sniff Test that named something |
 | `examples/event.miss.json` | A Sniff Test that found nothing nameable |
 | `examples/event.mood.json` | A private mood check-in |
@@ -40,7 +40,7 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `GET /api/state` | web | | State |
 | `POST /api/mood` | web | `{"phase": "before"\|"after", "value": 1..5}`, header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | `{"ok": true}`. `401` without the passphrase |
 | `GET /api/wellness` | web | header `X-Private-Key` if the server sets `GARY_PRIVATE_KEY` | Wellness. `401` without the passphrase |
-| `POST /api/dev/reset` | demos, tests | header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | forgets events and moods, reloads seed quests |
+| `POST /api/dev/reset` | demos, tests, the page's "Reset Gary" button | optional `{"keep_quests": true}`; header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | with `keep_quests`: forgets events and moods, keeps every quest and opens them all again. Without it: forgets events and moods, reloads seed quests |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.

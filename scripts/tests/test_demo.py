@@ -194,7 +194,7 @@ def test_reset_asks_first_and_then_puts_the_scouts_quests_back():
         assert ready.returncode == 0
         assert "ok    2 quests from live scout runs, 2 dated today" in ready.stdout
         assert "ok    2 cached quests saved from the live run of 2026-11-22T12:00:00Z" in ready.stdout
-        assert 'A tap on Short will show: "Find a bench at Springbank Park" (found by the scout).' in ready.stdout
+        assert 'A tap on Short will show: "Find a duck at Springbank Park" (found by the scout).' in ready.stdout
         assert "already on the sign" not in ready.stdout
     finally:
         backend.close()

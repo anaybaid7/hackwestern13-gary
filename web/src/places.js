@@ -71,3 +71,24 @@ export function layout(places) {
   }
   return out
 }
+
+/** Metres between two [lat, lng] points, as the crow flies. */
+export function metresBetween([lat1, lng1], [lat2, lng2]) {
+  const rad = Math.PI / 180
+  const dLat = (lat2 - lat1) * rad
+  const dLng = (lng2 - lng1) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLng / 2) ** 2
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/**
+ * "About 1.2 km from you." Worked out in the browser from your own location,
+ * which is never sent anywhere. Straight-line, so it says so.
+ */
+export function away(me, there) {
+  if (!me || !there) return null
+  const m = metresBetween(me, there)
+  if (m < 60) return 'You are here.'
+  const said = m < 1000 ? `${Math.round(m / 50) * 50} m` : `${(m / 1000).toFixed(1)} km`
+  return `About ${said} from you, as the crow flies.`
+}

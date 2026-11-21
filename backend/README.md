@@ -48,7 +48,8 @@ curl -s -X POST localhost:8000/api/mood -H 'Content-Type: application/json' -d '
 curl -s localhost:8000/api/wellness
 
 # start over
-curl -s -X POST localhost:8000/api/dev/reset
+curl -s -X POST localhost:8000/api/dev/reset                    # back to the built-in quests
+curl -s -X POST localhost:8000/api/dev/reset -H "Content-Type: application/json" -d '{"keep_quests": true}'   # keep the quests, open them all again
 ```
 
 No device handy? From the repo root: `python3 device/fake_sniff.py bench --friend`.
@@ -116,8 +117,23 @@ and plain SQL, and says so in `/api/health` (`"hypertable": false`).
 
 ## Deploy on Vultr (issue #22)
 
-1. In Vultr, create a Cloud Compute instance: Ubuntu 24.04, the smallest plan,
-   Toronto. Add your SSH key. Note its IP address.
+**Gary is live at http://149.248.50.153** since Sat 21 Nov 2026, 12:55 pm: one
+Vultr Cloud Compute instance in Toronto (shared CPU, 1 vCPU, 1 GB, Ubuntu
+24.04). That one address is the web page (`/`) and the API (`/api/...`).
+
+To update it after a merge, on the laptop that holds the server's SSH key:
+
+```
+git pull
+sh backend/deploy/deploy.sh root@149.248.50.153
+```
+
+To set up a machine like it from nothing:
+
+1. In Vultr, create a Cloud Compute instance: Shared CPU, the 1 GB plan
+   (`vc2-1c-1gb`), Toronto, Ubuntu 24.04. **Pick your SSH key on that same
+   screen.** A key added to the account afterwards is not put on a machine that
+   already exists. Note the IP address.
 2. From your laptop, in the repo:
 
 ```
@@ -126,29 +142,55 @@ sh backend/deploy/deploy.sh root@<ip address>
 
 It builds the web page, copies `backend/`, `contract/` and `web/dist`, makes a
 Python venv on the server, starts a service on port 80, opens port 80 in the
-server's firewall, and checks `http://<ip address>/api/health`.
+server's firewall, and checks `http://<ip address>/api/health`. With a key
+that is not your default one, name it:
+`GARY_SSH="ssh -i $HOME/path/to/key" sh backend/deploy/deploy.sh root@<ip address>`.
 
 3. Secrets, on the server:
 
 ```
 ssh root@<ip address>
-nano /opt/gary/.env        # DATABASE_URL, SCOUT_KEY, GARY_ADMIN_KEY
+nano /opt/gary/.env        # SCOUT_KEY, GARY_ADMIN_KEY, GARY_PRIVATE_KEY, DATABASE_URL
 systemctl restart gary
 ```
 
-Then one address carries both: `http://<ip address>/` is the web page and
-`http://<ip address>/api/...` is the API. Point the device at it with
-`GARY_API=http://<ip address>` in `device/gary.env`.
+`/api/health` then says which keys are set (`"keys"`), never what they are,
+and where the data is kept (`"store"`).
 
-Run `deploy.sh` again to update. Logs: `journalctl -u gary -f`.
+4. Close the door. Logins with the key only, and a new root password, because
+   Vultr shows the first one on the instance page:
 
-**Not tested on a Vultr machine.** The server script was rehearsed here in a
-container without systemd: the copy, the venv, the service user and the start
-command work, and a restart kept the state on Postgres. The systemd unit and
-the firewall line have not run.
+```
+ssh root@<ip address>
+printf '%s\n' 'PasswordAuthentication no' 'KbdInteractiveAuthentication no' 'PermitRootLogin prohibit-password' > /etc/ssh/sshd_config.d/00-gary.conf
+sshd -t && systemctl restart ssh
+passwd
+```
+
+If the machine was made without your key, log in once with the password from
+the instance page to add it: `ssh-copy-id -i ~/path/to/key.pub root@<ip address>`.
+
+Point the device at the address with `GARY_API=http://<ip address>` in
+`device/gary.env`, and the scout with `GARY_API` and `SCOUT_KEY` in `scout/.env`.
+Logs: `journalctl -u gary -f`.
+
+**What has run on the Vultr machine (21 Nov 2026):**
+
+- `deploy.sh` from a Mac: the build, the copy, the venv, the service, the
+  firewall line, the health check. The server came back by itself after a reboot.
+- With the three keys set, posting quests, the reset and the private side each
+  answer `401` without their key. Checked from a second network.
+- `python3 scripts/demo.py replay` passed all eight beats against it, and
+  `demo.py check` says READY. The scout posted its saved live-run quests with
+  the scout key.
+
+**Not yet:** `DATABASE_URL` is not set on the server, so it keeps its data in
+memory and a restart forgets it (then `python3 scout/scout.py --cached` puts
+the scout's quests back). The real device has not posted to it.
 
 The page is served over plain `http`. That is fine for the demo. Anything that
-needs `https` (an Auth0 login, issue #23) needs a domain name first.
+needs `https` (an Auth0 login, issue #23, or the "where am I" dot on the map,
+which browsers only allow on `https`) needs a domain name first.
 
 ## The rules, in brief
 

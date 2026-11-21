@@ -17,9 +17,12 @@ records facts; XP, stages and the map belong to the backend.
 | `start_gary.sh`, `stop_gary.sh` | Run all of it in the background, with no keyboard or screen | Tested on Linux. **Not yet run on QNX** (issue #13) |
 | `gary_numbers.py`, `cpu_load.py` | The timing table for the judges | Tested on Linux (issue #14) |
 | `fake_sniff.py` | Posts a pretend sniff, for teammates with no device | Tested |
-| `models/` | SSD MobileNet v2 detector (80 everyday objects) and its labels | From google-coral/test_data |
+| `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The main detector: SSD MobileNet v2, 80 everyday things and people. 57 ms a frame on the Pi | From google-coral/test_data |
+| `models/gary_detector.tflite`, `gary_nature_labels.txt` | The extra detector, run on the same frames: YOLOv8s trained on Open Images, of which Gary keeps only the nature names (tree, squirrel, duck, butterfly, rabbit, deer ...). 228 ms a frame on the Pi, float32, 46 MB. `--extra-model none` turns it off | Made by `models/make_model.py`. Scores: `bench_results.md` |
+| `bench_model.py` | How well the model names things: scores it on labelled photos (`--fetch` downloads about 10 per thing from Wikimedia Commons into `bench_photos/`, not committed). Writes `bench_results.md` | Run on the laptop |
+| `qnx/live.sh` | A live view of what Gary sees, with his boxes, at `http://<pi>:8090`. Needs `GARY_LIVE=live/frame.jpg` in `gary.env`; off unless set. Each frame replaces the last, nothing is kept. The web page links to it when started with `VITE_LIVE_URL` | Run on the Pi |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
-| `sounds/` | Placeholder chimes | Replace with Gary's voice |
+| `sounds/` | Clips that match the buzzer: right answers rise, a miss slides down. Played only with `GARY_SOUND=on` in `gary.env` (a USB speaker on the Pi) | Replace with Gary's voice |
 
 Both versions of Gary read the same files and write the same `journal.jsonl`.
 Each line of it is an Event from [`../contract`](../contract/README.md).
@@ -277,13 +280,18 @@ with `--audio-cmd "aplay -q -D plughw:2,0"` (2 = that number).
   stop `sync.py` and edit `quests.tsv` (or `quests.seed.tsv`): one quest per
   line, TAB-separated: `id  target  xp  text`, plus `herd` as a fifth column
   for a quest that needs a friend in frame. `target` must be a name in
-  `models/coco_labels.txt`. When two open quests want the same thing, the
+  `models/coco_labels.txt` or `models/gary_nature_labels.txt`. When two open quests want the same thing, the
   earlier line wins; `sync.py` puts the quest chosen on the web page first.
 - **Gary's voice:** replace the WAV files in `sounds/` (`hello`, `new`,
   `again`, `quest`, `herd`, `nothing`, `done`). Add `sounds/<label>.wav`, for
   example `bottle.wav`, and Gary plays it after the chime.
 - **Strictness:** `--threshold 0.6` asks for more confidence. `--need 4` asks for
   4 of the last 5 frames. Raise these if Gary names the wrong things.
+- **What Gary can recognise:** edit `NATURE` (or `RENAME`) in `models/make_model.py` and the
+  same names in `contract/labels.json`, then rebuild the model (the command is
+  at the top of the script; it needs its own Python 3.12 with `ultralytics`).
+  `tests/test_device.py` checks the two lists agree. Do not export it as int8:
+  that ruins the class scores, and 8-bit weights use an op older TFLite lacks.
 - **Start over:** `sh start_gary.sh --fresh`, or delete `journal.jsonl` and `sync.state`.
 
 ## 11. What it writes
