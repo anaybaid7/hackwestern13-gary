@@ -350,6 +350,7 @@ class Journal {
       if (!label.empty()) seen_.insert(label);
       if (!quest.empty()) done_.insert(quest);
     }
+    close_torn_line();
   }
 
   bool done(const std::string& quest_id) const { return done_.count(quest_id) > 0; }
@@ -381,6 +382,19 @@ class Journal {
   }
 
  private:
+  // If the power went mid-write, the file ends without a newline. End that
+  // line now, so the next event starts on a line of its own.
+  void close_torn_line() {
+    const int fd = open(path_.c_str(), O_RDWR | O_APPEND);
+    if (fd < 0) return;  // no journal yet
+    char last = '\n';
+    const off_t size = lseek(fd, 0, SEEK_END);
+    if (size > 0 && pread(fd, &last, 1, size - 1) == 1 && last != '\n') {
+      if (write(fd, "\n", 1) == 1) fsync(fd);
+    }
+    close(fd);
+  }
+
   void append(const char* type, const char* body) {
     ++seq_;
     const auto now = std::chrono::system_clock::now();
@@ -913,9 +927,13 @@ int main(int argc, char** argv) {
   // Per-frame timings: frame-to-decision ms, model ms. Only the most recent
   // kKeepTimings are kept, so a device left on for days does not grow.
   constexpr size_t kKeepTimings = 200000;
-  std::vector<std::pair<double, double>> timings;
+  struct Timing {
+    double frame_to_decision_ms, model_ms, t_ms;  // t_ms: since Gary started
+  };
+  std::vector<Timing> timings;
   size_t dropped = 0, frames_total = 0, window_start = 0;
-  auto last_report = Clock::now();
+  const auto started = Clock::now();
+  auto last_report = started;
   int empty_waits = 0;
   std::vector<double> sniff_ms;  // button press to answer
   int discoveries = 0, fresh = 0, misses = 0;
@@ -955,24 +973,32 @@ int main(int argc, char** argv) {
       return;
     }
 
-    // An open quest's target wins if it is in view.
+    // An open quest's target wins if it is in view. A herd quest only
+    // completes with a friend in the frame, so a quest that can be finished
+    // right now is preferred over a herd quest that cannot. Among equals the
+    // surest target wins, then the earlier line of the file (sync.py puts the
+    // active quest first). gary_device.py: choose_quest() is the same rule.
     const Quest* quest = nullptr;
     float quest_score = 0.f;
+    bool quest_doable = false;
     for (const auto& q : quests) {
       if (journal.done(q.id) || q.label == opt.friend_label) continue;
       const auto hit = confirmed.find(q.label);
       if (hit == confirmed.end()) continue;
-      if (!quest || hit->second > quest_score) {
+      const bool doable = friend_here || !q.herd;
+      const bool better = !quest || (doable && !quest_doable) ||
+                          (doable == quest_doable && hit->second > quest_score);
+      if (better) {
         quest = &q;
         quest_score = hit->second;
+        quest_doable = doable;
       }
     }
     if (quest) {
       label = quest->label;
       score = quest_score;
     }
-    // A herd quest only completes with a friend in the frame.
-    const Quest* completed = (quest && (friend_here || !quest->herd)) ? quest : nullptr;
+    const Quest* completed = (quest && quest_doable) ? quest : nullptr;
     const bool is_new = !journal.seen(label);
     const double ms = latency();
     journal.add_discovery(label, score, friend_here, is_new,
@@ -1045,7 +1071,8 @@ int main(int argc, char** argv) {
 
     // Gary now knows what is in view: stop the clock. "Frame" = the frame
     // reaching this program; time inside the camera and USB link is not included.
-    timings.emplace_back(ms_between(stamp, Clock::now()), model_ms);
+    const auto decided = Clock::now();
+    timings.push_back({ms_between(stamp, decided), model_ms, ms_between(started, decided)});
     ++frames_total;
     handle_sniff();
 
@@ -1055,8 +1082,8 @@ int main(int argc, char** argv) {
       std::vector<double> lat;
       double model_sum = 0;
       for (size_t i = window_start; i < timings.size(); ++i) {
-        lat.push_back(timings[i].first);
-        model_sum += timings[i].second;
+        lat.push_back(timings[i].frame_to_decision_ms);
+        model_sum += timings[i].model_ms;
       }
       std::string seen;
       for (const auto& kv : confirmed) seen += (seen.empty() ? "" : ", ") + kv.first;
@@ -1082,16 +1109,22 @@ int main(int argc, char** argv) {
     std::vector<double> lat;
     double model_sum = 0;
     for (const auto& t : timings) {
-      lat.push_back(t.first);
-      model_sum += t.second;
+      lat.push_back(t.frame_to_decision_ms);
+      model_sum += t.model_ms;
     }
-    printf("\n%zu frames. Model: mean %.0f ms. Frame-to-decision: p50 %.0f ms, p95 %.0f ms, max %.0f ms.\n",
-           frames_total, model_sum / static_cast<double>(timings.size()), percentile(lat, 50),
-           percentile(lat, 95), percentile(lat, 100));
+    const double seconds = std::max(1e-3, (timings.back().t_ms - timings.front().t_ms) / 1000.0);
+    const double fps =
+        timings.size() > 1 ? static_cast<double>(timings.size() - 1) / seconds : 0.0;
+    printf("\n%zu frames, %.1f per second. Model: mean %.0f ms. Frame-to-decision: p50 %.0f ms, p95 %.0f ms, max %.0f ms.\n",
+           frames_total, fps, model_sum / static_cast<double>(timings.size()),
+           percentile(lat, 50), percentile(lat, 95), percentile(lat, 100));
+    // t_ms is the time since Gary started. gary_numbers.py turns this file into
+    // the table for the judges (issue #14).
     if (FILE* f = fopen("latency.csv", "w")) {
-      fprintf(f, "frame,frame_to_decision_ms,model_ms\n");
+      fprintf(f, "frame,frame_to_decision_ms,model_ms,t_ms\n");
       for (size_t i = 0; i < timings.size(); ++i)
-        fprintf(f, "%zu,%.2f,%.2f\n", dropped + i, timings[i].first, timings[i].second);
+        fprintf(f, "%zu,%.2f,%.2f,%.1f\n", dropped + i, timings[i].frame_to_decision_ms,
+                timings[i].model_ms, timings[i].t_ms);
       fclose(f);
     }
   }
