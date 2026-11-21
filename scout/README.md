@@ -68,8 +68,12 @@ demo look better.
 | events | City of London: events, `london.ca/events` | short |
 | events | Tourism London: events this week, `londontourism.ca/events` | short |
 
-All five were opened and read by hand while writing this, to check that each
-goal fits its page. The agent has not run on any of them yet. To add a
+The agent has not run on any of them yet. Two were re-read by hand on 21 Nov
+to check that the goal fits the page: the parks page lists each park with its
+address and features in the page's own text, and the hiking page names ten
+trails with a photo caption each and no description. The other three were not
+re-checked in that pass. On the first live run, read what comes back from each
+page and adjust its goal if the answer is thin. To add a
 page, add an entry with a `name`, a `kind`, a `url`, a `time` and a `goal`. The
 goal is plain English and must ask for JSON in the form
 `{"places": [{"name": ..., "about": ...}]}`. For an events page, ask for the
