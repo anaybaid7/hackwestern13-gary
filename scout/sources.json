@@ -11,7 +11,7 @@
     "kind": "trails",
     "url": "https://www.londontourism.ca/best-of-london/hiking",
     "time": "long",
-    "goal": "This page lists guides to hiking trails and natural areas in London, Ontario. List up to 6 trails or natural areas named on it. For each give its name and a one-sentence description taken from the page. Return JSON in the form {\"places\": [{\"name\": ..., \"about\": ...}]}."
+    "goal": "This page lists hiking trails and natural areas in and around London, Ontario, each as a headline with a photo. List up to 6 trails or natural areas named on it. For each give its name and, in a few words, what the page says or shows about it. Return JSON in the form {\"places\": [{\"name\": ..., \"about\": ...}]}."
   },
   {
     "name": "Upper Thames River Conservation Authority: London's natural areas",
