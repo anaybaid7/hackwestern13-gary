@@ -6,7 +6,12 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 4:00 am, with the Phase 5 pull request (#46).
+Last updated: Sat 21 Nov 2026, 9:13 am, with the Phase 6 pull request.
+
+**Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
+21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
+account, a key, the Pi, or four voices. `docs/RUNBOOK.md` puts that work in
+order.
 
 ## 1. What Gary is
 
@@ -67,15 +72,23 @@ running on QNX on the Pi, and the scout working on live sites.
 | #32 | Scout checks | **Done** | Gary can name the target, one quest per place, nothing closed or risky, a note on where to stand. The tests need no key |
 | #33 | Scout evidence for the judges | **Code done, needs the key** | Live runs are written to `scout/runs.jsonl`; `python3 scout/scout.py --report` writes `scout/EVIDENCE.md`. Empty until the first live run |
 | #34 | The TinyFish post | **Draft done, needs a person** | `docs/TINYFISH_POST.md`. It needs a real run to film and someone to post it |
-| #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Six claims in it are marked `[A]` to `[F]`: each is true only when its issue is closed |
+| #35 | Devpost page | **Draft done** | `docs/DEVPOST.md`. Seven claims in it are marked `[A]` to `[G]`: each is true only when its issue is closed |
 | #36 | Demo script and backup video | **Script done, needs the device** | `docs/DEMO.md`. Replayed against the backend, never rehearsed. The video needs the real device |
 | #37 | Stretch: Gemini writes Gary's lines | **Code done, needs a key** | `python3 scout/scout.py --voice`. Never run against Gemini |
-| **Phase 6** | **Integration and demo** | Open | #38 to #40 |
+| **Phase 6** | **Integration and demo** | | |
+| #38 | Feature freeze and full rehearsal | **Tools done, needs the team** | `python3 scripts/demo.py check` says what would go wrong in the demo. `replay` rehearses it with no device. The rehearsal itself needs the device and four people |
+| #39 | Fallbacks ready | **Partly** | Tested here: cached quests, a device with no network, the demo story with no backend. Needs people: the spare SD card, the video on two laptops. One drill each in `docs/RUNBOOK.md`, section 5 |
+| #40 | Submit | **Prepared, needs the team** | `README.md` is rewritten for judges. `sh scripts/check_secrets.sh` before the repo goes public. The checklist is `docs/RUNBOOK.md`, section 6 |
 
 **State words.** *Done*: finished and tested here. *Code done, needs the Pi*
 (or a key, or an account): the software is written and tested with stand-ins,
 and a person has to run it on the real thing. *Partly*: some boxes of the
 issue are ticked. *Open*: not started.
+
+To finish Phase 6, follow `docs/RUNBOOK.md` from the top. In short: bring the
+real system up (Tiger Data, Vultr, the scout, Gary), run
+`python3 scripts/demo.py check --api http://<server>` until it says READY,
+rehearse twice, then submit by Sun 8:30 am.
 
 To finish Phase 1, three things need a person:
 
@@ -133,8 +146,8 @@ Who decides what. Do not move logic across these lines:
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests, the checks, the evidence page), `sources.json` (the pages), `gary_voice.py` (optional Gemini step), tests |
-| `docs/` | D | `PLAN.md`, `DEVPOST.md` (the page, as a draft), `DEMO.md` (the three-minute script), `TINYFISH_POST.md`, `qnx-numbers.md` |
-| `scripts/` | shared | `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
+| `docs/` | D | `PLAN.md`, `RUNBOOK.md` (from now to the submission), `DEMO.md` (the three-minute script), `DEVPOST.md` (the page, as a draft), `TINYFISH_POST.md`, `qnx-numbers.md`, `img/` (screenshots for the README) |
+| `scripts/` | shared | `demo.py` (is the demo ready, reset it, replay it with no device), `check_secrets.sh` (keys in git, before the repo goes public), `e2e.py` (whole chain, no hardware), `check_all.sh` (every test), `make_examples.py` (writes the contract's example files from the backend) |
 
 Each folder has its own README with run commands and file notes.
 
@@ -182,6 +195,11 @@ sh scripts/check_all.sh          # every suite below, skipping what this machine
 | Device scripts | `python3 device/tests/test_device.py` | Python. No Pi. The two tests of Gary himself also need the device requirements |
 | QNX program, on a laptop | `sh device/qnx/host_test/run.sh` | Linux, g++, libopencv-dev |
 | Whole chain | `python3 scripts/e2e.py` | Python with the backend and device requirements |
+| Demo tools | `python3 scripts/tests/test_demo.py` | Python with the backend requirements. Also proves that the numbers quoted in `docs/DEMO.md` are what the backend gives |
+| No keys in git | `python3 scripts/tests/test_check_secrets.py` | git |
+
+None of these ever reads `backend/.env`: a test backend sets
+`GARY_NO_ENV_FILE=1`, so it can never reach the real database named there.
 
 Run `check_all.sh` before every push.
 
@@ -203,7 +221,9 @@ Full detail: `contract/README.md`. In brief:
 - **Choice** (`POST /api/quest/choose` with `{"time": "short"}`): makes a
   quest the active one. `GET /api/quests` then lists it first.
 - **Wellness** (`GET /api/wellness`, private): check-ins, before and after
-  pairs, a ready-made summary sentence, estimated outdoor minutes per day.
+  pairs, a ready-made summary sentence, estimated outdoor minutes per day, and
+  `locked`. With `GARY_PRIVATE_KEY` set on the server, this call and
+  `POST /api/mood` need the passphrase in an `X-Private-Key` header.
 - **Labels** (`contract/labels.json`): the 79 things Gary recognises, each
   marked outdoor or indoor, plus `friend` = `person`.
 
@@ -223,6 +243,8 @@ removal needs all four owners to agree, in an issue.
    - Mood is private. It never appears in `/api/state` or in anything shared.
    - No image is stored or uploaded. Only labels.
    - A friend is "a person is in frame". Never identify anyone.
+   - The page says "private" about the check-ins only when they are behind
+     the passphrase (`locked: true`). Otherwise it says the page is not locked.
    - Quest targets come from `contract/labels.json`. Quest wording is safe:
      public, accessible places only.
    - Only a quest from a live agent run is marked `tinyfish`. Never relabel a
@@ -276,7 +298,8 @@ removal needs all four owners to agree, in an issue.
 - A press of short or long is stored as a `choice` event in the same stream as
   the sniffs, so a restart keeps it and old sniffs are never re-attributed.
 - #16 and #22 need accounts: see the two steps under the status table.
-- #23: not started. `/api/mood` and `/api/wellness` have no login.
+- #23: not started. The private side has a passphrase (`GARY_PRIVATE_KEY`,
+  sent as `X-Private-Key`), not accounts.
 
 **Phase 4, front end (C)**
 
@@ -351,7 +374,7 @@ removal needs all four owners to agree, in an issue.
   documents; the real service may differ.
 - The Gemini step (`--voice`) has never called Gemini.
 - The demo has not been rehearsed on the device or timed out loud.
-- `docs/DEVPOST.md` makes six claims that are not true yet. They are marked.
+- `docs/DEVPOST.md` makes seven claims that are not true yet. They are marked.
 - No real webcam, speaker, button or buzzer has been used.
 - `gary_io.py` has never touched real GPIO pins, on QNX or on Raspberry Pi OS.
 - `start_gary.sh` has not run under QNX's shell, and the power-on line in
@@ -370,8 +393,13 @@ removal needs all four owners to agree, in an issue.
   starts fresh.
 - Gary has no GPS. The Sniff Test proves the thing, not the place: a quest's
   place is taken on trust.
-- There is no login. Mood never appears in the state or in anything shared,
-  but anyone who has the server's address can open `/api/wellness`.
+- There are no accounts. Mood never appears in the state or in anything
+  shared. With `GARY_PRIVATE_KEY` set on the server, the check-ins and the
+  wellness view open only with that passphrase, and the page says "Private".
+  Without it, anyone who has the server's address can open `/api/wellness`,
+  and the page says that instead.
+- Anyone who has the server's address can post a sniff: `POST /api/events`
+  has no key.
 - Gary recognises 79 things. Mushrooms, moss and bridges are not among them (#15).
 - The Herd Cup's rival herds are seeded demo data, marked `demo: true`.
 
@@ -386,6 +414,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 2:55 am | The Herd Cup counts quests finished with a friend plus places uncovered together; a tie goes to you, so your herd is never last. A sniff finishes any open quest that wants that thing; the quest chosen on the page wins a tie. The backend corrects a device clock that is wrong. Days and weeks turn over in `America/Toronto` |
 | 21 Nov, 3:20 am | The web page was built fresh: the React prototype was never in the repo. Mock mode plays a ten-step story written by the real backend. Progress is drawn as a mountain; the quest is a trail sign. Typefaces are bundled, so the page works with no network |
 | 21 Nov, 4:00 am | Only a quest from a live agent run is marked `tinyfish` and shown as "Found by the scout"; places from a file are `sample`. Short or long offers the scout's quests first, yesterday's too, and the built-in quests last. A quest carries the scout's line about where to stand (`note`). The demo script's eight beats were written from the features, because the concept breakdown's own list is not in the repo. The times in this table are commit times (an earlier version had some an hour or two late) |
+| 21 Nov, 9:13 am | The private side can be locked with one passphrase (`GARY_PRIVATE_KEY`), and the page says "private" only when it is. The built page ignores `?api=`, so a link cannot send check-ins to another server. Tests never read `backend/.env`. `scripts/demo.py check` is the gate before a rehearsal or the demo |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 
