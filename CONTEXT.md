@@ -134,7 +134,10 @@ Who decides what. Do not move logic across these lines:
 
 - **Device** records facts: what, when, friend or not. It never decides XP.
 - **Backend** owns every rule: XP, stages, naps, the map, the herd.
-- **Web** draws what the backend says. It decides nothing.
+- **Web** draws what the backend says. It decides nothing, with one
+  exception for privacy: whether you are at the quest's place is worked out in
+  the browser, so a position never leaves it. The page sends only "visited
+  quest X" (`POST /api/visit`); the backend decides what that earns.
 - **Scout** only writes quests.
 
 ## 4. Repo map
@@ -435,6 +438,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 1:04 pm | Gary's public address is http://149.248.50.153 (Vultr, Toronto), plain `http`, no domain. The server takes logins with one SSH key only; that key and the server's three keys are kept on Moe's Mac in `~/.gary-deploy/`, outside the repo |
 | 21 Nov, 2:23 pm | Settings has a "Reset Gary" button for testing: it forgets every sniff and check-in and keeps the quests, which all open again (`POST /api/dev/reset` with `{"keep_quests": true}`). It asks first, and on a server with `GARY_ADMIN_KEY` it asks for that key. Gary on the Pi keeps his own list of finished quests, so there `sh start_gary.sh --fresh` is still needed |
 | 21 Nov, 8:15 pm | The backend, the rules and the built page run on the Pi beside Gary, started by `start_gary.sh` (`GARY_BACKEND`). On QNX: FastAPI 0.99 with pydantic 1 (pydantic-core does not build), Gary's state in SQLite (`GARY_DB`, no Postgres driver), and asyncio's `SC_IOV_MAX` set to 1024 because QNX reports -1 and large replies were cut short. The live view is served by the backend at `/live/`. Gary's confidence threshold is 0.35 (a backpack scored 0.35-0.5); the 3-of-5-frame check still guards against false finds |
+| 21 Nov, 9:30 pm | Been there: a quest finished at its place earns +10 XP. A bonus, not a gate, so Gary never punishes a sniff made elsewhere. The page compares the browser's location with the quest's `lat`/`lng` (within 150 m, or the fix's accuracy up to 500 m) and sends only the quest id; no position reaches the backend. The scout looks up positions on OpenStreetMap from the agent's street address. Hand-placed spots in `web/src/places.js` count as real; made-up map spots never do. Browsers give location only over HTTPS or on localhost |
 | Open | Who takes A, B, C and D |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |
 

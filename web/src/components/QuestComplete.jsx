@@ -36,6 +36,7 @@ export default function QuestComplete({ reward, onClose, onShowMap }) {
           <ThingIcon name={find.label} />
           <span className="reward-label">{find.label}</span>
           {find.friend && <span className="mark mark-herd">Herd</span>}
+          {find.been_there && <span className="mark mark-there">📍 Been there</span>}
         </div>
         <p className="reward-xp">+{find.xp} XP</p>
 

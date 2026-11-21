@@ -2,9 +2,9 @@
 // decides where to draw. Which places exist and which are cleared still
 // comes from the backend.
 //
-// ponytail: hand-placed spots for the places the scout and the seed quests
-// use. If the scout starts finding many new places, add optional lat/lng to
-// the contract and read them here instead.
+// A quest's own lat/lng (the scout looks them up) comes first. Then these
+// hand-placed spots for places the scout and the seed quests use. Anything
+// else gets a made-up spot near downtown, for drawing only.
 export const LONDON = [42.9849, -81.2453] // downtown London, Ontario
 
 const KNOWN = {
@@ -48,15 +48,43 @@ function hash(text) {
 const CLOSE = 0.0012 // degrees, about 130 m: pins nearer than this are nudged apart
 const SPREAD = 0.03 // degrees, about 3 km: how far from downtown an unknown place may land
 
-/** place name -> [lat, lng] for every place: the same spot on every visit. */
-export function layout(places) {
+/** {place: [lat, lng]} for the map tiles that carry real coordinates (from the scout). */
+export function realSpots(tiles) {
+  const out = {}
+  for (const tile of tiles) if (typeof tile.lat === 'number' && typeof tile.lng === 'number') out[tile.place] = [tile.lat, tile.lng]
+  return out
+}
+
+/**
+ * Where a quest really is: its own coordinates, else a hand-placed known spot,
+ * else null. Never the made-up spot layout() gives an unknown place, so
+ * "you are here" is only ever said about a real position.
+ */
+export function realSpot(quest) {
+  if (!quest) return null
+  if (typeof quest.lat === 'number' && typeof quest.lng === 'number') return [quest.lat, quest.lng]
+  return known(placeKey(quest.place))
+}
+
+const NEAR_METRES = 150 // "at the place": a park is bigger than this, a city block about this
+const FUZZ_CAP = 500 // a laptop's Wi-Fi location can be this rough; rougher than that says nothing
+
+/** Are you at `spot`? Allows for how rough the browser's fix is, up to a point. */
+export function isNear(me, accuracy, spot) {
+  if (!me || !spot) return false
+  return metresBetween(me, spot) <= Math.max(NEAR_METRES, Math.min(accuracy ?? 0, FUZZ_CAP))
+}
+
+/** place name -> [lat, lng] for every place: the same spot on every visit.
+ * `fixed`: {place: [lat, lng]} real coordinates, used before anything else. */
+export function layout(places, fixed = {}) {
   const out = new Map()
   const taken = []
   const near = ([a, b]) => taken.some(([ta, tb]) => Math.abs(ta - a) < CLOSE && Math.abs(tb - b) < CLOSE)
   for (const place of places) {
     const key = placeKey(place)
     const h = hash(key)
-    const base = known(key) ?? [
+    const base = fixed[place] ?? known(key) ?? [
       LONDON[0] + ((h % 1000) / 1000 - 0.5) * SPREAD,
       LONDON[1] + (((h >>> 10) % 1000) / 1000 - 0.5) * SPREAD * 1.4,
     ]

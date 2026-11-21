@@ -57,6 +57,8 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args)) {
     chooseQuest: (time) => call('/api/quest/choose', { time }),
     /** A private check-in: phase "before" or "after", value 1 to 5. */
     postMood: (phase, value) => call('/api/mood', { phase, value }, true),
+    /** The page is at this quest's place. Only the id is sent, never a position. */
+    postVisit: (questId) => call('/api/visit', { quest_id: questId }),
     /** The private wellness view. Throws an error with `locked` when the page needs its passphrase. */
     getWellness: () => call('/api/wellness', undefined, true),
     /** Try a passphrase. It is kept on this device only if it opens the page. */

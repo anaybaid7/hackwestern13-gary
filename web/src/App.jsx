@@ -13,8 +13,10 @@ import Home from './screens/Home.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
 import { pickClip, playClip, readSound } from './sound.js'
+import { away, isNear, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
+import { useWhereAmI } from './whereAmI.js'
 import { STAGE_NAMES } from './words.js'
 
 const POLL_MS = 2000
@@ -92,6 +94,19 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
   const [afterCheckIn, setAfterCheckIn] = useState(false) // the check-in that follows it
   const last = useRef(null)
   const flashTimer = useRef(null)
+  const visited = useRef(new Set()) // quests this page has said you were at, this visit
+
+  // Are you at the quest's place? Worked out here, in the browser, only while
+  // the quest has a real position. The backend hears "visited quest X" only.
+  const spot = realSpot(state?.quest)
+  const me = useWhereAmI(Boolean(spot) && service.mode === 'live')
+  const near = isNear(me.at, me.accuracy, spot)
+  const questId = state?.quest?.id
+  useEffect(() => {
+    if (!near || !questId || visited.current.has(questId) || !service.postVisit) return
+    visited.current.add(questId)
+    service.postVisit(questId).catch(() => visited.current.delete(questId)) // try again on the next fix
+  }, [near, questId, service])
 
   const take = useCallback((next) => {
     const changes = whatChanged(last.current, next)
@@ -188,7 +203,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
         )}
 
         <main className="view">
-          {tab === 'home' && <Home state={state} flash={flash} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} />}
+          {tab === 'home' && <Home state={state} flash={flash} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
