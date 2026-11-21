@@ -96,7 +96,8 @@ the handheld; on a phone it fills the screen.
 
 A device that has not met Gary gets `components/Welcome.jsx` first: five beats, one tap each,
 under half a minute. It talks to no backend and saves nothing but `gary.met` in the browser.
-Gary's lines are in `garySays()`; a test keeps them under 100 words. "Meet Gary again" in
+Gary's lines are in `LINES`; a test keeps them under 90 words and the same as in
+`device/make_voice.py`, which makes their spoken clips (`python3 device/make_voice.py`). "Meet Gary again" in
 Settings replays it.
 
 ## What to change, and where

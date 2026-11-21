@@ -1,11 +1,13 @@
 // Meet Gary: the walkthrough a new person sees first.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import App, { Shell } from '../App.jsx'
-import Welcome, { garySays, readMet, writeMet } from './Welcome.jsx'
+import Welcome, { LINES, TARGETS, clipsFor, garySays, readMet, writeMet } from './Welcome.jsx'
 import exampleState from '../../../contract/examples/state.json'
 import exampleWellness from '../../../contract/examples/wellness.json'
-import { writeSound } from '../sound.js'
+import { VOICE, writeSound } from '../sound.js'
 
 beforeEach(() => {
   window.localStorage.clear()
@@ -29,26 +31,38 @@ function fakeService() {
   }
 }
 
-test('five beats, one move each: wake him, sniff, pick a quest, say how you feel, go', () => {
+test('five beats: wake him, sniff through his eye, pick a walk, say how you feel, go', () => {
   const onDone = vi.fn()
-  render(<Welcome onDone={onDone} />)
-  // he is asleep until you press his button, like the real one
+  const { container } = render(<Welcome onDone={onDone} />)
+  // he is asleep indoors until you press his button, like the real one
   expect(screen.getByAltText(/napping/)).toBeTruthy()
+  expect(container.querySelector('.welcome-stage.inside')).toBeTruthy()
   expect(screen.getByLabelText('Step 1 of 5')).toBeTruthy()
   click('Press to wake him')
-  expect(screen.getByText(/I'm Gary, your pocket goat/)).toBeTruthy()
-  expect(screen.getByText(/move more, explore more/)).toBeTruthy()
+  // awake, he is outside, and says that is where he belongs
+  expect(screen.getByText(/I belong outside: trails, parks, hills/)).toBeTruthy()
+  expect(container.querySelector('.welcome-stage.outside .welcome-scene')).toBeTruthy()
   expect(screen.queryByAltText(/napping/)).toBeNull()
   expect([meter('Adventure'), meter('Health')]).toEqual(['Adventure: 0 of 2', 'Health: 0 of 2'])
 
   click('Next')
-  click('duck')
-  expect(screen.getByText(/A duck! New find, \+10 XP/)).toBeTruthy()
+  // his eye is on the first thing; pressing the button sniffs what it is on
+  expect(container.querySelector('.welcome-reticle.locked')).toBeNull()
+  click('Sniff!')
+  expect(screen.getByText("That's a duck! Ooh, a new one for the journal!")).toBeTruthy()
+  expect(container.querySelector('.welcome-reticle.locked').textContent).toBe('duck')
+  expect(container.querySelector('.welcome-flash')).toBeTruthy() // the shutter
+  expect(screen.getByText('Gary keeps the name. He never keeps the photo.')).toBeTruthy()
   expect(meter('Adventure')).toBe('Adventure: 1 of 2') // a sniff is adventure
 
   click('Next')
+  // a foggy map with two real trails; the short walk lifts the fog it passes, not all of it
+  expect(container.querySelectorAll('.welcome-fog').length).toBe(16)
+  expect(container.querySelectorAll('.welcome-fog.lifting').length).toBe(0)
   click(/15 min/)
-  expect(screen.getByText(/15 minutes it is/)).toBeTruthy()
+  expect(container.querySelectorAll('.welcome-fog.lifting').length).toBe(8)
+  expect(container.querySelector('.welcome-walker.walking').style.left).toBe('33%') // Gary walks there, beside the pin
+  expect(screen.getByText('Off we go. Every walk lifts the fog.')).toBeTruthy()
   // a quest is a walk: it counts for both sides
   expect([meter('Adventure'), meter('Health')]).toEqual(['Adventure: 2 of 2', 'Health: 1 of 2'])
 
@@ -66,6 +80,23 @@ test('five beats, one move each: wake him, sniff, pick a quest, say how you feel
   expect(readMet()).toBe(true)
 })
 
+test("Gary's eye wanders, and the long walk lifts all the fog", () => {
+  vi.useFakeTimers()
+  try {
+    const { container } = render(<Welcome onDone={() => {}} />)
+    click('Press to wake him')
+    click('Next')
+    act(() => vi.advanceTimersByTime(1150)) // his eye has moved on to the tree
+    click('Sniff!')
+    expect(screen.getByText("That's a tree! Ooh, a new one for the journal!")).toBeTruthy()
+    click('Next')
+    click(/40 min/)
+    expect(container.querySelectorAll('.welcome-fog.lifting').length).toBe(16)
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 test('Skip leaves at once and is remembered too', () => {
   const onDone = vi.fn()
   render(<Welcome onDone={onDone} />)
@@ -74,14 +105,30 @@ test('Skip leaves at once and is remembered too', () => {
   expect(readMet()).toBe(true)
 })
 
-test('the whole hello is short enough to read in half a minute', () => {
+test('the whole hello is short enough to hear in half a minute, and is about going outside', () => {
   const said = [
     garySays('wake', true), garySays('sniff'), garySays('sniff', 'duck'), garySays('quest'), garySays('quest', 15),
     garySays('feel'), garySays('feel', 4), garySays('go'),
-  ]
-  const words = said.join(' ').split(/\s+/).length
-  expect(words).toBeLessThanOrEqual(100) // about 20 seconds at an easy reading pace, plus nine taps
-  expect(said.join(' ')).not.toMatch(/calorie|weight|steps goal|streak[^s]/i) // a partner, not a coach
+  ].join(' ')
+  expect(said.split(/\s+/).length).toBeLessThanOrEqual(90)
+  expect(said).toMatch(/outside/)
+  expect(said).toMatch(/trails/)
+  expect(said).toMatch(/walk/)
+  expect(said).not.toMatch(/calorie|weight|steps goal/i) // a partner, not a coach
+})
+
+test('every line has a spoken clip, with the same words the voice script sends to ElevenLabs', () => {
+  const script = readFileSync(resolve(process.cwd(), '../device/make_voice.py'), 'utf8')
+  for (const [clip, words] of Object.entries(LINES)) {
+    expect(script).toContain(`"${clip}": "${words}"`)
+  }
+  // each beat asks only for clips the script makes, or his existing first-find lines
+  for (const beat of ['wake', 'sniff', 'quest', 'feel', 'go']) {
+    for (const clip of [...clipsFor(beat), ...clipsFor(beat, beat === 'sniff' ? 'duck' : 1)]) {
+      expect(clip in LINES || ['say_duck', 'say_new'].includes(clip)).toBe(true)
+    }
+  }
+  expect(TARGETS.map((t) => t.name).every((name) => VOICE[`say_${name}`])).toBe(true) // those clips exist today
 })
 
 test('a new person meets Gary before the home screen; someone he knows goes straight in', async () => {
