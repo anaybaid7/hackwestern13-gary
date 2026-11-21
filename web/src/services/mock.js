@@ -38,6 +38,12 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
     // The story has no lock: nothing in it is anyone's own.
     unlock: async () => steps[index].wellness,
     forgetKey: () => {},
+    // In the story, starting over is going back to its first step.
+    resetGary: async () => {
+      go(0)
+      moods.length = 0
+      return { ok: true }
+    },
     /** The story's controls. Only the mock service has these. */
     story: {
       get index() {

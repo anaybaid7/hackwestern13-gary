@@ -362,14 +362,17 @@ def get_wellness(x_private_key: Optional[str] = Header(None)):
 
 
 @app.post("/api/dev/reset")
-def dev_reset(x_admin_key: Optional[str] = Header(None)):
-    """Forget every event and mood and reload the seed quests. For demos and tests."""
+def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(None)):
+    """Forget every event and mood and reload the seed quests. For demos and tests.
+    With {"keep_quests": true} the quests stay, the scout's included, and every
+    one is open again: that is the page's "Reset Gary" button."""
     key = os.environ.get("GARY_ADMIN_KEY")
     if key and not key_matches(x_admin_key, key):
         raise HTTPException(401, "wrong or missing X-Admin-Key")
+    keep = isinstance(payload, dict) and payload.get("keep_quests") is True
     with lock:
-        store.reset()
-    return {"ok": True}
+        store.reset(keep_quests=keep)
+    return {"ok": True, "quests_kept": keep}
 
 
 # If the web page has been built (cd web && npm run build), serve it from here

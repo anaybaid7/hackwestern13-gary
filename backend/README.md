@@ -48,7 +48,8 @@ curl -s -X POST localhost:8000/api/mood -H 'Content-Type: application/json' -d '
 curl -s localhost:8000/api/wellness
 
 # start over
-curl -s -X POST localhost:8000/api/dev/reset
+curl -s -X POST localhost:8000/api/dev/reset                    # back to the built-in quests
+curl -s -X POST localhost:8000/api/dev/reset -H "Content-Type: application/json" -d '{"keep_quests": true}'   # keep the quests, open them all again
 ```
 
 No device handy? From the repo root: `python3 device/fake_sniff.py bench --friend`.

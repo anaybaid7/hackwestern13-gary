@@ -42,11 +42,14 @@ class MemoryStore:
         self.seed_path = seed_path
         self.reset()
 
-    def reset(self):
-        """Forget every event and mood, and go back to the seed quests."""
+    def reset(self, keep_quests=False):
+        """Forget every event and mood, and go back to the seed quests.
+        keep_quests: leave the quests as they are. With no events, all are open again."""
         self._events = []     # every event but mood, in arrival order
         self._ids = set()     # so the same upload twice counts once
         self._moods = []      # private. Never part of /api/state
+        if keep_quests and getattr(self, "_quests", None):
+            return
         self._quests = []     # oldest first
         for quest in load_seed(self.seed_path):
             self.put_quest(quest)
@@ -202,7 +205,11 @@ class PostgresStore:
 
     # -- the same methods as MemoryStore -------------------------------------
     @_retry
-    def reset(self):
+    def reset(self, keep_quests=False):
+        if keep_quests and self.quests():
+            with self.conn.transaction(), self.conn.cursor() as cur:
+                cur.execute("TRUNCATE events, event_ids, mood_checkins RESTART IDENTITY")
+            return
         with self.conn.transaction(), self.conn.cursor() as cur:
             cur.execute("TRUNCATE events, event_ids, mood_checkins, quests RESTART IDENTITY")
         for quest in load_seed(self.seed_path):

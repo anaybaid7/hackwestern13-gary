@@ -189,7 +189,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
-          {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} />}
+          {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} onReset={refresh} />}
         </main>
 
         {service.story && (
