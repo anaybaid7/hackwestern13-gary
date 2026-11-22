@@ -129,3 +129,30 @@ export function playClip(name) {
   const url = CLIPS[name]
   return url ? playUrls([url]) : false
 }
+
+/** Play urls one after another; resolves when the last ends, or if the browser refuses. */
+export function playAndWait(urls, rate = 1) {
+  return new Promise((resolve) => {
+    const audio = shared()
+    if (!audio || urls.length === 0) return resolve()
+    let i = 0
+    const play = () => {
+      audio.src = urls[i++]
+      audio.playbackRate = rate
+      audio.preservesPitch = true
+      try {
+        audio.play()?.catch?.(resolve)
+      } catch {
+        resolve()
+      }
+    }
+    audio.onended = () => (i < urls.length ? play() : resolve())
+    audio.onerror = resolve
+    play()
+  })
+}
+
+/** Is one of Gary's clips playing right now? The ears ignore the room while he talks. */
+export function isPlaying() {
+  return player instanceof Audio && !player.paused && !player.ended
+}

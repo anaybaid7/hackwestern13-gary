@@ -237,9 +237,13 @@ else
       GARY_LIVE_DIR="$DIR/$(dirname "$GARY_LIVE")"
       mkdir -p "$GARY_LIVE_DIR" && cp qnx/live.html "$GARY_LIVE_DIR/index.html"
       export GARY_LIVE_DIR
-GARY_SEEING="$DIR/seeing.json"   # served at /api/seeing, for gary_talk.py on a laptop
-export GARY_SEEING
     fi
+    GARY_SEEING="$DIR/seeing.json"   # served at /api/seeing, for gary_talk.py on a laptop
+    GARY_TALK_DIR="$DIR"             # gary_talk.py and its .env: the web page talks through /api/talk
+    export GARY_SEEING GARY_TALK_DIR
+    GARY_SELF_URL="http://127.0.0.1:${GARY_BACKEND_PORT:-8800}"   # where a scout run started by the backend posts
+    export GARY_SELF_URL
+    [ -n "${GARY_SCOUT_AT:-}" ] && export GARY_SCOUT_AT   # gary.env: run the scout every day at this time
     exec $py -m uvicorn app:app --app-dir "$GARY_BACKEND" --host 0.0.0.0 \
       --port "${GARY_BACKEND_PORT:-8800}" < /dev/null >> logs/backend.log 2>&1
   ) &

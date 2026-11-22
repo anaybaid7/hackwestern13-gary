@@ -3,6 +3,7 @@
 // mock mode, from the demo story the backend produced).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CheckIn, { readAsk } from './components/CheckIn.jsx'
+import GaryEars from './components/GaryEars.jsx'
 import QuestComplete from './components/QuestComplete.jsx'
 import Nav, { SCREENS } from './components/Nav.jsx'
 import StoryBar from './components/StoryBar.jsx'
@@ -15,7 +16,7 @@ import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
 import { effectsFor, playSfx, unlockSfx } from './sfx.js'
 import { pickClip, playClip, playVoice, readSound, unlockSound, voiceFor } from './sound.js'
-import { away, isNear, realSpot } from './places.js'
+import { away, isNear, nearby, nextNearby, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
 import { useWhereAmI } from './whereAmI.js'
@@ -103,12 +104,26 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
   const last = useRef(null)
   const flashTimer = useRef(null)
   const visited = useRef(new Set()) // quests this page has said you were at, this visit
+  const titleTaps = useRef([]) // five quick taps on the title send the scout out (a hidden demo control)
 
   // Are you at the quest's place? Worked out here, in the browser, only while
   // the quest has a real position. The backend hears "visited quest X" only.
   const spot = realSpot(state?.quest)
-  const me = useWhereAmI(Boolean(spot) && service.mode === 'live')
+  const me = useWhereAmI(service.mode === 'live')
   const near = isNear(me.at, spot)
+
+  // Short means near you: the nearest open quest within 5.2 km, picked here
+  // from your position, which stays in the browser. Only the quest id is sent.
+  const [openQuests, setOpenQuests] = useState(null)
+  const questsStamp = `${state?.quests_open}:${state?.quest?.id}`
+  const located = Boolean(me.at)
+  useEffect(() => {
+    if (!located || !service.getQuests) return
+    service.getQuests().then(setOpenQuests, () => setOpenQuests(null))
+  }, [located, questsStamp, service])
+  const close = me.at && openQuests ? nearby(me.at, openQuests) : null
+  const activeShort = close && state?.quest_choice === 'short' ? close.find((q) => q.id === state.quest?.id) : null
+  const shown = close && state ? { ...state, quest_options: { ...state.quest_options, short: activeShort ?? close[0] ?? null } } : state
   const questId = state?.quest?.id
   useEffect(() => {
     if (!near || !questId || visited.current.has(questId) || !service.postVisit) return
@@ -186,10 +201,30 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
     window.history.replaceState(null, '', `#${id}`)
   }
 
-  async function choose(time) {
+  function say(message) {
+    setFlash({ ...NO_FLASH, messages: [message] })
+    clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(NO_FLASH), FLASH_MS)
+  }
+
+  function tapTitle() {
+    if (!service.runScout) return
+    const now = Date.now()
+    titleTaps.current = [...titleTaps.current.filter((t) => now - t < 2000), now]
+    if (titleTaps.current.length < 5) return
+    titleTaps.current = []
+    service.runScout().then(
+      (out) => say(out.sent ? 'The scout is out looking for quests. New ones show up in a few minutes.' : 'The scout is already out looking.'),
+      (err) => say(`The scout could not go out (${err.message || err}).`),
+    )
+  }
+
+  async function choose(time, questId) {
+    // "another short one": the next nearest, when the page knows where you are
+    const pick = questId ?? (time === 'short' && close ? nextNearby(close, state.quest?.id)?.id : undefined)
     setBusy(true)
     try {
-      const out = await service.chooseQuest(time)
+      const out = await service.chooseQuest(time, pick)
       if (out?.state) take(out.state)
     } catch (err) {
       setError(String(err.message || err))
@@ -237,7 +272,8 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
     <Handheld onPick={pick}>
       <div className="app" data-tab={tab} data-mode={service.mode}>
         <header className="topbar">
-          <h1 title="Go Anywhere, Rediscover Yourself">G.A.R.Y</h1>
+          <h1 title="Go Anywhere, Rediscover Yourself" onClick={tapTitle}>G.A.R.Y</h1>
+          <GaryEars service={service} />
           <span className={`status status-${status}`}>{STATUS[status]}</span>
         </header>
 
@@ -250,7 +286,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
         )}
 
         <main className="view">
-          {tab === 'home' && <Home state={state} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
+          {tab === 'home' && <Home state={shown} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}

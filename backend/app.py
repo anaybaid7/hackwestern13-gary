@@ -25,6 +25,10 @@ file (or in the repo root):
     GARY_SEED          the quests a fresh backend starts with
     GARY_LIVE_DIR      a folder to serve at /live/: Gary's live view, on the Pi
     GARY_SEEING        Gary's seeing.json, served at /api/seeing (labels only)
+    GARY_TALK_DIR      where gary_talk.py is, for POST /api/talk. Default ../device.
+                       Its .env holds GEMINI_API_KEY and ELEVENLABS_API_KEY
+    GARY_SCOUT_AT      run scout/scout.py every day at this local time, "07:00"
+    GARY_SELF_URL      this backend's address, for that scout run to post to
 """
 import datetime as dt
 import hmac
@@ -44,6 +48,8 @@ from fastapi.staticfiles import StaticFiles
 
 import auth
 import rules
+import scouting
+import talk
 from store import make_store
 
 # Python 3.14 calls a .wav "audio/vnd.wave", which browsers may refuse to play:
@@ -88,7 +94,8 @@ def load_settings(paths, environ=os.environ):
     return True
 
 
-load_settings([HERE / ".env", ROOT / ".env"])
+if load_settings([HERE / ".env", ROOT / ".env"]):
+    talk.load_keys()
 
 FRIEND, OUTDOOR = rules.load_labels(CONTRACT / "labels.json")
 OUTDOOR_LABELS = sorted(name for name, is_outdoor in OUTDOOR.items() if is_outdoor)
@@ -406,16 +413,25 @@ def post_quests(payload: Any = Body(...), x_scout_key: Optional[str] = Header(No
 @app.post("/api/quest/choose")
 def choose_quest(payload: dict = Body(...)):
     """{"time": "short" | "long"} makes a quest of that length the active one.
+    With "quest_id" too, that open quest (the page's nearest pick for short).
     Today's scout quests come first. Asking again moves on to the next one.
     Returns the quest (null if none of that length is open) and the new state."""
     time = payload.get("time")
     if time not in ("short", "long"):
         raise HTTPException(422, 'send {"time": "short"} or {"time": "long"}')
+    wanted = payload.get("quest_id")
     with lock:
         quests = store.quests()
         state, _, done = current(quests=quests)
-        showing = state["quest"]["id"] if state["quest"] and state["quest_choice"] == time else None
-        quest = rules.choose(quests, done, time, now(), TZ, showing)
+        if wanted is not None:
+            # The page picked it: the nearest open quest, worked out in the browser
+            # from a position that never leaves it. Only the id arrives.
+            quest = next((q for q in quests if q["id"] == wanted and q["id"] not in done), None)
+            if quest is None:
+                raise HTTPException(422, "no open quest has that id")
+        else:
+            showing = state["quest"]["id"] if state["quest"] and state["quest_choice"] == time else None
+            quest = rules.choose(quests, done, time, now(), TZ, showing)
         if quest is not None:
             # The choice joins the event stream, so the rules can tell which
             # quest was active when each sniff happened, and a restart keeps it.
@@ -462,6 +478,69 @@ def post_visit(payload: dict = Body(...)):
     return {"ok": True}
 
 
+talk_lock = threading.Lock()  # one conversation at a time: each turn costs Gemini and ElevenLabs calls
+
+
+@app.get("/api/talk")
+def talk_config():
+    """Whether the page can talk to Gary: gary_talk.py is here and both keys are set."""
+    return {"enabled": talk.enabled()}
+
+
+@app.post("/api/talk")
+def post_talk(payload: dict = Body(...)):
+    """One thing said on the web page: {"audio": base64 WAV (16 kHz mono),
+    "listening": Gary asked something or was just woken, "history": the last
+    few [said, replied]}. Nothing said is stored or logged."""
+    if not talk.enabled():
+        raise HTTPException(503, "talking is off: this server needs gary_talk.py and both keys")
+    pcm = talk.pcm_of(payload.get("audio"))
+    if pcm is None:
+        raise HTTPException(422, "send audio: a base64 WAV, 16 kHz mono 16-bit, under 9 seconds")
+    if not talk_lock.acquire(blocking=False):
+        return {"busy": True}
+    try:
+        with lock:
+            state, _, _ = current()
+
+        def choose(time_):
+            return choose_quest({"time": time_})["quest"]
+
+        def post_quest(quest):
+            with lock:
+                checked, why = check_quest(quest)
+                if checked:
+                    store.put_quest(checked)
+            return None if checked else why
+
+        things = [name for name in OUTDOOR_LABELS if name != FRIEND]
+        seeing = talk.brain.read_seeing(os.environ.get("GARY_SEEING") or "")
+        gemini_key, eleven_key = talk.keys()
+        return talk.turn(pcm, payload.get("listening") is True, talk.history_of(payload.get("history")), seeing,
+                         talk.App(state, choose, post_quest, things), gemini_key, eleven_key)
+    except talk.brain.TalkError as exc:
+        return {"error": str(exc)}
+    finally:
+        talk_lock.release()
+
+
+@app.get("/api/scout")
+def scout_status():
+    """The scout's last run started from here: running, started, finished, ok."""
+    return dict(scouting.status, available=scouting.available(), daily_at=os.environ.get("GARY_SCOUT_AT") or None)
+
+
+@app.post("/api/scout/run")
+def scout_run(x_admin_key: Optional[str] = Header(None), authorization: Optional[str] = Header(None)):
+    """Send the scout out now (it takes minutes). Guarded like reset. The quests
+    arrive through POST /api/quests as usual."""
+    guarded("GARY_ADMIN_KEY", x_admin_key, caller(authorization), "reset:gary", "X-Admin-Key")
+    if not scouting.available():
+        raise HTTPException(503, "scout/scout.py is not on this server")
+    sent = scouting.start("asked")
+    return dict(scouting.status, sent=sent)
+
+
 @app.get("/api/wellness")
 def get_wellness(x_private_key: Optional[str] = Header(None), authorization: Optional[str] = Header(None)):
     """The private side: check-ins, before and after pairs, estimated outdoor
@@ -492,6 +571,8 @@ def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(Non
         store.reset(keep_quests=keep)
     return {"ok": True, "quests_kept": keep}
 
+
+scouting.schedule(TZ)
 
 # If the web page has been built (cd web && npm run build), serve it from here
 # too, so one address carries both. This must stay below the API routes.

@@ -65,12 +65,20 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     now: () => new Date(),
     /** Everything the page draws. */
     getState: () => call('/api/state'),
-    /** "short" or "long" -> {quest, state}. */
-    chooseQuest: (time) => call('/api/quest/choose', { time }),
+    /** "short" or "long" -> {quest, state}. With a quest id: that quest. */
+    chooseQuest: (time, questId) => call('/api/quest/choose', questId ? { time, quest_id: questId } : { time }),
+    /** Every open quest, with its position: the page picks the nearest short one itself. */
+    getQuests: () => call('/api/quests').then((out) => out.quests),
     /** A private check-in: phase "before" or "after", value 1 to 5. */
     postMood: (phase, value) => call('/api/mood', { phase, value }, true),
     /** The page is at this quest's place. Only the id is sent, never a position. */
     postVisit: (questId) => call('/api/visit', { quest_id: questId }),
+    /** {enabled}: whether this server can talk (gary_talk.py and both keys). */
+    talkConfig: () => call('/api/talk'),
+    /** One thing said: {audio: base64 WAV, listening, history} -> Gary's reply. */
+    talk: (body) => call('/api/talk', body),
+    /** Send the scout out now: {sent, running, ...}. A run takes minutes; its quests arrive on their own. */
+    runScout: () => call('/api/scout/run', {}),
     /** The private wellness view. Throws an error with `locked` when the page needs its passphrase. */
     getWellness: () => call('/api/wellness', undefined, true),
     /** Try a passphrase. It is kept on this device only if it opens the page. */

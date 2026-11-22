@@ -81,14 +81,24 @@ export default function CheckIn({ service, onClose, phase: fixed = null }) {
         {sent ? (
           <>
             <h2 id="checkin-modal-title">Noted</h2>
-            <p>{MOOD_WORDS[sent]}</p>
+            <p>
+              You're feeling <strong>{MOOD_WORDS[sent].toLowerCase()}</strong> ({sent} of 5).{' '}
+              {phase === 'before'
+                ? "Gary will ask again when you're back, so you can see what the walk did."
+                : 'See how it compares with before you left in Settings, under Wellness.'}
+            </p>
             <button type="button" className="button primary" onClick={onClose} autoFocus>
-              Off we go
+              {phase === 'before' ? 'Off we go' : 'Done'}
             </button>
           </>
         ) : (
           <>
             <h2 id="checkin-modal-title">{phase === 'before' ? 'Before you head out' : 'Now that you are back'}</h2>
+            <p className="small">
+              {phase === 'before'
+                ? 'How do you feel right now? Gary asks again when you are back, so you can see whether the walk helped. Only you see this.'
+                : 'How do you feel now? Compare it with before you left, in Settings, under Wellness. Only you see this.'}
+            </p>
             <div className="scale" role="group" aria-label="How are you feeling, from 1 to 5">
               {[1, 2, 3, 4, 5].map((value) => (
                 <button key={value} type="button" className="scale-button" onClick={() => send(value)}

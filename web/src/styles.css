@@ -138,16 +138,16 @@ body {
 .handheld-buttons {
   display: flex;
   gap: 18px;
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .handheld-buttons button {
-  width: 46px;
-  height: 46px;
+  width: 34px;
+  height: 34px;
   border: 0;
   border-radius: 50%;
   font-family: var(--pixel);
-  font-size: 15px;
+  font-size: 12px;
   color: var(--ink);
   box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.18);
 }
@@ -163,9 +163,9 @@ body {
 
 .handheld-name {
   display: block;
-  margin-top: 8px;
+  margin-top: 4px;
   font-family: var(--pixel);
-  font-size: 12px;
+  font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--cream);
   text-transform: uppercase;
@@ -181,33 +181,33 @@ body {
   .handheld {
     width: 440px;
     height: auto;
-    padding: 24px 24px 20px;
+    padding: 20px 20px 14px;
     border-radius: 44px;
     box-shadow: 18px 18px 0 var(--coral-deep);
   }
 
   .handheld-screen {
     flex: none;
-    height: min(720px, calc(100dvh - 230px));
+    height: min(820px, calc(100dvh - 150px));
     min-height: 480px;
     border-width: 8px;
     border-radius: 18px;
   }
 
   .handheld-buttons {
-    gap: 24px;
-    margin-top: 22px;
+    gap: 18px;
+    margin-top: 14px;
   }
 
   .handheld-buttons button {
-    width: 62px;
-    height: 62px;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    font-size: 13px;
   }
 
   .handheld-name {
-    margin-top: 14px;
-    font-size: 15px;
+    margin-top: 8px;
+    font-size: 12px;
   }
 }
 
@@ -237,6 +237,29 @@ body {
 
 .status-mock { color: var(--orange); }
 .status-stale { color: var(--coral); }
+
+/* talk to Gary: the microphone's pill */
+.ears {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--pixel);
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.ears-dot { width: 8px; height: 8px; background: var(--ink-2); }
+.ears-idle .ears-dot { background: var(--lcd-deep); }
+.ears-listening { background: var(--lcd); }
+.ears-listening .ears-dot { background: var(--coral); animation: blink 0.8s steps(2) infinite; }
+.ears-thinking .ears-dot, .ears-speaking .ears-dot { background: var(--orange); }
+.ears-denied, .ears-insecure { color: var(--ink-2); }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ears-listening .ears-dot { animation: none; } }
 
 .toast {
   position: absolute; /* inside the handheld's screen (.app), not over the whole page */
@@ -397,6 +420,37 @@ body {
   border: 2px solid var(--ink);
   text-transform: uppercase;
 }
+
+/* Herd badges: earned ones are lit, the rest say how to earn them */
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+}
+.badge {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 10px;
+  border: 2px dashed var(--ink-2);
+  background: var(--fogged);
+  color: var(--ink-2);
+}
+.badge.earned {
+  border: var(--line);
+  background: var(--lcd);
+  color: var(--ink);
+  box-shadow: var(--lift);
+}
+.badge-name {
+  font-family: var(--pixel);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.badge.earned .badge-name::before { content: '★ '; }
+.badge-how { font-size: 12px; }
 
 .chip-xp { background: var(--coral); }
 .chip-trail { background: var(--orange); }
@@ -1559,13 +1613,16 @@ body {
   position: absolute; /* inside the handheld's screen */
   inset: 0;
   z-index: 20;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* a tall sheet (a quest with tidbits) scrolls */
   padding: 16px;
   background: rgba(20, 32, 43, 0.6);
 }
 
 .modal {
+  margin: auto; /* centred, but never cut off at the top when taller than the screen */
+  flex-shrink: 0;
   display: grid;
   gap: 12px;
   width: min(380px, 100%);

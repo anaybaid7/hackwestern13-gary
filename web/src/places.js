@@ -77,6 +77,25 @@ export function isNear(me, spot) {
   return metresBetween(me, spot) <= RANGE_METRES
 }
 
+// A short quest is one near you: no further than this, so it never takes a big effort.
+export const SHORT_METRES = 5200
+
+/** Open quests with a real position within SHORT_METRES of you, nearest first. */
+export function nearby(me, quests = [], metres = SHORT_METRES) {
+  if (!me) return []
+  return quests
+    .map((quest) => ({ quest, spot: realSpot(quest) }))
+    .filter(({ spot }) => spot && metresBetween(me, spot) <= metres)
+    .sort((a, b) => metresBetween(me, a.spot) - metresBetween(me, b.spot))
+    .map(({ quest }) => quest)
+}
+
+/** The one after `currentId` in a nearest-first list ("give me another"), else the nearest. */
+export function nextNearby(list, currentId) {
+  const at = list.findIndex((q) => q.id === currentId)
+  return at >= 0 && list.length > 1 ? list[(at + 1) % list.length] : (list[0] ?? null)
+}
+
 /** place name -> [lat, lng] for every place: the same spot on every visit.
  * `fixed`: {place: [lat, lng]} real coordinates, used before anything else. */
 export function layout(places, fixed = {}) {
