@@ -25,6 +25,7 @@ fi
 
 step "Scout"
 "$PY" scout/tests/test_scout.py || fail "scout tests"
+"$PY" scout/tests/test_personal.py || fail "scout picks tests"
 
 step "Web"
 if [ -d web/node_modules ]; then

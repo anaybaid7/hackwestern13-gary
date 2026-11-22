@@ -40,3 +40,12 @@ CREATE TABLE IF NOT EXISTS mood_checkins (
     value  SMALLINT    NOT NULL CHECK (value BETWEEN 1 AND 5),
     source TEXT        NOT NULL DEFAULT 'web'      -- web | device
 );
+
+-- Picks for you (backend/picks.py): one row per request. What was asked (no
+-- mood, no position: the name of a known place at most), every TinyFish run
+-- with its id, and the picks. The next request reads the newest back.
+CREATE TABLE IF NOT EXISTS pick_requests (
+    seq  BIGSERIAL PRIMARY KEY,
+    ts   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    body JSONB       NOT NULL
+);

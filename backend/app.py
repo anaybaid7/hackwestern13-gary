@@ -25,6 +25,8 @@ file (or in the repo root):
     GARY_SEED          the quests a fresh backend starts with
     GARY_LIVE_DIR      a folder to serve at /live/: Gary's live view, on the Pi
     GARY_SEEING        Gary's seeing.json, served at /api/seeing (labels only)
+    TINYFISH_API_KEY   picks for you (/api/picks). Unset here: the key in scout/.env
+    GARY_PICKS_WAIT    seconds one live page may take for picks. Default 150
 """
 import datetime as dt
 import hmac
@@ -45,6 +47,15 @@ from fastapi.staticfiles import StaticFiles
 import auth
 import rules
 from store import make_store
+
+# Picks for you (picks.py) run the scout's TinyFish code from ../scout. A copy
+# of the backend without that folder still starts; only /api/picks says no.
+try:
+    import picks
+except ImportError as _exc:  # pragma: no cover
+    picks, PICKS_MISSING = None, str(_exc)
+else:
+    PICKS_MISSING = None
 
 # Python 3.14 calls a .wav "audio/vnd.wave", which browsers may refuse to play:
 # Gary's voice clips are served as audio/wav.
@@ -422,6 +433,71 @@ def choose_quest(payload: dict = Body(...)):
             store.add([{"id": "choice-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "choice",
                         "time": time, "quest_id": quest["id"]}])
             state, _, _ = current(quests=quests)
+    return {"quest": quest, "state": state}
+
+
+# -- picks for you: a TinyFish agent chooses places from live pages ----------
+picks_runner = picks.Runner() if picks else None
+
+
+def picks_or_503():
+    if picks is None:
+        raise HTTPException(503, "picks need the scout folder beside the backend (%s)" % PICKS_MISSING)
+    return picks
+
+
+@app.get("/api/picks")
+def get_picks():
+    """The last good picks, the request running now (if any), and the last few
+    requests. Picks are only ever places a TinyFish agent read on a live page."""
+    p = picks_or_503()
+    with lock:
+        history = store.picks()
+    return p.view(picks_runner.current(), history, bool(p.api_key()))
+
+
+@app.post("/api/picks", status_code=202)
+def ask_picks(payload: Any = Body(None)):
+    """{"near": <a known place>}, optional: start a picks request. The page
+    works out which known place is nearest in the browser and sends only that
+    name; anything that is not the name of one of Gary's places is ignored.
+    One request runs at a time: asking again returns the one running."""
+    p = picks_or_503()
+    if not p.api_key():
+        raise HTTPException(503, "TinyFish is not set up on this server: put TINYFISH_API_KEY in backend/.env")
+    asked = one_line((payload.get("near") if isinstance(payload, dict) else None) or "", 80)
+    with lock:
+        quests = store.quests()
+        state, _, _ = current(quests=quests)
+        known = {rules.place_key(q["place"]): q["place"] for q in quests}
+        near = known.get(rules.place_key(asked)) if asked else None
+        choices = [ev.get("time") for ev in store.events() if ev.get("type") == "choice"]
+        context = p.personal.build_context(state, choices, store.picks(), near)
+
+    def keep(record):
+        with lock:
+            store.add_pick(record)
+
+    job, started = picks_runner.start(context, rules.local_day(now(), TZ), keep)
+    return {"job": job, "started": started}
+
+
+@app.post("/api/picks/take")
+def take_pick(payload: dict = Body(...)):
+    """{"id": <the quest id of a pick>}: make that pick today's quest. It is
+    checked like any posted quest, added, and chosen."""
+    p = picks_or_503()
+    with lock:
+        raw = p.find_pick(store.picks(), str(payload.get("id") or ""))
+        if raw is None:
+            raise HTTPException(404, "no pick has that id")
+        quest, why = check_quest(raw)
+        if quest is None:
+            raise HTTPException(422, why)
+        store.put_quest(quest)
+        store.add([{"id": "choice-" + uuid.uuid4().hex[:12], "ts": stamp(now()), "type": "choice",
+                    "time": quest["time"], "quest_id": quest["id"]}])
+        state, _, _ = current()
     return {"quest": quest, "state": state}
 
 

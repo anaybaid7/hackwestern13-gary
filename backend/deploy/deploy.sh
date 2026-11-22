@@ -41,11 +41,12 @@ fi
 
 echo "2. Copying the code to $TARGET"
 # Only what the server needs: no .env, no tests, no journal, no node_modules.
+# The three scout files are for picks (backend/picks.py runs the TinyFish code).
 # COPYFILE_DISABLE stops macOS from adding ._ files to the archive, and
 # --no-xattrs its own file attributes, which the server's tar warns about.
 COPYFILE_DISABLE=1 tar --no-xattrs -czf - \
     --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.env' --exclude='backend/tests' \
-    backend contract web/dist \
+    backend contract web/dist scout/scout.py scout/personal.py scout/sources.json \
   | $SSH "$TARGET" 'rm -rf /opt/gary/app.new && mkdir -p /opt/gary/app.new && tar -xzf - -C /opt/gary/app.new'
 
 echo "3. Setting up the server"

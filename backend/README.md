@@ -80,6 +80,8 @@ On the server they live in `/opt/gary/.env`. None of these files is in git.
 | `GARY_NAP_SECONDS` | Quiet time before Gary naps. Default 8 hours. A short value such as `60` shows a nap within minutes. Leave it out for the three-minute demo: Gary would be asleep again before the end |
 | `GARY_TZ` | Where days and weeks turn over. Default `America/Toronto` |
 | `GARY_SEED` | The quests a fresh backend starts with |
+| `TINYFISH_API_KEY` | Picks for you (`/api/picks`). Unset here: the key in `scout/.env` is read (only that key). Unset in both: picks are off and the page shows no picks card |
+| `GARY_PICKS_WAIT` | Seconds one live page may take for picks. Default 150 |
 
 ## Tiger Data (issue #16)
 
@@ -206,6 +208,31 @@ certificate for a free sslip.io name. The Auth0 login (`docs/AUTH0.md`) and the
 "where am I" dot on the map need that address. Plain `http` on port 80 is
 unchanged, for the Pi and the scout.
 
+## Picks for you
+
+`POST /api/picks` asks a TinyFish agent to read two live London pages with
+what Gary knows about you: the things you find most, the places you have been,
+whether you pick short or long, and the known place you are near (the browser
+works that out and sends only the name). The agent chooses places from the
+page and says why, from the page. The scout's own code turns them into quests
+and checks them, and `scout/personal.py` puts them in order. It never adds a
+place: TinyFish is the only source. If TinyFish fails, `GET /api/picks` says so
+and still shows the last good picks, marked as such.
+
+A request runs in the background (a page takes 30 to 200 s), one at a time.
+Every request is kept (`pick_requests` on Postgres, a `picks` table in
+SQLite, a list in memory), and the next one reads the last five back, so a
+place suggested before and not taken up gives the others a turn.
+
+```
+curl -s -X POST localhost:8000/api/picks -H 'Content-Type: application/json' -d '{"near":"Harris Park"}'
+curl -s localhost:8000/api/picks          # until job.status is not "running"
+```
+
+`picks.py` runs the code in `../scout`, so the deploy copies `scout/scout.py`,
+`scout/personal.py` and `scout/sources.json` too. A backend without them still
+starts; only `/api/picks` answers `503`.
+
 ## The rules, in brief
 
 Everything is in `rules.py`, as pure functions with tests. To change a number,
@@ -270,6 +297,7 @@ commit them: `python3 ../scripts/make_examples.py`. A test fails until you do.
 | --- | --- |
 | `rules.py` | Every rule. Pure functions, no HTTP, no storage |
 | `app.py` | The endpoints, the checks on what arrives, the clock correction |
+| `picks.py` | Picks for you: runs `scout/personal.py` in the background, one request at a time, and keeps every request |
 | `store.py` | `MemoryStore` and `PostgresStore`, with the same methods |
 | `schema.sql` | The tables |
 | `check_db.py` | Is the database ready, and is Tiger Data in use |

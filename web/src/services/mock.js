@@ -28,6 +28,14 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
       return { quest, state: current() }
     },
     postVisit: async () => ({ ok: true }), // the story is not anywhere
+    // Picks come only from a live TinyFish run, so the story has none to show.
+    getPicks: async () => ({ ready: false, demo: true, job: null, picks: [], previous: [] }),
+    askPicks: async () => {
+      throw new Error('Picks need the live backend and TinyFish')
+    },
+    takePick: async () => {
+      throw new Error('Picks need the live backend and TinyFish')
+    },
     postMood: async (phase, value) => {
       moods.push({ ts: steps[index].now, phase, value, source: 'web' })
       return { ok: true }

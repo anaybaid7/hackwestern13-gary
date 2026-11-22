@@ -151,6 +151,25 @@ read, the quests made, and what was left out and why.
 a page you can show in 20 seconds. Commit both after each live session. The run
 ids can also be looked up in the TinyFish dashboard.
 
+## Picks for you (`personal.py`)
+
+The same pages, read for one explorer. `build_context()` takes what Gary
+already keeps (the things found most, the places cleared or visited, short or
+long, earlier picks) and the name of the known place you are near.
+`personal_goal()` adds that to each page's goal and asks the agent for one more
+field, `why`, from the page. `run_picks()` reads the two pages that suit you
+best at the same time, turns the places into quests with `build_quests()`,
+runs `check_quests()`, and `rank()` puts them in order. Nothing is added that
+the agent did not read: if TinyFish fails, the result says so.
+
+```
+python3 scout/personal.py                          # one live request for the example state; prints the picks
+python3 scout/personal.py --api http://localhost:8000 --near "Gibbons Park"
+python3 scout/tests/test_personal.py               # no key, no network
+```
+
+The web page asks through the backend (`POST /api/picks`, see `backend/README.md`).
+
 ## Gary's voice from Gemini (issue #37)
 
 Put `GEMINI_API_KEY=...` in `scout/.env` (a free key from Google AI Studio).
@@ -201,6 +220,7 @@ goes quiet, and a refused key.
 | --- | --- |
 | `scout.py` | The TinyFish call, places to quests, the checks, the evidence page |
 | `sources.json` | The pages and the goal for each |
+| `personal.py` | Picks for you: the same pages read for one explorer, ranked |
 | `gary_voice.py` | The optional Gemini step |
 | `sample_result.json` | Hand-written places, for a run with no key |
 | `runs.jsonl`, `EVIDENCE.md`, `cached_quests.json` | Written by live runs. Commit them |
