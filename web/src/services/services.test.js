@@ -20,7 +20,7 @@ describe('one setting switches between mock and live', () => {
   })
 
   test('both services offer the same calls', () => {
-    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now', 'unlock', 'forgetKey', 'resetGary']
+    const calls = ['getState', 'chooseQuest', 'postMood', 'getWellness', 'now', 'unlock', 'forgetKey', 'resetGary', 'getPicks', 'askPicks', 'takePick']
     const live = createLive('http://x')
     const mock = createMock()
     for (const name of calls) {
@@ -49,6 +49,28 @@ describe('live', () => {
       ['http://gary.example/api/mood', 'POST', '{"phase":"after","value":4}'],
       ['http://gary.example/api/wellness', 'GET', undefined],
     ])
+  })
+
+  test('picks: the last picks, a new request with only a place name, and taking one', async () => {
+    const fetchFn = fakeFetch()
+    const live = createLive('http://gary.example', fetchFn)
+    await live.getPicks()
+    await live.askPicks('Harris Park')
+    await live.askPicks()
+    await live.takePick('q-2026-11-21-sifton-bog')
+    const seen = fetchFn.mock.calls.map(([url, options]) => [url, options?.method ?? 'GET', options?.body])
+    expect(seen).toEqual([
+      ['http://gary.example/api/picks', 'GET', undefined],
+      ['http://gary.example/api/picks', 'POST', '{"near":"Harris Park"}'],
+      ['http://gary.example/api/picks', 'POST', '{"near":null}'],
+      ['http://gary.example/api/picks/take', 'POST', '{"id":"q-2026-11-21-sifton-bog"}'],
+    ])
+  })
+
+  test('mock: the story has no picks, because they come only from a live TinyFish run', async () => {
+    const mock = createMock()
+    expect(await mock.getPicks()).toMatchObject({ ready: false, picks: [] })
+    await expect(mock.askPicks()).rejects.toThrow('TinyFish')
   })
 
   test('a refused call is an error, and the same address works with no prefix', async () => {

@@ -81,7 +81,7 @@ the handheld; on a phone it fills the screen.
 | `src/screens/Guide.jsx` | The journal: finds, and the field guide (all 79 things), in two tabs |
 | `src/screens/Herd.jsx` | The Herd Cup (a podium and the table, herds only), Herd Mode, the co-op quest, badges |
 | `src/screens/Settings.jsx` | The check-in pop-up switch, the private wellness view (`You.jsx`), the connection, Gary's promises |
-| `src/components/` | `Gary.jsx`, `Climb.jsx` (the XP bar), `QuestCard.jsx`, `QuestDetail.jsx`, `QuestComplete.jsx`, `CheckIn.jsx`, `Nav.jsx` (with the pixel icons), `FindRow.jsx`, `ThingIcon.jsx`, `StoryBar.jsx` |
+| `src/components/` | `Gary.jsx`, `Climb.jsx` (the XP bar), `QuestCard.jsx`, `QuestDetail.jsx`, `QuestComplete.jsx`, `CheckIn.jsx`, `Nav.jsx` (with the pixel icons), `FindRow.jsx`, `ThingIcon.jsx`, `StoryBar.jsx`, `Picks.jsx` (picks for you, from a live TinyFish run; live mode only) |
 | `src/sprites.js` | Gary's 32 x 32 sprite as text: one drawing, a few edits per stage, and the napping pose |
 | `src/places.js` | Where each place is, as latitude and longitude. Unknown places get a steady spot near downtown |
 | `src/pixel.js` | Turns text drawings into SVG, and the five colours |

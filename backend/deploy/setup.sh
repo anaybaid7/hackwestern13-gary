@@ -45,6 +45,7 @@ if [ ! -f "$HOME_DIR/.env" ]; then
 # SCOUT_KEY=choose-a-long-random-string
 # GARY_ADMIN_KEY=choose-another
 # GARY_PRIVATE_KEY=choose-a-passphrase-for-the-private-page
+# TINYFISH_API_KEY=your-tinyfish-key   (picks for you, /api/picks)
 # GARY_NAP_SECONDS=60        (shows a nap after a minute. Leave it out for the three-minute demo)
 ENV
   chmod 600 "$HOME_DIR/.env"

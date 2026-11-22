@@ -45,6 +45,9 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `GET /api/auth/config` | web, device (`pair.py`) | | `{"enabled", "domain", "audience", "client_id", "device_client_id"}`. `enabled` is false when the server has no Auth0 tenant |
 | `GET /api/me` | web | header `Authorization: Bearer <token>` | `{"signed_in": false}`, or `{"signed_in": true, "fingerprint", "paired", "permissions"}` |
 | `GET /api/seeing` | `gary_talk.py` on a laptop | | Gary's `seeing.json`: `{"labels": {label: score}, "friend", "ts"}`, labels only, never a picture. `{}` when the server has none (`GARY_SEEING` unset) |
+| `GET /api/picks` | web | | Picks for you: `{"ready", "job", "picks": [Pick], "picked_at", "runs", "cached", "error", "previous": [...]}`. `ready` is false when the server has no TinyFish key. `picks` are always the last good ones; `cached` is true when the newest request failed, and `error` says why. `job` is the request running now or the last one: `{"status": "running"\|"ok"\|"empty"\|"failed", ...}` |
+| `POST /api/picks` | web | optional `{"near": "<a place name>"}` | `202` `{"job", "started"}`. Starts one TinyFish request in the background (a live page takes 30 to 200 s); asking while one runs returns that one (`started: false`). `near` must be the name of one of Gary's places, worked out in the browser; anything else is ignored. **No position is ever sent.** `503` when the server has no TinyFish key |
+| `POST /api/picks/take` | web | `{"id": "<a pick's quest id>"}` | `{"quest": Quest, "state": State}`: that pick is checked like a posted quest, added, and chosen. `404` for an id not in the last good picks |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.
@@ -114,6 +117,20 @@ only. It never decides XP.
 | `herd.cup` | The weekly Herd Cup: `week`, your `rank` out of `herds`, a `table` of the top three herds plus yours, and `ahead`: the herd just above yours and the `gap` to pass it. Your row also has `quests` and `places`. `demo: true` means the rivals are seeded |
 
 Mood never appears in State.
+
+## Pick (backend → web)
+
+One place a TinyFish agent read on a live page and chose for you
+(`scout/personal.py`). Nothing in a pick is written by anything but the agent
+and the scout's own rules.
+
+| Field | Meaning |
+| --- | --- |
+| `place` | The place, as the agent named it |
+| `quest` | A Quest made from it by the scout's own code and checks, `source: "tinyfish"` |
+| `why` | One sentence from the agent, from the page, on why it suits you. `null` when it gave none, or said something risky |
+| `reasons` | Plain reasons from the ranking: "New to you", "You like finding ducks", "A short outing, like you usually pick", "You are near here", "One for you and a friend", "You have been here" |
+| `score`, `source`, `run_id` | The ranking's score, the page's name in `scout/sources.json`, the TinyFish run id |
 
 ## Wellness (backend → web, private)
 

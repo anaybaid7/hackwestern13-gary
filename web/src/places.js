@@ -122,3 +122,23 @@ export function away(me, there) {
   const said = m < 1000 ? `${Math.round(m / 50) * 50} m` : `${(m / 1000).toFixed(1)} km`
   return `About ${said} from you, as the crow flies.`
 }
+
+/**
+ * The name of the known place nearest to you (within `within` metres), or
+ * null. Worked out here, so only that name ever leaves the browser.
+ */
+export function nearestPlace(me, tiles, within = 5000) {
+  if (!me) return null
+  let best = null
+  let bestMetres = Infinity
+  for (const tile of tiles ?? []) {
+    const spot = realSpot(tile)
+    if (!spot) continue
+    const metres = metresBetween(me, spot)
+    if (metres <= within && metres < bestMetres) {
+      best = tile.place
+      bestMetres = metres
+    }
+  }
+  return best
+}
