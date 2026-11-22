@@ -258,6 +258,7 @@ body {
 .ears-listening .ears-dot { background: var(--coral); animation: blink 0.8s steps(2) infinite; }
 .ears-thinking .ears-dot, .ears-speaking .ears-dot { background: var(--orange); }
 .ears-denied, .ears-insecure, .ears-broken, .ears-loading { color: var(--ink-2); }
+.ears-quota .ears-dot { background: var(--coral); }
 .ears-loading .ears-dot { animation: blink 0.8s steps(2) infinite; }
 .ears-power {
   font-family: var(--pixel);

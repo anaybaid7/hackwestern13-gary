@@ -27,6 +27,7 @@ const LABEL = {
   off: 'Voice off',
   denied: 'Mic blocked',
   broken: 'Voice unavailable',
+  quota: 'Gary\'s brain is out of credit',
   insecure: 'Voice needs https',
 }
 
@@ -36,7 +37,7 @@ const since = (t0) => `${((performance.now() - t0) / 1000).toFixed(2)} s`
 
 let model = null // loaded once a visit, about 40 MB, then the browser caches it
 function loadModel() {
-  model ??= import('vosk-browser').then((vosk) => vosk.createModel(MODEL)).catch((err) => {
+  model ??= import('vosk-browser').then((vosk) => vosk.createModel(MODEL, -1)).catch((err) => {
     model = null
     throw err
   })
@@ -115,7 +116,7 @@ export default function GaryEars({ service }) {
     await new Promise((r) => setTimeout(r, ECHO_MS))
     newRecognizer()
     t.busy = false
-    setMode(Date.now() < t.listenUntil ? 'listening' : 'idle')
+    setMode(/HTTP 429/.test(out?.error ?? '') ? 'quota' : Date.now() < t.listenUntil ? 'listening' : 'idle')
   }
 
   /** The question, seconds from..to on the recognizer's clock: sent, answered. */
@@ -232,7 +233,7 @@ export default function GaryEars({ service }) {
   const shown = secure ? mode : 'insecure'
   const on = !['off', 'denied', 'broken', 'insecure', 'waiting'].includes(shown)
   const tap = () => {
-    if (shown === 'idle') goAhead()
+    if (shown === 'idle' || shown === 'quota') goAhead()
     else if (shown === 'off' || shown === 'denied' || shown === 'broken') power()
   }
   const power = () => {
