@@ -4,9 +4,9 @@
 // 16 kHz WAV to the backend (POST /api/talk), and only while the ears are on.
 export const RATE = 16000
 
-// "Go Gary" and its cousins, at the very start of what was said: the same rule as
+// "Go Gary", at the very start of what was said: the same rule as
 // wake_split in device/gary_talk.py, so talking ABOUT Gary never wakes him.
-const WAKE_WORDS = new Set(['go', 'hey', 'hi', 'yo', 'okay', 'ok', 'oi'])
+const WAKE_WORDS = new Set(['go']) // only "Go Gary": "hey Gary" is too easy to mishear in a room
 const GARY_SPELLINGS = new Set(['gary', 'garry', 'gerry', "gary's", 'garey', 'geri', 'carey', 'gari'])
 
 /** -> [woke, the words after the call]. "Go Gary, what's that?" -> [true, "what's that"]. */

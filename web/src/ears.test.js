@@ -24,7 +24,8 @@ describe('ears', () => {
 describe('the wake word', () => {
   it('wakes on "Go Gary" at the start, never on talk about Gary', () => {
     expect(wakeSplit('Go Gary, what is that?')).toEqual([true, 'what is that'])
-    expect(wakeSplit('uh hey Garry')).toEqual([true, ''])
+    expect(wakeSplit('uh go Garry')).toEqual([true, ''])
+    expect(wakeSplit('hey Gary can you give me a task')).toEqual([false, ''])
     expect(wakeSplit('Gary is a good name')).toEqual([false, ''])
     expect(wakeSplit('I told him to go gary')).toEqual([false, ''])
   })

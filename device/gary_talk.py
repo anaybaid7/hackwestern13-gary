@@ -126,13 +126,15 @@ REPLY = """Reply with JSON only:
 WAKE_PROMPT = """Listen to this short recording.
 heard: write down exactly the words that were said, nothing else. Never add or guess
 words: if "Gary" was not clearly said, do not write it. Unclear or no speech: heard is "".
-If the words start with a call to Gary ("Go Gary", "Hey Gary"...) followed by a question,
+If the words start with "Go Gary" followed by a question,
 greeting or request, answer that part as below. Otherwise say is "" and do is null.
 """ + REPLY
 
-# "Go Gary" and its cousins, at the very start of what was said. Checked in code, not by
+# "Go Gary", at the very start of what was said. Checked in code, not by
 # Gemini, so talking ABOUT Gary ("Gary is a good name") never wakes him.
-WAKE_WORDS = ("go", "hey", "hi", "yo", "okay", "ok", "oi")
+# Only "go": "hey Gary" and "hi Gary" are common enough that Gemini wrote them down from
+# room noise (21 Nov). "Go Gary" is what every screen and line tells people to say.
+WAKE_WORDS = ("go",)
 GARY_SPELLINGS = ("gary", "garry", "gerry", "gary's", "garey", "geri")
 
 
