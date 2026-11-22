@@ -19,6 +19,8 @@ records facts; XP, stages and the map belong to the backend.
 | `fake_sniff.py` | Posts a pretend sniff, for teammates with no device | Tested |
 | `models/ssd_mobilenet_v2_…tflite`, `coco_labels.txt` | The main detector: SSD MobileNet v2, 80 everyday things and people. 57 ms a frame on the Pi | From google-coral/test_data |
 | `models/gary_detector.tflite`, `gary_nature_labels.txt` | The extra detector, run on the same frames: YOLOv8s trained on Open Images, of which Gary keeps only the nature names (tree, squirrel, duck, butterfly, rabbit, deer ...). 228 ms a frame on the Pi, float32, 46 MB. `--extra-model none` turns it off | Made by `models/make_model.py`. Scores: `bench_results.md` |
+| `models/hand_detector.tflite`, `hand_landmarks_detector.tflite` | Hand signals (`--gestures`, section 8c): Google's MediaPipe palm detector and 21-point hand model, unchanged, Apache-2.0. 2.3 MB and 5.5 MB | From the `hand_landmarker.task` bundle at storage.googleapis.com/mediapipe-models |
+| `gary_hands.py`, `qnx/hand.hpp` | The hand-signal rules, the same in both: find the palm, read 21 points, decide thumbs up or OK, sniff when the hand is lowered | Tested with numbers from real photos (`test/hand_vectors.json`), the same in `tests/test_device.py` and `qnx/hand_test.cpp` |
 | `bench_model.py` | How well the model names things: scores it on labelled photos (`--fetch` downloads about 10 per thing from Wikimedia Commons into `bench_photos/`, not committed). Writes `bench_results.md` | Run on the laptop |
 | `qnx/live.sh` | A live view of what Gary sees, with his boxes, at `http://<pi>:8090`. Needs `GARY_LIVE=live/frame.jpg` in `gary.env`; off unless set. Each frame replaces the last, nothing is kept. The web page links to it when started with `VITE_LIVE_URL` | Run on the Pi |
 | `quests.seed.tsv` | Three seed quests, used until `sync.py` has run | |
@@ -352,6 +354,39 @@ listening, so you just answer.
 - The prompts (Gary's personality and the rules: true facts only, never name a
   bird's species, never describe a person, nothing about health or anything
   unsafe) are `GARY`, `RULES` and `HOW` at the top of `gary_talk.py`.
+
+## 8c. Hand signals (`--gestures`)
+
+A **thumbs up** or an **OK sign**, held close to the camera and then lowered,
+is a Sniff Test: the same as pressing the button, with no hands on Gary.
+
+```
+show a thumbs up (or OK)   ->  "HAND: thumbs up. Lower your hand and Gary sniffs."
+lower your hand            ->  "HAND: lowered. Sniffing."  ->  the usual SNIFF line
+```
+
+- **Turn it on:** add `--gestures` to `GARY_FLAGS` in `gary.env`
+  (`GARY_FLAGS="--mute --gestures"`), or pass it to `gary_device.py` or
+  `qnx/build/gary`. Off by default. If the two hand models do not load, Gary
+  says so and runs without hand signals.
+- **How:** a palm detector finds the surest hand; a second model finds 21
+  points on it (knuckles and fingertips); plain rules on those points say
+  thumbs up, OK or nothing (`gesture()` in `gary_hands.py` and `qnx/hand.hpp`).
+  A signal in 3 of 5 frames arms Gary.
+- **Why he waits for the hand to go:** he sniffs once no hand has been in view
+  for 3 frames. So your hand never hides the thing, and is never taken for a
+  friend (Herd Mode). A hand that stays up for 6 s is forgotten. After a sniff,
+  no signal counts for 2 s.
+- **Only your hands:** the palm must be at least a tenth of the frame's width
+  (`--min-hand 0.10`): the wearer's own hand, close to the hat camera, is; a
+  hand across the room is not. Gary never works out whose hand it is.
+- **Not a thumbs up:** a thumb pointing down or sideways, an open hand, a fist.
+- **Speed:** both models together take 10 to 25 ms a frame on a laptop. On the
+  Pi they run after the decision, so a button sniff's answer is never slowed;
+  frames per second drop a little. **Not yet measured on the Pi.**
+- With hand signals on, the QNX Gary keeps camera frames at 640 x 480 (a hand
+  needs more pixels than a bottle); each detector shrinks the frame itself.
+- Nothing is stored or uploaded: the hand is read and forgotten, frame by frame.
 
 ## 9. Raspberry Pi OS instead (the fallback)
 

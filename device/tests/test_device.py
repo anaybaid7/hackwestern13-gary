@@ -989,6 +989,78 @@ def test_holding_the_button_asks_gary_to_listen():
         shutil.rmtree(folder, ignore_errors=True)
 
 
+# --------------------------------------------------------------------------
+# Hand signals (gary_hands.py). The numbers are from three real photos, and
+# qnx/hand_test.cpp checks qnx/hand.hpp against the same ones.
+# --------------------------------------------------------------------------
+def test_a_thumbs_up_and_an_ok_are_read_from_real_hands():
+    import math
+    gh = load("gary_hands")
+    with open(os.path.join(DEVICE, "test", "hand_vectors.json"), encoding="utf-8") as f:
+        cases = json.load(f)["cases"]
+    assert [c["signal"] for c in cases] == ["like", "ok", None], "a thumbs up, an OK sign, an open hand"
+    for c in cases:
+        side = float(max(c["w"], c["h"]))
+        palm = gh.decode_palm(c["row"], c["anchor"])
+        roi = gh.palm_roi(palm, side, (side - c["w"]) / 2.0, (side - c["h"]) / 2.0)
+        assert all(abs(a - b) < 0.1 for a, b in zip(roi[:3], c["roi"][:3])) and abs(roi[3] - c["roi"][3]) < 1e-3
+        m = gh.roi_matrix(roi)
+        assert all(abs(a - b) < 0.2 for a, b in zip(m[0] + m[1], c["matrix"][0] + c["matrix"][1]))
+        assert abs(m[0][0] * 112 + m[0][1] * 112 + m[0][2] - roi[0]) < 1e-6, "the crop's middle is the square's middle"
+        lm = [(c["points"][3 * k], c["points"][3 * k + 1]) for k in range(21)]
+        assert gh.gesture(lm, roi[3]) == c["signal"], c["what"]
+        if c["signal"] == "like":
+            assert gh.gesture(lm, roi[3] + math.pi) is None, "a thumb pointing down is not a thumbs up"
+            assert gh.gesture(lm, roi[3] + math.pi / 2) is None, "nor one pointing sideways"
+    assert gh.gesture([(0.0, 0.0)] * 21, 0.0) is None, "no hand at all: no signal, no crash"
+    assert gh.anchor(0) == (0.5 / 24, 0.5 / 24) and gh.anchor(1151) == (23.5 / 24, 23.5 / 24)
+    assert gh.anchor(1152) == (0.5 / 12, 0.5 / 12) and gh.anchor(2015) == (11.5 / 12, 11.5 / 12)
+
+
+def test_gary_sniffs_when_the_hand_is_lowered_not_while_it_is_up():
+    gh = load("gary_hands")
+    said = []
+    t = gh.Trigger(5, 3, say=said.append)
+    assert not t.update("like", True, 0.0) and not t.update("like", True, 0.1) and not said
+    assert not t.update("like", True, 0.2) and t.armed == "like" and "thumbs up" in said[0]
+    assert not t.update("like", True, 0.3) and not t.update(None, True, 0.4), "still up, or changing: wait"
+    assert not t.update(None, False, 0.5) and not t.update(None, False, 0.6), "lowered: two frames"
+    assert not t.update(None, True, 0.7), "back in view: start again"
+    assert not t.update(None, False, 0.8) and not t.update(None, False, 0.9)
+    assert t.update(None, False, 1.0) and t.armed is None, "gone for three frames: sniff, once"
+    assert not t.update(None, False, 1.1)
+    # for two seconds after a sniff no signal counts
+    assert not any(t.update("like", True, 1.2 + 0.1 * k) for k in range(3)) and t.armed is None
+    assert not t.update("like", True, 3.1) and t.armed == "like"
+    # a flicker is enough (3 of 5); two signals mixed are not
+    t = gh.Trigger(5, 3)
+    for k, signal in enumerate(["ok", None, "ok", None, "ok"]):
+        t.update(signal, True, 0.1 * k)
+    assert t.armed == "ok"
+    t = gh.Trigger(5, 3)
+    for k in range(4):
+        t.update("ok" if k % 2 else "like", True, 0.1 * k)
+    assert t.armed is None
+    # a hand that stays up is forgotten, and lowering it later is not a sniff
+    said = []
+    t = gh.Trigger(5, 3, say=said.append)
+    for k in range(3):
+        t.update("like", True, 0.1 * k)
+    assert not t.update("like", True, 5.0) and t.armed == "like"
+    assert not t.update("like", True, 6.5) and t.armed is None and "Forgotten" in said[-1]
+    assert not any(t.update(None, False, 7.0 + 0.1 * k) for k in range(5))
+
+
+def test_the_hand_models_load_and_an_empty_frame_has_no_hand():
+    gd = gary_device()
+    gh = load("gary_hands")
+    import numpy as np
+    reader = gh.HandReader(os.path.join(DEVICE, "models", "hand_detector.tflite"),
+                           os.path.join(DEVICE, "models", "hand_landmarks_detector.tflite"), gd._interpreter_class())
+    assert reader.read(np.zeros((480, 640, 3), np.uint8)) == (None, False)
+    assert reader.read(np.zeros((320, 320, 3), np.uint8), 640, 480) == (None, False), "a squeezed frame, as on QNX"
+
+
 def test_the_voice_starts_when_the_cue_is_three_quarters_through():
     gd = gary_device()
     sounds = os.path.join(DEVICE, "sounds")

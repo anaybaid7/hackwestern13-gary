@@ -619,6 +619,12 @@ def main():
     ap.add_argument("--extra-model", default=os.path.join(HERE, "models", "gary_detector.tflite"),
                     help='a second detector run on the same frames, or "none"')
     ap.add_argument("--extra-labels", default=os.path.join(HERE, "models", "gary_nature_labels.txt"))
+    # Hand signals (gary_hands.py): a thumbs up or an OK sign, then lower the hand = a Sniff Test.
+    ap.add_argument("--gestures", action="store_true", help="a thumbs up or an OK sign is a Sniff Test, hands-free")
+    ap.add_argument("--palm-model", default=os.path.join(HERE, "models", "hand_detector.tflite"))
+    ap.add_argument("--hand-model", default=os.path.join(HERE, "models", "hand_landmarks_detector.tflite"))
+    ap.add_argument("--min-hand", type=float, default=0.10,
+                    help="with --gestures: a palm narrower than this share of the frame is not yours (default 0.10)")
     ap.add_argument("--quests", help="quests file (default: quests.tsv, or quests.seed.tsv until sync.py has run)")
     ap.add_argument("--log", default=os.path.join(HERE, "journal.jsonl"), help="the journal")
     ap.add_argument("--device", default="gary-01", help="name written into every journal line")
@@ -637,6 +643,16 @@ def main():
 
     detector = Detector(args.model, args.labels, args.threads)
     extra = None if args.extra_model == "none" else Detector(args.extra_model, args.extra_labels, args.threads)
+    hands = trigger = None
+    if args.gestures and not args.image:
+        import gary_hands
+        try:
+            hands = gary_hands.HandReader(args.palm_model, args.hand_model, _interpreter_class(), args.threads,
+                                          args.min_hand)
+            trigger = gary_hands.Trigger(args.window, args.need, say=lambda text: print("\n" + text))
+        except (Exception, SystemExit) as exc:  # an extra: Gary runs without it
+            print("warn: hand signals are off: %s" % exc)
+            hands = None
     quests = load_quests(quests_file(args.quests))
     if args.reset and os.path.exists(args.log):
         os.rename(args.log, args.log + "." + time.strftime("%Y%m%d-%H%M%S") + ".bak")
@@ -658,6 +674,8 @@ def main():
                                      ", needs a friend" if q.herd else ""))
     if not args.image:
         print("Press Enter to sniff. q + Enter quits.")
+    if hands:
+        print("Hand signals are on: a thumbs up or an OK sign, then lower your hand, is a Sniff Test.")
     speaker.play("say_hello" if speaker.has("say_hello") else "hello")
 
     ask = threading.Event()
@@ -820,9 +838,21 @@ def main():
 
             handle_sniff()
 
+            # Hand signals, read after the decision so they never slow a sniff's answer.
+            # qnx/gary_qnx.cpp does the same with qnx/hand.hpp.
+            if hands:
+                hand_signal, hand_here = hands.read(frame)
+                if trigger.update(hand_signal, hand_here, time.monotonic()):
+                    print("\nHAND: lowered. Sniffing.")
+                    press()
+
             if args.show:
                 try:
-                    cv2.imshow("Gary", draw(frame.copy(), detections))
+                    view = draw(frame.copy(), detections)
+                    if hands and hands.last:
+                        for k, (x, y) in enumerate(hands.last[1]):
+                            cv2.circle(view, (int(x), int(y)), 3, (0, 255, 0) if k % 4 == 0 and k else (0, 160, 255), -1)
+                    cv2.imshow("Gary", view)
                     if cv2.waitKey(1) & 0xFF == ord("q"):
                         break
                 except cv2.error:

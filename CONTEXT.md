@@ -151,7 +151,7 @@ Who decides what. Do not move logic across these lines:
 | Folder | Owner | What is in it |
 | --- | --- | --- |
 | `contract/` | shared | The JSON shapes and example files. The only shared surface |
-| `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `gary_talk.py` ("Go Gary": voice questions, Gemini answers, ElevenLabs speaks), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
+| `device/` | A | `qnx/gary_qnx.cpp` (the real one), `gary_device.py` (laptop stand-in and fallback), `gary_io.py` (button, buzzer), `gary_hands.py` and `qnx/hand.hpp` (hand signals: a thumbs up or an OK sign is a Sniff Test), `gary_talk.py` ("Go Gary": voice questions, Gemini answers, ElevenLabs speaks), `sync.py`, `start_gary.sh`, `gary_numbers.py`, `fake_sniff.py`, the model, sounds |
 | `backend/` | B | `rules.py` (every rule), `app.py` (endpoints), `store.py` (memory or Postgres), `schema.sql`, `deploy/` (Vultr), tests |
 | `web/` | C | React + Vite. `src/services/` is the only place that talks to the backend: `live.js`, and `mock.js` for the demo story. `src/screens/` has the five screens |
 | `scout/` | D | `scout.py` (TinyFish call, places to quests, the checks, the evidence page), `sources.json` (the pages), `gary_voice.py` (optional Gemini step), tests |
@@ -388,6 +388,8 @@ removal needs all four owners to agree, in an issue.
 
 **Not verified**
 
+- Hand signals (`--gestures`) on the Pi: the QNX build with `qnx/hand.hpp` compiles against the host test's stand-ins, but has not been built or run on QNX, and its speed there is not measured.
+
 - The C++ program has never been built or run on QNX (#4).
 - The Gemini step (`--voice`) has never called Gemini.
 - The demo has not been rehearsed on the device or timed out loud.
@@ -455,6 +457,7 @@ removal needs all four owners to agree, in an issue.
 | 21 Nov, 9:30 pm | Talk to Gary from the web page, hands free: the page listens, cuts out each thing said, and sends it to `POST /api/talk`, which runs `device/gary_talk.py` on the server (the keys never reach the browser). "Go Gary" still wakes him; the mic opens on the first tap, and ignores the room while any of Gary's clips plays. The scout runs on the Pi: daily at `GARY_SCOUT_AT`, and when five taps on the G.A.R.Y title call `POST /api/scout/run`. Short means near you: the page picks the nearest open quest within 5.2 km from a position that stays in the browser, and sends only its id (`quest_id` on `POST /api/quest/choose`) |
 | 21 Nov, 10:30 pm | The page hears "Go Gary" itself, offline, with Vosk (`vosk-browser`, a 40 MB English model in `web/public/vosk/`, fetched by `npm run ears-model`, not in git), told to hear only a dozen words so it cannot invent the wake word. Only the question goes to `POST /api/talk`, cut out of the last seconds of sound by Vosk's word times; tapping the ears pill does the same as saying "Go Gary". Why: checking every sound in a loud hall with Gemini used up the key's daily quota, was slow, and woke Gary on words nobody said. The browser's own SpeechRecognition is not used: it hears nothing in Arc, Brave and other Chromium forks |
 | 22 Nov, 5:40 am | Explorers nearby: the map can show a moving dot for each other explorer within 2 km or on your quest. It is off unless a person turns it on in Settings, and it is the only thing that ever sends a position: rounded to about 100 m, with a random device id and no name (others see a goat name made from a tag), kept in the backend's memory only and dropped after 45 seconds or at once when switched off. You see others only while you share. The demo story has three made-up walkers. `backend/nearby.py`, `web/src/nearby.js` |
+| 22 Nov, 6:45 am | Hand signals (`--gestures`, off by default): a thumbs up or an OK sign close to the camera, then lowered, is a Sniff Test. Two MediaPipe hand models (Apache-2.0, unchanged) and plain rules on 21 hand points, the same in `gary_hands.py` and `qnx/hand.hpp`, tested with the same numbers from real photos. Gary sniffs only once the hand has left the frame, so it never hides the thing or counts as a friend. "Only your hands" is a size rule: no one is identified. **Not yet run on the Pi** |
 | Open | Who takes A, B, C and D |
 | 21 Nov, 9:30 pm | Picks for you: a TinyFish agent reads two live pages with what Gary knows about you (things found most, places been, short or long, the known place you are near) and chooses places, saying why from the page. TinyFish is the only source: the scout's own code makes the quests and checks them, a fixed ranking orders them, and no Gemini step is involved. A failure says so and keeps the last good picks. Only a place name leaves the browser, never a position. Every request is kept and read back by the next. `backend/picks.py` imports `../scout`, so the deploy ships three scout files |
 | Proposed | Mood tap and short or long choice: on the web page (#12). Needs the team's yes |

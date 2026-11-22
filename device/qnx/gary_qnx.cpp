@@ -77,6 +77,7 @@
 
 #include "rpi_cam.hpp"
 #include "yolo.hpp"  // Detection, decode_yolo
+#include "hand.hpp"  // hand signals: decode_palm, palm_roi, gesture, Trigger
 
 #ifndef EOK
 #define EOK 0
@@ -276,6 +277,142 @@ class Detector {
   bool yolo_ = false;           // one YOLO output rather than SSD's four
   bool anchors_first_ = false;  // YOLO output [1,A,4+K] rather than [1,4+K,A]
   int capacity_ = 0;            // SSD: boxes per run. YOLO: anchors
+};
+
+// ---------------------------------------------------------------------------
+// Hand signals (--gestures): two MediaPipe models and the rules in hand.hpp.
+// A thumbs up or an OK sign close to the camera, then lowered, is a Sniff Test.
+// gary_hands.py: HandReader is the same, step for step.
+// ---------------------------------------------------------------------------
+class HandReader {
+ public:
+  bool load(const std::string& palm_path, const std::string& hand_path, int threads, float min_hand) {
+    min_hand_ = min_hand;
+    if (!build(palm_path, threads, &palm_model_, &palm_) || !build(hand_path, threads, &hand_model_, &hand_))
+      return false;
+    // The palm detector: boxes [1,2016,18] and scores [1,2016,1], in either order.
+    const int outs = static_cast<int>(palm_->outputs().size());
+    for (int k = 0; k < outs && k < 2; ++k) {
+      const TfLiteTensor* t = palm_->output_tensor(static_cast<size_t>(k));
+      if (!t || !t->dims || t->dims->size != 3 || t->dims->data[1] != hand::kAnchors || t->type != kTfLiteFloat32)
+        continue;
+      if (t->dims->data[2] == 18) boxes_ = k;
+      if (t->dims->data[2] == 1) scores_ = k;
+    }
+    if (boxes_ < 0 || scores_ < 0 || !square_input(*palm_, hand::kPalmSize)) {
+      fprintf(stderr, "error: %s is not the palm detector Gary expects\n", palm_path.c_str());
+      return false;
+    }
+    // The hand model: output 0 is the 21 points [1,63]; output 1 says how surely it is a hand.
+    const TfLiteTensor* pts = hand_->outputs().size() >= 2 ? hand_->output_tensor(0) : nullptr;
+    const bool pts_ok =
+        pts && pts->dims && pts->dims->size == 2 && pts->dims->data[1] == 63 && pts->type == kTfLiteFloat32;
+    if (!pts_ok || !square_input(*hand_, hand::kHandSize)) {
+      fprintf(stderr, "error: %s is not the hand model Gary expects\n", hand_path.c_str());
+      return false;
+    }
+    return true;
+  }
+
+  // frame: the camera's picture, 8-bit BGR, possibly shrunk or squeezed.
+  // cam_w, cam_h: the camera's own frame size, so the hand is measured
+  // unsqueezed. Returns "like", "ok" or ""; *hand_here says a hand close
+  // enough to be the wearer's is in view.
+  std::string read(const cv::Mat& frame, int cam_w, int cam_h, bool* hand_here) {
+    *hand_here = false;
+    if (!palm_ || !hand_ || frame.empty()) return "";
+    const float tw = static_cast<float>(cam_w > 0 ? cam_w : frame.cols);
+    const float th = static_cast<float>(cam_h > 0 ? cam_h : frame.rows);
+    const float side = std::max(tw, th);
+    const float pad_x = (side - tw) / 2.f, pad_y = (side - th) / 2.f;
+
+    // The camera's picture, whole and unsqueezed, in the middle of a black square.
+    const int size = hand::kPalmSize;
+    const int pw = std::clamp(static_cast<int>(std::lround(tw * static_cast<float>(size) / side)), 1, size);
+    const int ph = std::clamp(static_cast<int>(std::lround(th * static_cast<float>(size) / side)), 1, size);
+    cv::Mat canvas = cv::Mat::zeros(size, size, CV_8UC3);
+    cv::Mat small;
+    cv::resize(frame, small, cv::Size(pw, ph), 0, 0, cv::INTER_LINEAR);
+    small.copyTo(canvas(cv::Rect((size - pw) / 2, (size - ph) / 2, pw, ph)));
+    if (!fill(*palm_, canvas, size) || palm_->Invoke() != kTfLiteOk) return "";
+
+    const float* scores = palm_->typed_output_tensor<float>(scores_);
+    const float* boxes = palm_->typed_output_tensor<float>(boxes_);
+    if (!scores || !boxes) return "";
+    int best = 0;
+    for (int i = 1; i < hand::kAnchors; ++i)
+      if (scores[i] > scores[best]) best = i;
+    if (hand::sigmoid(scores[best]) < hand::kMinPalmScore) return "";
+    const hand::Palm palm = hand::decode_palm(boxes + static_cast<size_t>(best) * 18, best);
+    if (std::max(palm.w, palm.h) * side < min_hand_ * tw) return "";  // too small: not the wearer's hand
+
+    const hand::Roi roi = hand::palm_roi(palm, side, pad_x, pad_y);
+    double m[6];
+    hand::roi_matrix(roi, m);  // crop -> the camera's pixels; then -> this frame's pixels
+    const double fx = static_cast<double>(frame.cols) / static_cast<double>(tw);
+    const double fy = static_cast<double>(frame.rows) / static_cast<double>(th);
+    cv::Mat matrix(2, 3, CV_64F);
+    for (int k = 0; k < 3; ++k) {
+      matrix.at<double>(0, k) = m[k] * fx;
+      matrix.at<double>(1, k) = m[3 + k] * fy;
+    }
+    cv::Mat crop;
+    cv::warpAffine(frame, crop, matrix, cv::Size(hand::kHandSize, hand::kHandSize),
+                   cv::INTER_LINEAR | cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT);
+    if (!fill(*hand_, crop, hand::kHandSize) || hand_->Invoke() != kTfLiteOk) return "";
+    const float* pts = hand_->typed_output_tensor<float>(0);
+    const float* flag = hand_->typed_output_tensor<float>(1);
+    if (!pts || !flag || flag[0] < hand::kMinHandScore) return "";
+    *hand_here = true;
+    return hand::gesture(pts, 3, roi.rot);
+  }
+
+ private:
+  static bool build(const std::string& path, int threads, std::unique_ptr<tflite::FlatBufferModel>* model,
+                    std::unique_ptr<tflite::Interpreter>* interp) {
+    *model = tflite::FlatBufferModel::BuildFromFile(path.c_str());
+    if (!*model) {
+      fprintf(stderr, "error: cannot load model %s\n", path.c_str());
+      return false;
+    }
+    tflite::ops::builtin::BuiltinOpResolverWithXNNPACK resolver;
+    if (tflite::InterpreterBuilder(**model, resolver)(interp, std::max(1, threads)) != kTfLiteOk || !*interp) {
+      fprintf(stderr, "error: cannot build an interpreter for %s\n", path.c_str());
+      return false;
+    }
+    if ((*interp)->AllocateTensors() != kTfLiteOk) {
+      fprintf(stderr, "error: AllocateTensors failed for %s\n", path.c_str());
+      return false;
+    }
+    return true;
+  }
+
+  // Is the model's input [1,size,size,3], float32?
+  static bool square_input(tflite::Interpreter& it, int size) {
+    const TfLiteTensor* in = it.input_tensor(0);
+    return in && in->type == kTfLiteFloat32 && in->dims && in->dims->size == 4 && in->dims->data[1] == size &&
+           in->dims->data[2] == size && in->dims->data[3] == 3;
+  }
+
+  // bgr: 8-bit, exactly size x size -> the model's input, RGB in 0..1.
+  static bool fill(tflite::Interpreter& it, const cv::Mat& bgr, int size) {
+    float* dst = it.typed_input_tensor<float>(0);
+    if (!dst || bgr.cols != size || bgr.rows != size) return false;
+    cv::Mat rgb;
+    cv::cvtColor(bgr, rgb, cv::COLOR_BGR2RGB);
+    cv::Mat in_mat(size, size, CV_32FC3, dst);
+    rgb.convertTo(in_mat, CV_32F, 1.0 / 255.0);
+    if (in_mat.data != reinterpret_cast<uchar*>(dst))
+      std::memcpy(dst, in_mat.data, static_cast<size_t>(size) * static_cast<size_t>(size) * 3 * sizeof(float));
+    return true;
+  }
+
+  // Each model owns its mapped file and must outlive its interpreter, so the
+  // models are declared first (members are destroyed in reverse order).
+  std::unique_ptr<tflite::FlatBufferModel> palm_model_, hand_model_;
+  std::unique_ptr<tflite::Interpreter> palm_, hand_;
+  int boxes_ = -1, scores_ = -1;  // which of the palm detector's outputs is which
+  float min_hand_ = 0.10f;
 };
 
 // ---------------------------------------------------------------------------
@@ -739,6 +876,8 @@ static std::atomic<bool> g_run{true};
 static std::atomic<bool> g_ask{false};      // the button was pressed
 static std::atomic<long long> g_ask_ns{0};  // when, on the monotonic clock
 static std::atomic<bool> g_reload{false};   // quests.tsv changed
+static std::atomic<int> g_cam_w{0};         // the camera's own frame size, for the hand signals
+static std::atomic<int> g_cam_h{0};
 
 static long long mono_ns() {
   timespec ts{};
@@ -863,6 +1002,11 @@ struct Options {
   float threshold = 0.35f;  // a backpack often scores 0.35-0.5; the 3-of-5-frame check keeps false finds out
   int window = 5, need = 3, threads = 3, priority = 0, clip_timeout = 10;
   bool mute = false;
+  // Hand signals: a thumbs up or an OK sign, then lower the hand = a Sniff Test.
+  bool gestures = false;
+  std::string palm_model = "models/hand_detector.tflite";
+  std::string hand_model = "models/hand_landmarks_detector.tflite";
+  float min_hand = 0.10f;  // a palm narrower than this share of the frame is not the wearer's
 };
 
 static void usage() {
@@ -889,6 +1033,10 @@ static void usage() {
       "  --priority N      run the decision thread at round-robin priority N (try 20)\n"
       "  --friend-label L  label that earns the friend bonus (default person)\n"
       "  --mute            no sound\n"
+      "  --gestures        hand signals: a thumbs up or an OK sign, then lower your\n"
+      "                    hand = a Sniff Test (models/hand_*.tflite)\n"
+      "  --min-hand X      with --gestures: a palm narrower than this share of the\n"
+      "                    frame is not yours (default 0.10)\n"
       "While it runs: Enter = Sniff Test, q + Enter = quit.\n"
       "From another program: kill -USR1 $(cat gary.pid) = Sniff Test,\n"
       "                      kill -HUP  $(cat gary.pid) = reload quests.tsv.\n");
@@ -901,6 +1049,10 @@ static bool parse(int argc, char** argv, Options& o) {
       o.mute = true;
       continue;
     }
+    if (a == "--gestures") {
+      o.gestures = true;
+      continue;
+    }
     std::string* text = nullptr;
     int* whole = nullptr;
     float* real = nullptr;
@@ -911,6 +1063,9 @@ static bool parse(int argc, char** argv, Options& o) {
     else if (a == "--priority") whole = &o.priority;
     else if (a == "--clip-timeout") whole = &o.clip_timeout;
     else if (a == "--threshold") real = &o.threshold;
+    else if (a == "--min-hand") real = &o.min_hand;
+    else if (a == "--palm-model") text = &o.palm_model;
+    else if (a == "--hand-model") text = &o.hand_model;
     else if (a == "--image") text = &o.image;
     else if (a == "--model") text = &o.model;
     else if (a == "--labels") text = &o.labels;
@@ -1007,6 +1162,15 @@ int main(int argc, char** argv) {
   if (has_extra && !extra.load(opt.extra_model, opt.extra_labels, opt.threads)) return 1;
   auto knows = [&](const std::string& label) { return detector.knows(label) || (has_extra && extra.knows(label)); };
 
+  // Hand signals are an extra: if their models do not load, Gary runs without them.
+  HandReader hands;
+  hand::Trigger hand_trigger(opt.window, opt.need);
+  bool hands_on = opt.gestures;
+  if (hands_on && !hands.load(opt.palm_model, opt.hand_model, opt.threads, opt.min_hand)) {
+    fprintf(stderr, "warn: hand signals are off: the hand models did not load\n");
+    hands_on = false;
+  }
+
   std::vector<Quest> quests = load_quests(quests_file(opt.quests));
   Journal journal(opt.log, opt.device);
   Stability stable(opt.window, opt.need);
@@ -1041,11 +1205,15 @@ int main(int argc, char** argv) {
   // Runs on the camera library's thread, so it stays short: shrink the frame
   // to the model's size (into memory we own) and leave it in the slot.
   // the larger of the two inputs, so neither model is fed an enlarged image
-  const int in_w = std::max(detector.in_w, has_extra ? extra.in_w : 0);
-  const int in_h = std::max(detector.in_h, has_extra ? extra.in_h : 0);
+  // With hand signals on, frames are kept at 640 x 480: a hand needs more
+  // pixels than a bottle does, and each detector shrinks the frame itself.
+  const int in_w = hands_on ? 640 : std::max(detector.in_w, has_extra ? extra.in_w : 0);
+  const int in_h = hands_on ? 480 : std::max(detector.in_h, has_extra ? extra.in_h : 0);
   auto on_frame = [in_w, in_h](const cv::Mat& bgr) {
     if (!g_run.load() || bgr.empty()) return;
     const auto arrived = Clock::now();
+    g_cam_w.store(bgr.cols);
+    g_cam_h.store(bgr.rows);
 #ifdef GARY_HAS_IMGCODECS
     // GARY_SAVE_FRAME=frame.jpg: keep one camera frame, to check what the model is given
     static std::atomic<int> seen{0};
@@ -1068,6 +1236,10 @@ int main(int argc, char** argv) {
   }
 
   speaker.play({speaker.has("say_hello") ? "say_hello" : "hello"});
+  if (hands_on) {
+    printf("Hand signals are on: a thumbs up or an OK sign, then lower your hand, is a Sniff Test.\n");
+    fflush(stdout);
+  }
 
   std::map<std::string, float> confirmed;  // what Gary is sure he sees right now
   // Per-frame timings: frame-to-decision ms, model ms. Only the most recent
@@ -1234,6 +1406,24 @@ int main(int argc, char** argv) {
     timings.push_back({ms_between(stamp, decided), model_ms, ms_between(started, decided)});
     ++frames_total;
     handle_sniff();
+    // Hand signals, read after the decision so they never slow a sniff's answer.
+    // gary_device.py does the same with gary_hands.py.
+    if (hands_on) {
+      bool hand_here = false;
+      const std::string signal = hands.read(frame, g_cam_w.load(), g_cam_h.load(), &hand_here);
+      std::string note;
+      if (hand_trigger.update(signal, hand_here, static_cast<double>(mono_ns()) / 1e9, &note)) {
+        printf("\nHAND: lowered. Sniffing.\n");
+        fflush(stdout);
+        press_button();
+      } else if (note == "forgot") {
+        printf("\nHAND: still up after %.0f s. Forgotten: show it again, then lower it.\n", hand::kGiveUp);
+        fflush(stdout);
+      } else if (!note.empty()) {
+        printf("\nHAND: %s. Lower your hand and Gary sniffs.\n", note == "like" ? "thumbs up" : "OK");
+        fflush(stdout);
+      }
+    }
     // seeing.json beside the journal, twice a second: what Gary is sure he sees
     // right now, labels only (never a picture). gary_talk.py reads it to answer
     // "what am I looking at?". gary_device.py: write_seeing(), the same file.

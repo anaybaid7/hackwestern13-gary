@@ -43,6 +43,8 @@ step "QNX program: reading the YOLO model's output"
 if command -v c++ >/dev/null 2>&1; then
   (c++ -std=c++20 -Wall -Wextra -Werror device/qnx/yolo_test.cpp -o "${TMPDIR:-/tmp}/gary_yolo_test" \
     && "${TMPDIR:-/tmp}/gary_yolo_test") || fail "device/qnx yolo test"
+  (c++ -std=c++20 -Wall -Wextra -Werror device/qnx/hand_test.cpp -o "${TMPDIR:-/tmp}/gary_hand_test" \
+    && "${TMPDIR:-/tmp}/gary_hand_test") || fail "device/qnx hand test"
 else
   skip "device/qnx yolo test (a C++ compiler)"
 fi
