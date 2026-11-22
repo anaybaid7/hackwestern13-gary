@@ -140,6 +140,7 @@ export default function GaryEars({ service }) {
 
   function onResult(event) {
     const t = talk.current
+    t.lastResult = Date.now()
     if (t.busy) return log('(ignored: Gary is busy)')
     const result = event.results[event.results.length - 1]
     const said = result[0].transcript.trim()
@@ -180,14 +181,33 @@ export default function GaryEars({ service }) {
           setMode('idle')
         }
         const said = ears.feed(frame)
-        if (said) hear(said)
+        if (said && t.rec) watch(said)
+        else if (said) hear(said)
       })
-      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
+      if (!t.rec) log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
       setMode('idle')
     } catch (err) {
       log('could not open the microphone:', err?.message ?? err)
       setMode('denied')
     }
+  }
+
+  // Some browsers have a recognizer that never hears anything (Chromium forks without Google's
+  // speech service, Safari with dictation off). The page's own mic runs beside it: speech the mic
+  // heard with no word from the recognizer means it is deaf, so the page's own ears take over.
+  function watch(pcm) {
+    const t = talk.current
+    const startedAt = Date.now() - (pcm.length / 16000) * 1000
+    log(`mic heard ${(pcm.length / 16000).toFixed(1)} s of speech`)
+    setTimeout(() => {
+      if (!t.rec || t.busy || (t.lastResult ?? 0) >= startedAt) return
+      log('the recognizer heard nothing while the mic heard speech: switching to the page\'s own ears')
+      const rec = t.rec
+      t.rec = null
+      rec.abort()
+      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
+      hear(pcm)
+    }, 2500)
   }
 
   function start() {
@@ -208,12 +228,12 @@ export default function GaryEars({ service }) {
       log('recognizer error:', event.error)
       if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') return
       t.rec = null // no recognizer here after all: the page's own ears instead
-      startMic()
+      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
     }
     t.rec = rec
     log('using the browser\'s speech recognition: "Go Gary" is spotted here, only questions are sent')
     resume()
-    setMode('idle')
+    startMic() // beside it, to notice a recognizer that hears nothing
   }
 
   function stop() {
