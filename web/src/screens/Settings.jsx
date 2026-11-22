@@ -225,7 +225,7 @@ export default function Settings({ service, stamp, status, onReset, onMeet }) {
         <p className="small">
           Off unless you turn it on. While it is on, the map shows a moving dot for each explorer near you or on your
           quest, and they see one for you. Where you are is sent rounded to about 100 m, with no name, and is never
-          kept: your dot is gone within a minute of closing the page, and at once when you switch this off.
+          kept (a showcase server may show exact positions; the map says so when it does): your dot is gone within a minute of closing the page, and at once when you switch this off.
         </p>
       </section>
 
