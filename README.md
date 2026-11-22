@@ -124,4 +124,3 @@ Update this table as each row is done.
 - Camera wrapper and build recipe on QNX: [qnx/QNX-AI-workshop](https://github.com/qnx/QNX-AI-workshop) (Apache-2.0).
 - Typefaces: Silkscreen and Space Mono (SIL Open Font License), through Fontsource.
 - Map: [Leaflet](https://leafletjs.com) (BSD 2-Clause), with street tiles and data from [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
-- [How the team used AI coding tools.]
