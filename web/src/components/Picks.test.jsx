@@ -28,6 +28,10 @@ test('shows the agent\'s picks with the page\'s own words, and a pick can be tak
   const svc = service([{ ...READY, picks: [PICK], picked_at: '2026-11-21T15:00:00Z' }])
   const onTaken = vi.fn()
   render(<Picks service={svc} onTaken={onTaken} />)
+  const toggle = await screen.findByRole('button', { name: /Picked for you \(1\)/ })
+  expect(screen.queryByText('Find a duck at Sifton Bog')).toBeNull() // folded until tapped
+  fireEvent.click(toggle)
+  expect(toggle.getAttribute('aria-expanded')).toBe('true')
   expect(await screen.findByText('Find a duck at Sifton Bog')).toBeTruthy()
   expect(screen.getByText(/Ducks on the quiet bog/)).toBeTruthy()
   expect(screen.getByRole('link', { name: 'londontourism.ca' }).getAttribute('href')).toBe(PICK.quest.source_url)
@@ -50,6 +54,7 @@ test('asking sends only the nearest known place, then follows the run until it i
 
 test('a failed request is said plainly, with the last good picks still shown', async () => {
   render(<Picks service={service([{ ...READY, picks: [PICK], cached: true, error: 'Tourism London: no answer after 150 seconds' }])} />)
+  fireEvent.click(await screen.findByRole('button', { name: /Picked for you/ }))
   expect(await screen.findByText(/The last request did not work: Tourism London: no answer/)).toBeTruthy()
   expect(screen.getByText(/Showing the last good picks/)).toBeTruthy()
 })

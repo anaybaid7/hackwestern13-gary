@@ -641,6 +641,17 @@ body {
   gap: 8px;
 }
 
+.picks-toggle {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .picks-head .button:disabled {
   opacity: 0.6;
 }
