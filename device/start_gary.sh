@@ -245,6 +245,7 @@ else
     export GARY_SELF_URL
     [ -n "${GARY_SCOUT_AT:-}" ] && export GARY_SCOUT_AT   # gary.env: run the scout every day at this time
     [ -n "${GARY_TALK_STRICT:-}" ] && export GARY_TALK_STRICT   # on: the page's talk needs "Go Gary" every time too
+    [ -n "${GARY_TALK_MODEL:-}" ] && export GARY_TALK_MODEL   # gary.env: another Gemini model, e.g. when one is out of its daily quota
     exec $py -m uvicorn app:app --app-dir "$GARY_BACKEND" --host 0.0.0.0 \
       --port "${GARY_BACKEND_PORT:-8800}" < /dev/null >> logs/backend.log 2>&1
   ) &
