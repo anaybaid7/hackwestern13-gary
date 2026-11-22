@@ -1,6 +1,7 @@
 // Explorers nearby: off unless you say yes, and gone when you say no.
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Shell } from './App.jsx'
 import MapScreen from './screens/MapScreen.jsx'
 import Settings from './screens/Settings.jsx'
 import { EVERY_MS, deviceId, nearbyLine, readNearby, writeNearby } from './nearby.js'
@@ -108,4 +109,22 @@ test('on a showcase server the map says positions are exact', async () => {
   render(<MapScreen {...mapProps} service={service} />)
   await act(async () => {})
   expect(screen.getByText(/1 explorer nearby\. Showcase: exact positions\./)).toBeTruthy()
+})
+
+test('coming back from Auth0 finishes the sign-in at once and opens Settings', async () => {
+  window.history.replaceState(null, '', '/?code=abc&state=xyz')
+  const service = {
+    ...fakeService(),
+    now: () => new Date('2026-11-22T06:00:00Z'),
+    getState: vi.fn(async () => exampleState),
+    account: vi.fn(async () => {
+      window.history.replaceState(null, '', '/#settings') // what the sign-in code does when it is done
+      return { enabled: true, signedIn: true, signOut: () => {} }
+    }),
+    getMe: vi.fn(async () => ({ signed_in: true, fingerprint: '3a9f01c2aaaaaaaa', paired: false, permissions: [] })),
+  }
+  render(<Shell service={service} askCheckIn={false} />)
+  expect(service.account).toHaveBeenCalledTimes(1) // before Settings was ever opened
+  expect(await screen.findByText('Signed in')).toBeTruthy()
+  window.history.replaceState(null, '', '/')
 })
