@@ -30,7 +30,7 @@ website, or ask at their table. Put it where `[TinyFish's account]` is.
 
 > Our first AI employee is a scout. 🐐
 >
-> Every morning a [TinyFish's account] agent reads London's live park, trail and event pages and files quests for Gary the Goat, a QNX handheld that names what its camera sees.
+> Every morning a [TinyFish's account] agent reads London's live park, trail and event pages and files quests for G.A.R.Y the Goat (Go Anywhere, Rediscover Yourself), a QNX handheld that names what its camera sees.
 >
 > Built at Hack Western 13.
 >
@@ -43,7 +43,7 @@ Western 13." if the name is long.
 
 > We hired our first AI employee this weekend. Its job title is Scout.
 >
-> At Hack Western 13 our team built Gary the Goat: a pocket mountain goat that
+> At Hack Western 13 our team built G.A.R.Y the Goat: a pocket mountain goat that
 > grows when you go outside, find things and bring a friend. Gary needs fresh
 > quests every day, in real places.
 >

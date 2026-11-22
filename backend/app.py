@@ -242,7 +242,10 @@ def web_address(value):
     """An http or https address, or None. The page makes a link of it, so
     nothing else is let through."""
     text = str(value or "").strip()
-    return text if len(text) <= 300 and re.match(r"https?://[^\s<>\"']+$", text, flags=re.I) else None
+    lower = text.lower()
+    has_scheme = lower.startswith("http://") or lower.startswith("https://")
+    has_bad_char = any(ch.isspace() or ch in "<>\"'" for ch in text)
+    return text if len(text) <= 300 and has_scheme and not has_bad_char else None
 
 
 def check_quest(raw):

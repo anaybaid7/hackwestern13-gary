@@ -7,6 +7,7 @@
 #   Gary        the camera, the model and the Sniff Test
 #   sync.py     uploads the journal, fetches quests (only if GARY_API is set)
 #   gary_io.py  the button and the buzzer
+#   gary_talk.py talking to Gary: "Go Gary", then a question (only if GARY_TALK=on)
 #   backend     the API and the web page, on this device (only if GARY_BACKEND
 #               is set). Gary's state is kept in gary.db, so a reboot keeps it
 #
@@ -16,7 +17,7 @@
 #   sh start_gary.sh stop       stop them all (the same as: sh stop_gary.sh)
 #
 # Settings: gary.env beside this script (copy gary.env.example and edit it).
-# Logs: logs/gary.log, logs/sync.log, logs/io.log, logs/backend.log.
+# Logs: logs/gary.log, logs/sync.log, logs/io.log, logs/talk.log, logs/backend.log.
 #
 # Works with the QNX build (qnx/build/gary) and, when that is absent, with the
 # Python version. Plain POSIX sh, so it runs under QNX's shell.
@@ -53,6 +54,7 @@ done
 LOOP_PID="${prefix}loop.pid"
 SYNC_PID="${prefix}sync.pid"
 IO_PID="${prefix}io.pid"
+TALK_PID="${prefix}talk.pid"
 BACKEND_PID="${prefix}backend.pid"
 
 alive() { [ -s "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
@@ -71,6 +73,7 @@ stop_all() {
   # The loop stops Gary itself when it is told to stop.
   stop_one "$LOOP_PID" "Gary"
   stop_one "$IO_PID" "button and buzzer"
+  stop_one "$TALK_PID" "talk"
   stop_one "$SYNC_PID" "sync"
   stop_one "$BACKEND_PID" "backend"
   if [ "$was_looping" = yes ]; then
@@ -101,6 +104,12 @@ status() {
     tail -n 1 logs/io.log | sed 's/^/    /'
   else
     echo "button and buzzer: not running"
+  fi
+  if alive "$TALK_PID"; then
+    echo "talk: up (say \"Go Gary\")"
+  elif [ "${GARY_TALK:-off}" = on ]; then
+    echo "talk: not running. Last line of logs/talk.log:"
+    tail -n 1 logs/talk.log 2>/dev/null | sed 's/^/    /'
   fi
   if alive "$SYNC_PID"; then
     echo "sync: up, $(tail -n 1 logs/sync.log 2>/dev/null)"
@@ -191,6 +200,25 @@ else
   ) &
   echo $! > "$IO_PID"
   echo "button and buzzer: starting (button GPIO$GARY_BUTTON_PIN, buzzer GPIO$GARY_BUZZER_PIN)"
+fi
+
+# Talking to Gary: GARY_TALK=on in gary.env. Needs GEMINI_API_KEY and
+# ELEVENLABS_API_KEY in .env, a network, and a recorder (GARY_TALK_REC: one
+# setting, passed whole, so its spaces and quotes survive).
+if [ "${GARY_TALK:-off}" != on ]; then
+  :
+elif alive "$TALK_PID"; then
+  echo "talk: already running"
+else
+  (
+    trap '' HUP
+    # shellcheck disable=SC2086
+    GARY_TALK_REC="${GARY_TALK_REC:-}"
+    export GARY_TALK_REC
+    exec $GARY_PYTHON gary_talk.py ${GARY_TALK_FLAGS:-} < /dev/null >> logs/talk.log 2>&1
+  ) &
+  echo $! > "$TALK_PID"
+  echo "talk: starting (say \"Go Gary\", or hold the button)"
 fi
 
 # The backend on this device: GARY_BACKEND is the folder that holds app.py.

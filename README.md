@@ -1,4 +1,6 @@
-# Gary the Goat
+# G.A.R.Y the Goat
+
+**G.A.R.Y: Go Anywhere, Rediscover Yourself.**
 
 A pocket mountain goat on a QNX handheld that only grows when you go outside,
 discover new places and bring a friend. Built at Hack Western 13.

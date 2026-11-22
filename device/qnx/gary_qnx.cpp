@@ -1080,6 +1080,7 @@ int main(int argc, char** argv) {
   size_t dropped = 0, frames_total = 0, window_start = 0;
   const auto started = Clock::now();
   auto last_report = started;
+  auto last_seeing = started;  // when seeing.json was last written
   int empty_waits = 0;
   std::vector<double> sniff_ms;  // button press to answer
   int discoveries = 0, fresh = 0, misses = 0;
@@ -1233,6 +1234,30 @@ int main(int argc, char** argv) {
     timings.push_back({ms_between(stamp, decided), model_ms, ms_between(started, decided)});
     ++frames_total;
     handle_sniff();
+    // seeing.json beside the journal, twice a second: what Gary is sure he sees
+    // right now, labels only (never a picture). gary_talk.py reads it to answer
+    // "what am I looking at?". gary_device.py: write_seeing(), the same file.
+    if (ms_between(last_seeing, decided) >= 500.0) {
+      last_seeing = decided;
+      const auto slash = opt.log.find_last_of('/');
+      const std::string path = (slash == std::string::npos ? std::string() : opt.log.substr(0, slash + 1)) + "seeing.json";
+      std::string body = "{\"labels\": {";
+      bool first = true;
+      for (const auto& kv : confirmed) {
+        if (kv.first == opt.friend_label) continue;
+        char score[32];
+        snprintf(score, sizeof score, "%.3f", kv.second);
+        body += std::string(first ? "" : ", ") + "\"" + json_escape(kv.first) + "\": " + score;
+        first = false;
+      }
+      body += std::string("}, \"friend\": ") + (confirmed.count(opt.friend_label) ? "true" : "false") +
+              ", \"ts\": " + std::to_string(static_cast<long long>(std::time(nullptr))) + "}\n";
+      const std::string tmp = path + ".tmp";
+      if (FILE* f = fopen(tmp.c_str(), "w")) {
+        const bool ok = fputs(body.c_str(), f) >= 0;
+        if (fclose(f) == 0 && ok) std::rename(tmp.c_str(), path.c_str());
+      }
+    }
 #ifdef GARY_HAS_IMGCODECS
     // GARY_LIVE=live/frame.jpg: what Gary sees, with his boxes, for a live view
     // (qnx/live.sh serves it). Drawn after the decision, so a sniff never waits.
