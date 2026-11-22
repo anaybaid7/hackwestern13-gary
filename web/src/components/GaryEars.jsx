@@ -1,8 +1,13 @@
 // Talk to Gary, hands free: say "Go Gary", then ask. The microphone opens on
 // the first tap anywhere (browsers need one) and stays on; tap the pill to
-// turn it off. Only things said are sent, and only to this page's backend.
+// turn it off.
+//
+// Two ways to hear. Where the browser has speech recognition (Chrome, Safari),
+// it writes down what is said as it is said, so "Go Gary" is spotted here at
+// once and only the question goes to the backend, as text. Elsewhere the page
+// cuts the mic into things said and the backend checks each for "Go Gary".
 import { useEffect, useRef, useState } from 'react'
-import { Utterances, openMic, wavBase64 } from '../ears.js'
+import { Utterances, openMic, wakeSplit, wavBase64 } from '../ears.js'
 import { VOICE, isPlaying, playAndWait } from '../sound.js'
 
 const LISTEN_MS = 7000 // how long Gary waits for the question after "Go ahead"
@@ -21,6 +26,8 @@ const LABEL = {
   denied: 'Mic blocked',
   insecure: 'Voice needs https',
 }
+
+const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
 
 function readEars() {
   try {
@@ -41,7 +48,7 @@ function writeEars(on) {
 export default function GaryEars({ service }) {
   const [enabled, setEnabled] = useState(false)
   const [mode, setMode] = useState(readEars() ? 'waiting' : 'off')
-  const talk = useRef({ busy: false, checks: 0, listenUntil: 0, history: [], close: null, lastThinking: null })
+  const talk = useRef({ busy: false, checks: 0, listenUntil: 0, history: [], close: null, rec: null, lastThinking: null })
 
   useEffect(() => {
     if (!service.talkConfig) return
@@ -50,37 +57,22 @@ export default function GaryEars({ service }) {
 
   const secure = typeof window !== 'undefined' && window.isSecureContext && navigator.mediaDevices?.getUserMedia
 
-  // Checking for "Go Gary" takes Gemini a second or two, and in a loud room most of what the mic
-  // catches is other people. So checks run side by side, and the ears stay open while they do:
-  // a neighbour's sentence being checked must never make Gary deaf to yours.
-  async function hear(pcm) {
+  function thinkingClip() {
     const t = talk.current
-    const listening = Date.now() < t.listenUntil
-    if (!listening && t.checks >= CHECKS) return // the room is busy: drop this one, keep listening
-    if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
-    else t.checks += 1
-    let thinking = Promise.resolve()
-    if (listening && THINKING.length) {
-      const pool = THINKING.filter((n) => n !== t.lastThinking)
-      t.lastThinking = pool[Math.floor(Math.random() * pool.length)] ?? THINKING[0]
-      setMode('thinking')
-      thinking = playAndWait([VOICE[t.lastThinking]])
-    }
-    let out = null
-    try {
-      out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history })
-    } catch {
-      out = null
-    } finally {
-      if (!listening) t.checks -= 1
-    }
-    if (!listening) {
-      if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
-      t.busy = true
-    }
+    if (!THINKING.length) return Promise.resolve()
+    const pool = THINKING.filter((n) => n !== t.lastThinking)
+    t.lastThinking = pool[Math.floor(Math.random() * pool.length)] ?? THINKING[0]
+    setMode('thinking')
+    return playAndWait([VOICE[t.lastThinking]])
+  }
+
+  /** Say what the backend answered. Called with t.busy set; clears it. */
+  async function respond(out, thinking, asked) {
+    const t = talk.current
+    t.rec?.abort() // the recognizer must not hear Gary
     t.listenUntil = 0
     if (!out || out.busy || out.error) {
-      if (listening && VOICE.say_ears) await thinking.then(() => playAndWait([VOICE.say_ears]))
+      if (asked && VOICE.say_ears) await thinking.then(() => playAndWait([VOICE.say_ears]))
     } else if (!out.say) {
       setMode('speaking')
       await playAndWait([VOICE.say_go_ahead].filter(Boolean))
@@ -95,11 +87,74 @@ export default function GaryEars({ service }) {
     await new Promise((r) => setTimeout(r, ECHO_MS))
     t.busy = false
     setMode(Date.now() < t.listenUntil ? 'listening' : 'idle')
+    resume()
   }
 
-  async function start() {
+  /** A question, written down by the browser: answered straight away. */
+  async function ask(text) {
     const t = talk.current
-    if (t.close) return
+    t.busy = true
+    t.rec?.abort()
+    const thinking = thinkingClip()
+    const out = await service.talk({ text, history: t.history }).catch(() => null)
+    await respond(out, thinking, true)
+  }
+
+  /** "Go Gary" alone, spotted by the browser: no round trip before "Go ahead". */
+  function goAhead() {
+    talk.current.busy = true
+    respond({ woke: true, say: '' }, Promise.resolve(), false)
+  }
+
+  // Checking for "Go Gary" takes Gemini a second or two, and in a loud room most of what the mic
+  // catches is other people. So checks run side by side, and the ears stay open while they do:
+  // a neighbour's sentence being checked must never make Gary deaf to yours.
+  async function hear(pcm) {
+    const t = talk.current
+    const listening = Date.now() < t.listenUntil
+    if (!listening && t.checks >= CHECKS) return // the room is busy: drop this one, keep listening
+    if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
+    else t.checks += 1
+    const thinking = listening ? thinkingClip() : Promise.resolve()
+    const out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history }).catch(() => null)
+    if (!listening) {
+      t.checks -= 1
+      if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
+      t.busy = true
+    }
+    await respond(out, thinking, listening)
+  }
+
+  function onResult(event) {
+    const t = talk.current
+    if (t.busy) return
+    const result = event.results[event.results.length - 1]
+    const said = result[0].transcript.trim()
+    if (!said) return
+    if (Date.now() < t.listenUntil) {
+      if (result.isFinal) ask(said)
+      else t.listenUntil = Date.now() + LISTEN_MS // still talking: keep waiting
+      return
+    }
+    const [woke, rest] = wakeSplit(said)
+    if (!woke) return
+    if (!result.isFinal) return setMode('listening') // heard "Go Gary": show it while they finish
+    if (rest.split(' ').filter(Boolean).length >= 2) ask(rest)
+    else goAhead()
+  }
+
+  function resume() {
+    const t = talk.current
+    if (!t.rec || t.busy) return
+    try {
+      t.rec.start()
+    } catch {
+      // already running
+    }
+  }
+
+  async function startMic() {
+    const t = talk.current
     const ears = new Utterances()
     try {
       t.close = await openMic((frame) => {
@@ -117,10 +172,33 @@ export default function GaryEars({ service }) {
     }
   }
 
+  function start() {
+    const t = talk.current
+    if (t.close || t.rec) return
+    if (!Recognition) return startMic()
+    const rec = new Recognition()
+    rec.continuous = true
+    rec.interimResults = true
+    rec.lang = 'en-CA'
+    rec.onresult = onResult
+    rec.onend = () => talk.current.rec === rec && resume() // it stops on its own after a while
+    rec.onerror = (event) => {
+      if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') return
+      t.rec = null // no recognizer here after all: the page's own ears instead
+      startMic()
+    }
+    t.rec = rec
+    resume()
+    setMode('idle')
+  }
+
   function stop() {
     const t = talk.current
     t.close?.()
     t.close = null
+    const rec = t.rec
+    t.rec = null
+    rec?.abort()
     t.listenUntil = 0
   }
 
@@ -133,6 +211,16 @@ export default function GaryEars({ service }) {
   }, [enabled, secure, mode])
 
   useEffect(() => stop, [])
+
+  // the pill goes back to "Say Go Gary" once the wait for a question is over
+  useEffect(() => {
+    if (mode !== 'listening') return undefined
+    const timer = setInterval(() => {
+      const t = talk.current
+      if (!t.busy && Date.now() >= t.listenUntil + 1500) setMode('idle')
+    }, 500)
+    return () => clearInterval(timer)
+  }, [mode])
 
   if (!enabled) return null
   const shown = secure ? mode : 'insecure'

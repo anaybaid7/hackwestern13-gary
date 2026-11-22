@@ -70,6 +70,13 @@ def history_of(raw):
     return tuple(out[-4:])
 
 
+def text_of(text):
+    """A question the browser transcribed itself, one line, or None."""
+    if not isinstance(text, str):
+        return None
+    return " ".join(text.split())[:300] or None
+
+
 def pcm_of(audio):
     """A base64 WAV of 16 kHz mono 16-bit speech -> its PCM, or None."""
     if not isinstance(audio, str) or not audio or len(audio) > MAX_AUDIO:

@@ -98,3 +98,15 @@ def test_strict_mode_never_takes_the_next_voice_as_an_answer(monkeypatch):
     monkeypatch.setenv("GARY_TALK_STRICT", "on")
     assert run(False, wake=lambda *a, **k: (True, reply))["listen"] is False
     assert run(False, wake=lambda *a, **k: (True, None))["listen"] is True, '"Go Gary" alone still waits for the question'
+
+
+def test_a_question_the_browser_transcribed_is_answered_as_text(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "g")
+    monkeypatch.setenv("ELEVENLABS_API_KEY", "e")
+    asked = []
+    monkeypatch.setattr(talk.brain, "answer", lambda q, *a, **k: asked.append(q) or
+                        {"heard": q, "say": "A goose. Loud, proud.", "do": None, "listen": False})
+    monkeypatch.setattr(talk.brain, "tts", lambda text, key: b"\x00\x00" * 10)
+    out = client.post("/api/talk", json={"text": "  what is   a goose? ", "listening": False}).json()
+    assert asked == ["what is a goose?"] and out["say"] == "A goose. Loud, proud."
+    assert talk.text_of("x" * 900) == "x" * 300 and talk.text_of("   ") is None and talk.text_of(5) is None
