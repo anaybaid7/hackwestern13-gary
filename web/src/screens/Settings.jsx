@@ -162,7 +162,7 @@ function ResetGary({ service, onReset }) {
   )
 }
 
-export default function Settings({ service, stamp, status, onReset }) {
+export default function Settings({ service, stamp, status, onReset, onMeet }) {
   const [ask, setAsk] = useState(readAsk)
   const [sound, setSound] = useState(readSound)
   const [signedInAt, setSignedInAt] = useState(0) // bumps the wellness view once a sign-in is known
@@ -219,6 +219,16 @@ export default function Settings({ service, stamp, status, onReset }) {
           )}
         </p>
       </section>
+
+      {onMeet && (
+        <section className="panel">
+          <h3 className="section-title">Meet Gary</h3>
+          <p className="small">Gary says who he is and shows you his three moves. Half a minute.</p>
+          <button type="button" className="button" onClick={onMeet}>
+            Meet Gary again
+          </button>
+        </section>
+      )}
 
       <section className="panel">
         <ResetGary service={service} onReset={onReset} />

@@ -24,6 +24,7 @@ The clips, and when Gary plays them (voice_clips() in gary_device.py):
     say_need_friend        the quest's thing, but the quest needs a friend
     say_herd               a friend is in the frame
     say_done              every quest is finished
+    say_meet_*             the page's hello for a new person (not played by the device)
 """
 import argparse
 import json
@@ -58,6 +59,14 @@ CUES = {
     "say_go_ahead": "[cheerful] Go ahead!",
     "say_thinking": "[curious] Ooh, let me think...",
     "say_ears": "[thoughtful] Hmm, my ears are a bit fuzzy. [playfully] Try me again?",
+    # the page's hello for a new person (web/src/components/Welcome.jsx)
+    "say_meet_wake": "[yawns] Baa! [cheerful] I'm Gary, your pocket goat. [warmly] I belong outside: trails, parks, hills. [playfully] Come with me?",
+    "say_meet_sniff": "[lighthearted] On a walk, point me at things. [playfully] Press my button to sniff.",
+    "say_meet_quest": "[curious] I find quests on real trails near you. [warmly] Pick a walk.",
+    "say_meet_walk": "[excited] Off we go! [warmly] Every walk lifts the fog.",
+    "say_meet_feel": "[gently] Before we head out: how do you feel?",
+    "say_meet_felt": "[warmly] Thanks. I ask again after. [gently] Only you see it.",
+    "say_meet_go": "[lighthearted] No streaks, no guilt. A break is just a nap. [excited] Let's get outside!",
 }
 PREFIX_CUES = (("say_found_", "[excited] "), ("say_", "[curious] "))
 
@@ -105,6 +114,14 @@ FIXED = {
     "say_thinking_4": "One sec, I'm chewing on that...",
     "say_thinking_5": "Ooh, hang on a moment...",
     "say_ears": "Hmm, my ears are a bit fuzzy. Try me again?",
+    # the page's hello for a new person: the same words as LINES in web/src/components/Welcome.jsx
+    "say_meet_wake": "Baa! I'm Gary, your pocket goat. I belong outside: trails, parks, hills. Come with me?",
+    "say_meet_sniff": "On a walk, point me at things. Press my button to sniff.",
+    "say_meet_quest": "I find quests on real trails near you. Pick a walk.",
+    "say_meet_walk": "Off we go. Every walk lifts the fog.",
+    "say_meet_feel": "Before we head out: how do you feel?",
+    "say_meet_felt": "Thanks. I ask again after. Only you see it.",
+    "say_meet_go": "No streaks, no guilt. A break is just a nap. Let's get outside!",
 }
 
 
