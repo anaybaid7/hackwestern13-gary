@@ -141,6 +141,16 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null,
         </div>
       )}
 
+      {explorers.state !== 'off' && (
+        <p className="nearby-line" role="status">
+          <span className="nearby-dot" aria-hidden="true" />
+          {explorers.state === 'waiting' && 'Explorers nearby is on. Finding where you are…'}
+          {explorers.state === 'offline' && 'Explorers nearby: no connection right now.'}
+          {explorers.state === 'on' && nearbyLine(explorers.others)}
+          {explorers.state === 'on' && explorers.exact && ' Showcase: exact positions.'}
+        </p>
+      )}
+
       <div className="world">
         {three ? (
           <Fallback key="3d" onFail={failed}>
@@ -168,14 +178,6 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null,
         {streets === 'off' && <p className="map-note" role="status">No street map right now. The fog and the pins still work.</p>}
       </div>
       {me.state === 'denied' && <p className="small">Location is off. Allow it to see yourself on the map.</p>}
-      {explorers.state !== 'off' && (
-        <p className="nearby-line" role="status">
-          <span className="nearby-dot" aria-hidden="true" />
-          {explorers.state === 'waiting' && 'Explorers nearby is on. Finding where you are…'}
-          {explorers.state === 'offline' && 'Explorers nearby: no connection right now.'}
-          {explorers.state === 'on' && nearbyLine(explorers.others)}
-        </p>
-      )}
 
       <ul className="map-key">
         <li><span className="key-mark key-fog">?</span>Fog</li>

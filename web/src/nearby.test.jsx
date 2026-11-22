@@ -63,6 +63,8 @@ test('switched on, the map tells the backend where you are and draws the others,
   expect(container.querySelectorAll('.other').length).toBe(2)
   expect(container.querySelectorAll('.other.same').length).toBe(1)
   expect(container.querySelector('.other').getAttribute('title')).toMatch(/Goat, on your quest$/) // a goat name, never a person's
+  expect(container.querySelector('.other b').textContent).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/) // and it is written under the dot
+  expect(screen.queryByText(/Showcase/)).toBeNull() // the usual 100 m rounding
   await act(async () => vi.advanceTimersByTime(EVERY_MS + 50))
   expect(service.shareSpot).toHaveBeenCalledTimes(2) // live: they move, so you ask again
 })
@@ -72,7 +74,7 @@ test('the switch is in Settings; turning it off takes your dot off the map at on
   render(<Settings service={service} stamp="1" status="live" />)
   const box = screen.getByRole('checkbox', { name: /Show me to explorers nearby/ })
   expect(box.checked).toBe(false)
-  expect(screen.getByText(/rounded to about 100 m, with no name, and is never\s+kept/)).toBeTruthy()
+  expect(screen.getByText(/rounded to about 100 m, with no name, and is never\s+kept \(a showcase server may show exact/)).toBeTruthy()
   fireEvent.click(box)
   expect(readNearby()).toBe(true)
   expect(service.leaveNearby).not.toHaveBeenCalled()
@@ -97,4 +99,13 @@ test("the demo story has explorers too, and they move", async () => {
   const later = await service.shareSpot({ lat: 43, lon: -81.25, quest_id: 'q' })
   spy.mockRestore()
   expect(later.nearby.map((o) => `${o.lat},${o.lon}`)).not.toEqual(first.nearby.map((o) => `${o.lat},${o.lon}`))
+})
+
+test('on a showcase server the map says positions are exact', async () => {
+  writeNearby(true)
+  const service = fakeService([{ tag: '3a9f01c2', lat: 43.00961, lon: -81.27374, same_quest: false, metres: 6, seconds_ago: 1 }])
+  service.shareSpot = vi.fn(async () => ({ nearby: [{ tag: '3a9f01c2', lat: 43.00961, lon: -81.27374, same_quest: false, metres: 6, seconds_ago: 1 }], range_m: 2000, rounded_m: 1.1 }))
+  render(<MapScreen {...mapProps} service={service} />)
+  await act(async () => {})
+  expect(screen.getByText(/1 explorer nearby\. Showcase: exact positions\./)).toBeTruthy()
 })

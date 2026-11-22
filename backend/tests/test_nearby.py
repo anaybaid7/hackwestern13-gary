@@ -87,3 +87,21 @@ def test_it_is_never_stored_and_never_in_garys_shared_state(client):
 def test_a_bad_request_puts_nobody_on_the_map(client, body):
     assert client.post("/api/nearby", json=body).status_code == 422
     assert tell(client, B, GIBBONS) == []
+
+
+def test_a_showcase_server_can_show_people_in_one_room_apart_and_says_so(client, monkeypatch):
+    here, beside = (43.009612, -81.273741), (43.009655, -81.273702)   # about 6 m apart
+    # as shipped: both round to the same point, so two people in a room are one dot
+    tell(client, A, here)
+    usual = client.post("/api/nearby", json={"id": B, "lat": beside[0], "lon": beside[1]}).json()
+    assert usual["rounded_m"] == 111.0 and usual["nearby"][0]["metres"] == 0
+    assert (usual["nearby"][0]["lat"], usual["nearby"][0]["lon"]) == (43.01, -81.274)
+    # GARY_NEARBY_ROUND=5: about a metre, and the reply says how coarse it is
+    monkeypatch.setenv("GARY_NEARBY_ROUND", "5")
+    tell(client, A, here)
+    close = client.post("/api/nearby", json={"id": B, "lat": beside[0], "lon": beside[1]}).json()
+    assert close["rounded_m"] == 1.1 and 4 <= close["nearby"][0]["metres"] <= 8
+    assert (close["nearby"][0]["lat"], close["nearby"][0]["lon"]) == (43.00961, -81.27374)
+    # a silly value falls back to the usual rounding
+    monkeypatch.setenv("GARY_NEARBY_ROUND", "lots")
+    assert client.post("/api/nearby", json={"id": B, "lat": beside[0], "lon": beside[1]}).json()["rounded_m"] == 111.0

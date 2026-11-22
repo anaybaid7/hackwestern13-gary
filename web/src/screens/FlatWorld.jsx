@@ -5,7 +5,7 @@
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useImperativeHandle, useRef } from 'react'
-import { CREAM, INK, pinClass, pinHtml, pinLabel, stillPlease, trailOf } from '../map/marks.js'
+import { CREAM, INK, escape, pinClass, pinHtml, pinLabel, shortName, stillPlease, trailOf } from '../map/marks.js'
 
 const CLEAR_METRES = 350
 const START_ZOOM = 14
@@ -238,7 +238,7 @@ export default function FlatWorld({ ref, tiles, spots, questPlace, picked, fresh
     layer.clearLayers()
     for (const other of others) {
       L.marker([other.lat, other.lon], {
-        icon: L.divIcon({ className: `other${other.same_quest ? ' same' : ''}`, html: '<span></span>', iconSize: [16, 16] }),
+        icon: L.divIcon({ className: `other${other.same_quest ? ' same' : ''}`, html: `<span></span><b>${escape(shortName(other.name))}</b>`, iconSize: [16, 16] }),
         interactive: true,
         title: `${other.name}${other.same_quest ? ', on your quest' : ''}`,
       }).addTo(layer)

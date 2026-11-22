@@ -77,6 +77,7 @@ On the server they live in `/opt/gary/.env`. None of these files is in git.
 | `GARY_PRIVATE_KEY` | A passphrase for the private side. If set, the check-ins and the wellness view open only with it (`X-Private-Key`), and the page asks for it once per device. **Set this on the public server**: without it anyone who has the address can read the check-ins, and the page says so |
 | `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` | Switch on the Auth0 login (`docs/AUTH0.md`). Unset: no login, the keys above work as before |
 | `AUTH0_CLIENT_ID`, `AUTH0_DEVICE_CLIENT_ID` | The page's and Gary's application ids in the tenant. Not secret |
+| `GARY_NEARBY_ROUND` | Decimal places kept for Explorers nearby. Default 3 (about 100 m). `5` is about 1 m: a showcase setting, and the map then says positions are exact |
 | `GARY_NAP_SECONDS` | Quiet time before Gary naps. Default 8 hours. A short value such as `60` shows a nap within minutes. Leave it out for the three-minute demo: Gary would be asleep again before the end |
 | `GARY_TZ` | Where days and weeks turn over. Default `America/Toronto` |
 | `GARY_SEED` | The quests a fresh backend starts with |
