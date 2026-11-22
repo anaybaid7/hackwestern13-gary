@@ -131,8 +131,11 @@ test('every line has a spoken clip, with the same words the voice script sends t
 })
 
 test('a new person meets Gary before the home screen; someone he knows goes straight in', async () => {
+  window.sessionStorage.clear()
   const service = fakeService()
   const first = render(<App service={service} />)
+  await screen.findByRole('button', { name: 'Start' }) // the landing page first
+  click('Start')
   expect(screen.getByRole('region', { name: 'Meet Gary' })).toBeTruthy()
   expect(service.postMood).not.toHaveBeenCalled()
   click('Skip')

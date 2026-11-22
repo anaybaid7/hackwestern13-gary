@@ -7,6 +7,7 @@ import GaryEars from './components/GaryEars.jsx'
 import QuestComplete from './components/QuestComplete.jsx'
 import Nav, { SCREENS } from './components/Nav.jsx'
 import StoryBar from './components/StoryBar.jsx'
+import Landing, { readStarted } from './components/Landing.jsx'
 import Welcome, { readMet } from './components/Welcome.jsx'
 import { ordinal } from './format.js'
 import Guide from './screens/Guide.jsx'
@@ -44,7 +45,7 @@ export default function App({ service: given }) {
     }
   }, [given])
   if (!service) return <Splash>Waking Gary.</Splash>
-  return <Shell service={service} welcome={!readMet()} />
+  return <Shell service={service} landing={!readStarted()} welcome={!readMet()} />
 }
 
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
@@ -91,7 +92,8 @@ function readTab() {
   return SCREENS.some((screen) => screen.id === id) ? id : 'home'
 }
 
-export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welcome = false }) {
+export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), landing = false, welcome = false }) {
+  const [atDoor, setAtDoor] = useState(landing) // the landing page, once a visit
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState(readTab)
@@ -231,6 +233,14 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
     } finally {
       setBusy(false)
     }
+  }
+
+  if (atDoor) {
+    return (
+      <Handheld onPick={() => {}}>
+        <Landing service={service} onStart={() => setAtDoor(false)} />
+      </Handheld>
+    )
   }
 
   // Gary's hello needs nothing from the backend, so it does not wait for it.
