@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { goatName } from '../auth.js'
 import { readAsk, writeAsk } from '../components/CheckIn.jsx'
 import { playClip, readSound, writeSound } from '../sound.js'
+import { leaveNearby, readNearby, writeNearby } from '../nearby.js'
 import You from './You.jsx'
 
 const STATUS_WORDS = { live: 'Live', mock: 'Demo story', stale: 'Offline · last state' }
@@ -172,11 +173,18 @@ const MAKERS = [
 export default function Settings({ service, stamp, status, onReset, onMeet }) {
   const [ask, setAsk] = useState(readAsk)
   const [sound, setSound] = useState(readSound)
+  const [nearby, setNearby] = useState(readNearby)
   const [signedInAt, setSignedInAt] = useState(0) // bumps the wellness view once a sign-in is known
 
   function toggle() {
     writeAsk(!ask)
     setAsk(!ask)
+  }
+
+  function toggleNearby() {
+    writeNearby(!nearby)
+    if (nearby) leaveNearby(service) // off: your dot leaves everyone's map now, not in a minute
+    setNearby(!nearby)
   }
 
   function toggleSound() {
@@ -205,6 +213,19 @@ export default function Settings({ service, stamp, status, onReset, onMeet }) {
         </label>
         <p className="small">
           A sound for each new find and each finished quest. Browsers stay quiet until you have tapped the page once.
+        </p>
+      </section>
+
+      <section className="panel">
+        <h3 className="section-title">Explorers nearby</h3>
+        <label className="switch">
+          <input type="checkbox" checked={nearby} onChange={toggleNearby} />
+          <span>Show me to explorers nearby, and show them to me</span>
+        </label>
+        <p className="small">
+          Off unless you turn it on. While it is on, the map shows a moving dot for each explorer near you or on your
+          quest, and they see one for you. Where you are is sent rounded to about 100 m, with no name, and is never
+          kept: your dot is gone within a minute of closing the page, and at once when you switch this off.
         </p>
       </section>
 

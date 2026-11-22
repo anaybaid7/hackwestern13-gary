@@ -49,6 +49,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 import auth
+import nearby
 import rules
 import scouting
 import talk
@@ -555,6 +556,33 @@ def post_visit(payload: dict = Body(...)):
 
 
 talk_slots = threading.BoundedSemaphore(4)  # a few "Go Gary" checks side by side (the page sends up to 3), never a flood
+
+
+# -- explorers nearby: opt-in, in memory only (see nearby.py) -----------------
+@app.post("/api/nearby")
+def post_nearby(payload: dict = Body(...)):
+    """{"id", "lat", "lon", "quest_id"?}: say where this device is and get the
+    explorers near it or on the same quest. Only sent while the person has
+    "Explorers nearby" switched on. Nothing is stored; a dot not refreshed for
+    45 seconds is gone."""
+    device, lat, lon = payload.get("id"), payload.get("lat"), payload.get("lon")
+    if not nearby.valid_id(device):
+        raise HTTPException(422, "id must be 16 to 64 letters and digits")
+    numbers = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (lat, lon))
+    if not numbers or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(422, "lat and lon must be a real place")
+    quest = payload.get("quest_id")
+    quest = one_line(quest, 80) if isinstance(quest, str) and quest else None
+    return {"nearby": nearby.share(device, lat, lon, quest), "range_m": int(nearby.RANGE_M)}
+
+
+@app.post("/api/nearby/leave")
+def leave_nearby(payload: dict = Body(...)):
+    """{"id"}: take this device off the map at once (the switch was turned off)."""
+    device = payload.get("id")
+    if not nearby.valid_id(device):
+        raise HTTPException(422, "id must be 16 to 64 letters and digits")
+    return {"ok": True, "was_shown": nearby.leave(device)}
 
 
 @app.get("/api/talk")

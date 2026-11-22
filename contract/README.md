@@ -52,6 +52,8 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `GET /api/picks` | web | | Picks for you: `{"ready", "job", "picks": [Pick], "picked_at", "runs", "cached", "error", "previous": [...]}`. `ready` is false when the server has no TinyFish key. `picks` are always the last good ones; `cached` is true when the newest request failed, and `error` says why. `job` is the request running now or the last one: `{"status": "running"\|"ok"\|"empty"\|"failed", ...}` |
 | `POST /api/picks` | web | optional `{"near": "<a place name>"}` | `202` `{"job", "started"}`. Starts one TinyFish request in the background (a live page takes 30 to 200 s); asking while one runs returns that one (`started: false`). `near` must be the name of one of Gary's places, worked out in the browser; anything else is ignored. **No position is ever sent.** `503` when the server has no TinyFish key |
 | `POST /api/picks/take` | web | `{"id": "<a pick's quest id>"}` | `{"quest": Quest, "state": State}`: that pick is checked like a posted quest, added, and chosen. `404` for an id not in the last good picks |
+| `POST /api/nearby` | web, only while "Explorers nearby" is on | `{"id", "lat", "lon", "quest_id"?}` | `{"nearby": [{"tag", "lat", "lon", "same_quest", "metres", "seconds_ago"}], "range_m"}`. Positions are rounded to about 100 m and never stored |
+| `POST /api/nearby/leave` | web | `{"id"}` | `{"ok", "was_shown"}` |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.

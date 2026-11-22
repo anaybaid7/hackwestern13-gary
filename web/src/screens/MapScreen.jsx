@@ -1,7 +1,9 @@
 // The fog-of-war map (issue #26), on OpenStreetMap: real streets and park
 // names, dimmed by fog everywhere except round the places you have cleared.
 // Each place from a quest is a pin. Your own position is a dot, read from
-// the browser and kept there: it is never sent anywhere.
+// the browser and kept there. It is sent nowhere, unless you switch on
+// "Explorers nearby" in Settings: then it is shared, rounded, with the others
+// who have it on, and their dots are drawn here (see nearby.js).
 //
 // Two ways to draw it, the same state on both: a 3D London (World3D, with
 // MapLibre) wherever the browser can draw WebGL, and the flat map
@@ -16,6 +18,8 @@ import { useWhereAmI } from '../whereAmI.js'
 import { clock, dayName, dayKey } from '../format.js'
 import { LONDON, away, layout, realSpot, realSpots } from '../places.js'
 import { can3d, savedLook, saveLook } from '../map/look.js'
+import { goatName } from '../auth.js'
+import { nearbyLine, readNearby, useNearby } from '../nearby.js'
 import FlatWorld from './FlatWorld.jsx'
 
 const World3D = lazy(() => import('./World3D.jsx'))
@@ -34,13 +38,14 @@ class Fallback extends Component {
   }
 }
 
-export default function MapScreen({ map, flash, quest = null, focusPlace = null, quests = [], onPickQuest = null, busy = false }) {
+export default function MapScreen({ map, flash, quest = null, focusPlace = null, quests = [], onPickQuest = null, busy = false, service = null, sharing = readNearby() }) {
   const [picked, setPicked] = useState(focusPlace)
   const [streets, setStreets] = useState('loading') // 'loading' | 'on' | 'off': whether street tiles arrive
   const [broken, setBroken] = useState(false) // the 3D map would not start here
   const [look, setLook] = useState(() => (can3d() ? savedLook() : 'flat'))
   const view = useRef(null)
   const me = useWhereAmI()
+  const explorers = useNearby(service, me, quest?.id, sharing)
   const spots = layout(map.map((tile) => tile.place), realSpots(map))
   const cleared = map.filter((tile) => tile.cleared)
   const chosen = map.find((tile) => tile.place === picked) ?? null
@@ -71,6 +76,7 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null,
     fresh: flash.cleared,
     onPick: (place) => setPicked((p) => (p === place ? null : place)),
     me,
+    others: explorers.others.map((o) => ({ ...o, name: goatName(o.tag) })),
     first: spots.get(picked) ?? first,
     onStreets: setStreets,
   }
@@ -162,6 +168,14 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null,
         {streets === 'off' && <p className="map-note" role="status">No street map right now. The fog and the pins still work.</p>}
       </div>
       {me.state === 'denied' && <p className="small">Location is off. Allow it to see yourself on the map.</p>}
+      {explorers.state !== 'off' && (
+        <p className="nearby-line" role="status">
+          <span className="nearby-dot" aria-hidden="true" />
+          {explorers.state === 'waiting' && 'Explorers nearby is on. Finding where you are…'}
+          {explorers.state === 'offline' && 'Explorers nearby: no connection right now.'}
+          {explorers.state === 'on' && nearbyLine(explorers.others)}
+        </p>
+      )}
 
       <ul className="map-key">
         <li><span className="key-mark key-fog">?</span>Fog</li>

@@ -74,6 +74,9 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     postMood: (phase, value) => call('/api/mood', { phase, value }, true),
     /** The page is at this quest's place. Only the id is sent, never a position. */
     postVisit: (questId) => call('/api/visit', { quest_id: questId }),
+    /** Explorers nearby (opt-in): say where this device is, get the others near it. Nothing is stored. */
+    shareSpot: (body) => call('/api/nearby', body),
+    leaveNearby: (id) => call('/api/nearby/leave', { id }),
     /** {enabled}: whether this server can talk (gary_talk.py and both keys). */
     talkConfig: () => call('/api/talk'),
     /** The question after "Go Gary": {audio: base64 WAV, history} -> Gary's reply. */

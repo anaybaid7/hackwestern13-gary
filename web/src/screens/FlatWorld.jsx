@@ -133,7 +133,7 @@ function makeFog(map) {
  * tiles: state.map. spots: place -> [lat, lng]. fresh: places that just cleared.
  * ref gets { goTo(at, zoom), fit(points) } for the buttons over the map.
  */
-export default function FlatWorld({ ref, tiles, spots, questPlace, picked, fresh, onPick, me, first, onStreets }) {
+export default function FlatWorld({ ref, tiles, spots, questPlace, picked, fresh, onPick, me, others = [], first, onStreets }) {
   const box = useRef(null)
   const leaflet = useRef(null)
 
@@ -162,6 +162,7 @@ export default function FlatWorld({ ref, tiles, spots, questPlace, picked, fresh
       trail: L.layerGroup().addTo(m),
       layers: L.layerGroup().addTo(m),
       me: L.layerGroup().addTo(m),
+      others: L.layerGroup().addTo(m),
     }
     // the box can change size without the window doing so (the handheld frame, a rotated phone)
     const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => m.invalidateSize())
@@ -228,6 +229,22 @@ export default function FlatWorld({ ref, tiles, spots, questPlace, picked, fresh
     L.circle(me.at, { radius: me.accuracy ?? 30, stroke: false, fillColor: '#3E8EDE', fillOpacity: 0.15, interactive: false }).addTo(layer)
     L.marker(me.at, { icon: L.divIcon({ className: 'me', html: '<span></span>', iconSize: [18, 18] }), interactive: false, title: 'You are here' }).addTo(layer)
   }, [me.at, me.accuracy])
+
+  // explorers nearby (only when you have switched it on): one dot each, moved as they move
+  const where = others.map((o) => `${o.tag}:${o.lat},${o.lon}:${o.same_quest}`).join('|')
+  useEffect(() => {
+    const layer = leaflet.current?.others
+    if (!layer) return
+    layer.clearLayers()
+    for (const other of others) {
+      L.marker([other.lat, other.lon], {
+        icon: L.divIcon({ className: `other${other.same_quest ? ' same' : ''}`, html: '<span></span>', iconSize: [16, 16] }),
+        interactive: true,
+        title: `${other.name}${other.same_quest ? ', on your quest' : ''}`,
+      }).addTo(layer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `where` is everything these dots draw
+  }, [where])
 
   return <div className="world-map" ref={box} aria-label="Map of London, Ontario" />
 }
