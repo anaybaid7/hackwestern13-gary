@@ -290,9 +290,33 @@ laptop and copy `gary.token` to the Pi.
 ## 8b. Talking to Gary ("Go Gary")
 
 Say **"Go Gary"** (or hold the button for 0.8 s). Gary says "Go ahead!". Ask
-"what am I looking at?" and he says "Ooh, let me think..." and then answers
-with one true fact about what he sees, in his voice, in about 1.5 to 3 s. All
-in one breath works too: "Go Gary, what's that?".
+something; he says one of five "let me think" lines and answers in his voice
+in about 2 to 3 s. All in one breath works too: "Go Gary, what's that?".
+
+What he can do:
+
+| Say | Gary |
+| --- | --- |
+| "What am I looking at?" | Names it, with one true fact |
+| "Good morning!" | Greets you, then asks: a short or a long quest? (just answer, no "Go Gary") |
+| "What quests do I have?" / "Where's my quest?" | Today's quest, its place and note, the short and long options |
+| "Give me a short task" / "a long one" | Picks it in the app (`/api/quest/choose`), then says what it is |
+| "Create a task to find a duck at the pond" | Adds a quest (`/api/quests`, source `gary`). Only things he can find; a penguin is politely refused |
+| "How close are you to growing?" / "Where's our herd?" | Stage, XP, finds, field guide, places uncovered, the Herd Cup (herds, never people) |
+| "Where am I?" | The city, the quest's place, places you reached. Never your exact spot: the phone keeps it |
+| "How am I feeling?" | Never reads a check-in out: points you to the private You tab |
+
+He remembers the last few things said for two minutes (in memory only), so
+"where is that?" works after a quest. When he asks you something he keeps
+listening, so you just answer.
+
+- **The app:** `--api http://<backend>` or `GARY_API`; with `--seeing <url>/api/seeing`
+  he uses that backend. Its state is refreshed every 5 s in the background, so
+  answers never wait for it. Making a quest needs `SCOUT_KEY` in `device/.env`
+  when the server sets one.
+- **The voice:** answers and the talk clips (go ahead, let me think, ears) use
+  `eleven_flash_v2_5` at speed 1.2 (`TTS_SPEED`; `TALK_SETTINGS` in
+  `make_voice.py`). The prompts are `GARY`, `RULES` and `HOW` in `gary_talk.py`.
 
 - `gary_talk.py` runs beside Gary (`GARY_TALK=on` in `gary.env`; `start_gary.sh`
   starts it, log in `logs/talk.log`). Standard library only.

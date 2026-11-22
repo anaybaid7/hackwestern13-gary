@@ -10,6 +10,7 @@ start_gary.sh with a stand-in Gary.
 
 What is not: real GPIO pins, a real buzzer, QNX. Those need the Pi.
 """
+import io
 import json
 import os
 import shutil
@@ -666,9 +667,10 @@ def test_go_gary_wakes_him_only_when_said_to_him():
     def wake(heard, answer="Ooh, a squirrel!"):
         reply = json.dumps({"heard": heard, "answer": answer})
         return gt.is_wake(b"\0\0" * 1600, "key", None, opener=stand_in(reply))
-    assert wake("Go Gary") == (True, "")
-    assert wake("Go Gary, what's that?") == (True, "Ooh, a squirrel!")
-    assert wake("Gary is a good name") == (False, "")
+    assert wake("Go Gary") == (True, None), "Go Gary alone: Go ahead, then listen"
+    woke, reply = wake("Go Gary, what's that?")
+    assert woke and reply["say"] == "Ooh, a squirrel!" and reply["do"] is None
+    assert wake("Gary is a good name") == (False, None)
 
 
 def stand_in(text):
@@ -767,6 +769,80 @@ def test_go_gary_then_a_question_gets_go_ahead_then_an_answer():
     talk.wake()
     assert talk.heard(speech) == "error" and played[-1] == "say_ears"
     assert talk.heard(b"\1\0" * 16000 * 7) == "ignored", "too long for Go Gary: someone talking nearby"
+
+
+def test_gary_reads_the_app_but_never_a_mood():
+    gt = load("gary_talk")
+    with open(os.path.join(DEVICE, "..", "contract", "examples", "state.json"), encoding="utf-8") as f:
+        state = json.load(f)
+    said = gt.app_context(state, ["bench", "duck"])
+    assert "Gary is a Scrambler with 80 XP, 70 XP to the next stage." in said
+    assert '"Find a water bottle at your table" at Hack Western, your table' in said
+    assert "If they pick long: no long quest is open." in said
+    assert "your herd is 3 of 6 herds" in said and "THINGS GARY CAN FIND" in said
+    assert "mood" not in said.lower() and "check-in" not in said.lower()
+    assert "not reachable" in gt.app_context(None)
+    things = gt.read_things()
+    assert "duck" in things and "person" not in things and "laptop" not in things, "outdoor things only"
+    # whatever Gemini sends back, Gary gets something safe to use
+    assert gt.reply_of('{"say": "Hi!", "do": {"action": "delete_everything"}}')["do"] is None
+    assert gt.reply_of("not json at all")["say"] == "not json at all"
+    assert gt.reply_of('{"say": "Sure", "listen": "yes"}')["listen"] is False
+
+
+def test_gary_can_pick_a_quest_and_make_one():
+    gt = load("gary_talk")
+    sent = []
+
+    class Reply(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    def backend(req, timeout=None):
+        body = json.loads(req.data) if req.data else None
+        sent.append((req.full_url, body, dict(req.header_items())))
+        if req.full_url.endswith("/api/quest/choose"):
+            quest = None if body["time"] == "long" else {"id": "q-1", "title": "Find a bench at Harris Park", "place": "Harris Park"}
+            return Reply(json.dumps({"quest": quest, "state": {"quests_open": 2}}).encode())
+        if req.full_url.endswith("/api/quests"):
+            return Reply(json.dumps({"accepted": [q["id"] for q in body["quests"]], "rejected": []}).encode())
+        return Reply(b"{}")
+
+    app = gt.App("http://gary.test/", scout_key="sk", opener=backend)
+    talk = gt.Talk(None, "g", "e", "none.json", say=lambda *_: None, app=app)
+    pick = {"say": "Here's a bench quest!", "do": {"action": "choose_quest", "time": "short"}}
+    assert talk.act(pick) == "Here's one: Find a bench at Harris Park, at Harris Park."
+    assert sent[0][0] == "http://gary.test/api/quest/choose" and sent[0][1] == {"time": "short"}
+    assert "No long quests are open" in talk.act({"say": "x", "do": {"action": "choose_quest", "time": "long"}})
+
+    made = {"say": "Added!", "do": {"action": "create_quest", "target": "Duck", "place": "the pond", "time": "short"}}
+    assert talk.act(made) == "Added!"
+    url, body, headers = sent[-2]  # then a refresh of the state
+    quest = body["quests"][0]
+    assert url.endswith("/api/quests") and headers.get("X-scout-key") == "sk"
+    assert quest["target"] == "duck" and quest["title"] == "Find a duck at the pond" and quest["xp"] == 20
+    assert quest["source"] == "gary", "a quest Gary made is never marked as the scout's"
+    n = len(sent)
+    assert "wouldn't let me" in talk.act({"say": "Added!", "do": {"action": "create_quest", "target": "penguin"}})
+    assert len(sent) == n, "a thing Gary cannot find is never sent"
+    no_app = gt.Talk(None, "g", "e", "none.json", say=lambda *_: None, app=gt.App(""))
+    assert "can't reach the app" in no_app.act(pick)
+
+
+def test_let_me_think_is_never_the_same_twice_running():
+    gt = load("gary_talk")
+
+    class Mouth:
+        def clip(self, name):
+            return name if name in gt.THINKING else None
+    talk = gt.Talk(Mouth(), "g", "e", "none.json")
+    picks = [talk.thinking_clip() for _ in range(40)]
+    assert all(a != b for a, b in zip(picks, picks[1:])) and set(picks) == set(gt.THINKING)
+    for name in gt.THINKING + ("say_go_ahead", "say_ears"):
+        assert os.path.exists(os.path.join(DEVICE, "sounds", name + ".wav")), name
 
 
 def test_holding_the_button_asks_gary_to_listen():
