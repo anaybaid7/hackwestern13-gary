@@ -771,6 +771,130 @@ def test_go_gary_then_a_question_gets_go_ahead_then_an_answer():
     assert talk.heard(b"\1\0" * 16000 * 7) == "ignored", "too long for Go Gary: someone talking nearby"
 
 
+def test_in_a_loud_room_every_question_needs_go_gary_even_after_gary_asks_one():
+    gt = load("gary_talk")
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            pass
+
+        def say_pcm(self, pcm):
+            pass
+
+    asks = {"say": "A short one or a long one?", "listen": True}
+    speech = b"\1\0" * 16000
+
+    def talk_with(strict):
+        woke = iter([(True, asks), (False, None)])
+        return gt.Talk(Mouth(), "g", "e", "none.json", say=lambda *_: None, strict=strict,
+                       ask_wake=lambda pcm, key, seeing: next(woke),
+                       ask_answer=lambda q, key, seeing: "Short it is.", speak=lambda text, key: b"")
+
+    easy = talk_with(False)
+    assert easy.heard(speech) == "answered" and easy.state == easy.LISTENING
+    assert easy.heard(speech) == "answered", "he asked, so the next thing said is taken as the answer"
+
+    strict = talk_with(True)
+    assert strict.heard(speech) == "answered" and strict.state == strict.IDLE
+    assert strict.heard(speech) == "ignored", "a voice nearby, with no Go Gary: not an answer"
+    # "Go Gary" alone still opens the short window for one question
+    strict.wake()
+    assert strict.state == strict.LISTENING
+
+
+def test_a_question_asked_while_gary_checks_for_go_gary_is_answered_not_lost():
+    gt = load("gary_talk")
+    played = []
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            played.append(name)
+
+        def say_pcm(self, pcm):
+            played.append(("answer", pcm))
+
+    speech, question = b"\1\0" * 16000, b"\2\0" * 16000
+    talk = gt.Talk(Mouth(), "g", "e", "none.json", say=lambda *_: None, speak=lambda text, key: text.encode(),
+                   ask_answer=lambda q, key, seeing: "A goose!" if q == question else "wrong recording")
+
+    def went_straight_on(pcm, key, seeing):
+        if pcm == speech:  # while Gemini checks "Go Gary", the person asks; that sound is checked too
+            assert talk.heard(question) == "ignored"
+            return True, None
+        return False, None
+
+    talk.ask_wake = went_straight_on
+    assert talk.heard(speech) == "answered"
+    assert "say_go_ahead" not in played and played[-1] == ("answer", b"A goose!")
+    assert talk.recent == []
+
+    # still mid-question when the check comes back: listen, and do not talk over them
+    played.clear()
+    talk.ask_wake, talk.hearing = (lambda pcm, key, seeing: (True, None)), (lambda: True)
+    assert talk.heard(speech) == "woke" and played == [] and talk.state == talk.LISTENING
+    assert talk.heard(question) == "answered" and played[-1] == ("answer", b"A goose!")
+
+    # nobody said anything more: "Go ahead", as before
+    played.clear()
+    talk.hearing = lambda: False
+    assert talk.heard(speech) == "woke" and played == ["say_go_ahead"]
+
+
+def test_a_neighbours_sentence_being_checked_does_not_make_gary_deaf():
+    gt = load("gary_talk")
+    played = []
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            played.append(name)
+
+        def say_pcm(self, pcm):
+            played.append(("answer", pcm))
+
+    neighbour, call = b"\3\0" * 16000, b"\1\0" * 16000
+    talk = gt.Talk(Mouth(), "g", "e", "none.json", say=lambda *_: None, speak=lambda text, key: text.encode())
+    results = []
+
+    def check(pcm, key, seeing):
+        if pcm == neighbour:  # while the neighbour's sentence is with Gemini, someone calls Gary
+            results.append(talk.heard(call))
+            return False, None
+        return True, {"heard": "go gary what is that", "say": "A duck!", "do": None, "listen": False}
+
+    talk.ask_wake = check
+    assert talk.heard(neighbour) == "ignored"
+    assert results == ["answered"] and played[-1] == ("answer", b"A duck!")
+    # but not without limit: a crowd cannot start more than CHECKS checks at once
+    talk.checking = gt.CHECKS
+    assert talk.heard(call) == "busy"
+
+
+def test_a_close_voice_ends_when_it_stops_even_if_the_room_never_goes_quiet():
+    gt = load("gary_talk")
+    import struct
+
+    def frame(level):
+        return struct.pack("<320h", *([level, -level] * 160))
+
+    def sentences(ears):
+        out = []
+        # a loud room, a close voice, then people nearby louder than the room was
+        for level in [1200] * 100 + [12000] * 40 + [4500] * 60:
+            said = ears.feed(frame(level))
+            if said:
+                out.append(len(said) // 640)
+        return out
+
+    close = sentences(gt.Utterances(below_peak=0.45))
+    assert len(close) == 1 and 40 <= close[0] <= 40 + 15 + 31, close   # the voice and the short quiet after
+
+
 def test_gary_reads_the_app_but_never_a_mood():
     gt = load("gary_talk")
     with open(os.path.join(DEVICE, "..", "contract", "examples", "state.json"), encoding="utf-8") as f:
