@@ -243,6 +243,9 @@ else
     export GARY_SEEING GARY_TALK_DIR
     GARY_SELF_URL="http://127.0.0.1:${GARY_BACKEND_PORT:-8800}"   # where a scout run started by the backend posts
     export GARY_SELF_URL
+    # The page's Reset button: this backend then gives Gary a fresh journal too (off: GARY_ON_RESET=off)
+    GARY_ON_RESET="${GARY_ON_RESET:-sh $DIR/start_gary.sh --fresh}"
+    export GARY_ON_RESET
     [ -n "${GARY_SCOUT_AT:-}" ] && export GARY_SCOUT_AT   # gary.env: run the scout every day at this time
     [ -n "${GARY_TALK_STRICT:-}" ] && export GARY_TALK_STRICT   # on: the page's talk needs "Go Gary" every time too
     [ -n "${GARY_TALK_MODEL:-}" ] && export GARY_TALK_MODEL   # gary.env: another Gemini model, e.g. when one is out of its daily quota

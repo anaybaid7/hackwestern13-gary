@@ -163,7 +163,7 @@ def test_a_reset_that_keeps_the_quests_opens_them_all_again(client):
     open_before = before["quests_open"]
 
     out = client.post("/api/dev/reset", json={"keep_quests": True}).json()
-    assert out == {"ok": True, "quests_kept": True}
+    assert out == {"ok": True, "quests_kept": True, "device_restarting": False}
     after = state_of(client)
     assert after["gary"]["xp"] == 0 and after["journal"] == []
     assert after["quests_open"] == open_before + 2, "the two finished quests are open again"
@@ -172,7 +172,7 @@ def test_a_reset_that_keeps_the_quests_opens_them_all_again(client):
     assert client.get("/api/health").json()["events"] == 0
 
     # without the option it is the old reset: only the built-in quests remain
-    assert client.post("/api/dev/reset").json() == {"ok": True, "quests_kept": False}
+    assert client.post("/api/dev/reset").json() == {"ok": True, "quests_kept": False, "device_restarting": False}
     assert "q-scout-duck" not in [q["id"] for q in client.get("/api/quests").json()["quests"]]
     # and other bodies do not switch the option on
     for body in ({"keep_quests": "yes"}, {}, [], "keep"):
