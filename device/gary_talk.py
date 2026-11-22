@@ -572,6 +572,10 @@ class Talk:
         # strict: every question needs "Go Gary", also the answer to something Gary asked.
         # For a loud room, where the next voice he hears may not be yours.
         self.strict = strict
+        # Checking for "Go Gary" takes Gemini a second or two, and people do not wait for
+        # "Go ahead": they go straight on to the question. So what is said meanwhile is kept
+        # (`pending`, the latest thing only), and `hearing` says whether they are mid-sentence.
+        self.pending, self.hearing = None, lambda: False
         self.state, self.until = self.IDLE, 0.0
         self.busy = threading.Lock()
         # The conversation, in memory only: (what they said, what Gary said). Never written down.
@@ -627,12 +631,20 @@ class Talk:
             self.say("talk: \"Go Gary\" (%.1f s)" % (self.clock() - t0))
             if reply:
                 return self.speak_answer(as_reply(reply), t0)
+            question, self.pending = self.pending, None
+            if question:
+                return self.respond(question, seeing)  # they asked while he was checking: answer it
+            if self.hearing():
+                self.say("talk: listening (they are already asking)")
+                self.listen()  # mid-question: do not talk over them with "Go ahead"
+                return "woke"
             self.wake()
             return "woke"
         except TalkError as exc:
             self.say("talk: %s" % exc)
             return "error"
         finally:
+            self.pending = None  # whatever else was said meanwhile was not for Gary
             self.busy.release()
 
     def thinking_clip(self):
@@ -803,12 +815,13 @@ def main(argv=None):
         frames = frames_from_command(cmd)
 
     ears = Utterances(min_level=args.min_level)
+    talk.hearing = lambda: ears.speech is not None
     spoke_at = 0.0
     print("Gary is listening. Say \"Go Gary\".%s" % (" Every question needs it." if args.strict else ""))
     try:
         for frame in frames:
             talk.tick()
-            if mouth.speaking.is_set() or talk.busy.locked():
+            if mouth.speaking.is_set():
                 spoke_at = time.monotonic()
                 ears.reset()  # never answer Gary's own voice
                 continue
@@ -816,6 +829,9 @@ def main(argv=None):
                 ears.reset()  # nor its tail
                 continue
             said = ears.feed(frame)
+            if said and talk.busy.locked() and not args.from_wav:
+                talk.pending = said  # said while Gary was checking for "Go Gary": maybe the question
+                continue
             if said:
                 if args.from_wav:
                     talk.heard(said)  # in order, so a test file plays like a conversation

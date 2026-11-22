@@ -804,6 +804,50 @@ def test_in_a_loud_room_every_question_needs_go_gary_even_after_gary_asks_one():
     assert strict.state == strict.LISTENING
 
 
+def test_a_question_asked_while_gary_checks_for_go_gary_is_answered_not_lost():
+    gt = load("gary_talk")
+    played = []
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            played.append(name)
+
+        def say_pcm(self, pcm):
+            played.append(("answer", pcm))
+
+    speech, question = b"\1\0" * 16000, b"\2\0" * 16000
+    talk = gt.Talk(Mouth(), "g", "e", "none.json", say=lambda *_: None, speak=lambda text, key: text.encode(),
+                   ask_answer=lambda q, key, seeing: "A goose!" if q == question else "wrong recording")
+
+    def slow_wake(pcm, key, seeing):
+        talk.pending = question     # the person went straight on, while Gemini was checking
+        return True, None
+
+    talk.ask_wake = slow_wake
+    assert talk.heard(speech) == "answered"
+    assert "say_go_ahead" not in played and played[-1] == ("answer", b"A goose!")
+    assert talk.pending is None
+
+    # still mid-question when the check comes back: listen, and do not talk over them
+    played.clear()
+    talk.ask_wake, talk.hearing = (lambda pcm, key, seeing: (True, None)), (lambda: True)
+    assert talk.heard(speech) == "woke" and played == [] and talk.state == talk.LISTENING
+    assert talk.heard(question) == "answered" and played[-1] == ("answer", b"A goose!")
+
+    # nobody said anything more: "Go ahead", as before
+    played.clear()
+    talk.hearing = lambda: False
+    assert talk.heard(speech) == "woke" and played == ["say_go_ahead"]
+    # something said during a check that was NOT "Go Gary" is dropped
+    def not_gary(pcm, key, seeing):
+        talk.pending = question
+        return False, None
+    talk.state, talk.ask_wake = talk.IDLE, not_gary
+    assert talk.heard(speech) == "ignored" and talk.pending is None
+
+
 def test_gary_reads_the_app_but_never_a_mood():
     gt = load("gary_talk")
     with open(os.path.join(DEVICE, "..", "contract", "examples", "state.json"), encoding="utf-8") as f:
