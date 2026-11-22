@@ -20,6 +20,7 @@ import { away, isNear, nearby, nextNearby, realSpot } from './places.js'
 import { createService } from './services/index.js'
 import { garySrc } from './sprites.js'
 import { useWhereAmI } from './whereAmI.js'
+import Picks from './components/Picks.jsx'
 import { STAGE_NAMES } from './words.js'
 
 const POLL_MS = 2000
@@ -286,7 +287,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
         )}
 
         <main className="view">
-          {tab === 'home' && <Home state={shown} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }} />}
+          {tab === 'home' && <Home state={shown} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }}>{service.mode === 'live' && <Picks service={service} tiles={state.map} onTaken={take} />}</Home>}
           {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}

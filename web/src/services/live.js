@@ -53,6 +53,7 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     if (!reply.ok) {
       const error = new Error(`HTTP ${reply.status}`)
       error.locked = secret && reply.status === 401
+      error.status = reply.status
       throw error
     }
     return reply.json()
@@ -79,6 +80,12 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     talk: (body) => call('/api/talk', body),
     /** Send the scout out now: {sent, running, ...}. A run takes minutes; its quests arrive on their own. */
     runScout: () => call('/api/scout/run', {}),
+    /** Picks for you: the last good picks, the request running now, and the last few requests. */
+    getPicks: () => call('/api/picks'),
+    /** Start a picks request. `near` is the name of a known place, or null: never a position. */
+    askPicks: (near = null) => call('/api/picks', { near }),
+    /** Make a pick today's quest -> {quest, state}. */
+    takePick: (questId) => call('/api/picks/take', { id: questId }),
     /** The private wellness view. Throws an error with `locked` when the page needs its passphrase. */
     getWellness: () => call('/api/wellness', undefined, true),
     /** Try a passphrase. It is kept on this device only if it opens the page. */

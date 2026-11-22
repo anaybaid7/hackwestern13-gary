@@ -12,6 +12,9 @@ is in use:
 
 An event here is already checked and tidied by app.py. Mood events go to their
 own private place in both stores; events() never returns them.
+
+Picks requests (picks.py) are kept too, newest last: what was asked, every
+TinyFish run, and the picks. The next request reads them back.
 """
 import datetime as dt
 import functools
@@ -22,6 +25,7 @@ from pathlib import Path
 import rules
 
 HERE = Path(__file__).resolve().parent
+PICKS_KEPT = 50  # picks requests read back: the newest this many
 
 
 def load_seed(path):
@@ -51,6 +55,7 @@ class MemoryStore:
         self._events = []     # every event but mood, in arrival order
         self._ids = set()     # so the same upload twice counts once
         self._moods = []      # private. Never part of /api/state
+        self._picks = []      # picks requests, oldest first
         if keep_quests and getattr(self, "_quests", None):
             return
         self._quests = []     # oldest first
@@ -88,6 +93,14 @@ class MemoryStore:
                 return
         self._quests.append(quest)
 
+    def add_pick(self, record):
+        """Keep one picks request (picks.py)."""
+        self._picks.append(record)
+        del self._picks[:-PICKS_KEPT]
+
+    def picks(self):
+        return list(self._picks)
+
     def outdoor_by_day(self, outdoor_labels, tz_name):
         return None  # no query to run: rules.outdoor_by_day() works it out
 
@@ -115,7 +128,10 @@ class SqliteStore(MemoryStore):
         with self.db:
             self.db.execute("CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, id TEXT UNIQUE, body TEXT NOT NULL)")
             self.db.execute("CREATE TABLE IF NOT EXISTS quests (seq INTEGER PRIMARY KEY, id TEXT UNIQUE, body TEXT NOT NULL)")
+            self.db.execute("CREATE TABLE IF NOT EXISTS picks (seq INTEGER PRIMARY KEY, body TEXT NOT NULL)")
         self._events, self._ids, self._moods = [], set(), []
+        self._picks = [json.loads(b) for (b,) in self.db.execute(
+            "SELECT body FROM (SELECT seq, body FROM picks ORDER BY seq DESC LIMIT ?) ORDER BY seq", (PICKS_KEPT,))]
         # replay in arrival order; mood rows go back to their private list
         super().add([json.loads(b) for (b,) in self.db.execute("SELECT body FROM events ORDER BY seq")])
         self._quests = [json.loads(b) for (b,) in self.db.execute("SELECT body FROM quests ORDER BY seq")]
@@ -126,6 +142,7 @@ class SqliteStore(MemoryStore):
     def reset(self, keep_quests=False):
         with self.db:
             self.db.execute("DELETE FROM events")
+            self.db.execute("DELETE FROM picks")
             if not (keep_quests and self._quests):
                 self.db.execute("DELETE FROM quests")
         super().reset(keep_quests)
@@ -142,6 +159,11 @@ class SqliteStore(MemoryStore):
         with self.db:  # an upsert keeps seq, so a replaced quest keeps its place
             self.db.execute("INSERT INTO quests (id, body) VALUES (?, ?) "
                             "ON CONFLICT (id) DO UPDATE SET body = excluded.body", (quest["id"], json.dumps(quest)))
+
+    def add_pick(self, record):
+        super().add_pick(record)
+        with self.db:
+            self.db.execute("INSERT INTO picks (body) VALUES (?)", (json.dumps(record),))
 
     def info(self):
         return {"store": "sqlite"}
@@ -261,10 +283,10 @@ class PostgresStore:
     def reset(self, keep_quests=False):
         if keep_quests and self.quests():
             with self.conn.transaction(), self.conn.cursor() as cur:
-                cur.execute("TRUNCATE events, event_ids, mood_checkins RESTART IDENTITY")
+                cur.execute("TRUNCATE events, event_ids, mood_checkins, pick_requests RESTART IDENTITY")
             return
         with self.conn.transaction(), self.conn.cursor() as cur:
-            cur.execute("TRUNCATE events, event_ids, mood_checkins, quests RESTART IDENTITY")
+            cur.execute("TRUNCATE events, event_ids, mood_checkins, pick_requests, quests RESTART IDENTITY")
         for quest in load_seed(self.seed_path):
             self.put_quest(quest)
 
@@ -318,6 +340,18 @@ class PostgresStore:
                 "INSERT INTO quests (id, day, place, body) VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT (id) DO UPDATE SET day = EXCLUDED.day, place = EXCLUDED.place, body = EXCLUDED.body",
                 (quest["id"], quest.get("day"), quest.get("place"), self.Jsonb(quest)))
+
+    @_retry
+    def add_pick(self, record):
+        with self.conn.cursor() as cur:
+            cur.execute("INSERT INTO pick_requests (body) VALUES (%s)", (self.Jsonb(record),))
+
+    @_retry
+    def picks(self):
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT body FROM (SELECT seq, body FROM pick_requests ORDER BY seq DESC LIMIT %s) newest "
+                        "ORDER BY seq", (PICKS_KEPT,))
+            return [row[0] for row in cur.fetchall()]
 
     @_retry
     def outdoor_by_day(self, outdoor_labels, tz_name):

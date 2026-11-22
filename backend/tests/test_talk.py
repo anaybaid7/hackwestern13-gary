@@ -90,3 +90,11 @@ def test_with_keys_a_turn_runs_and_bad_audio_is_refused(client, monkeypatch):
     assert client.get("/api/talk").json() == {"enabled": True}
     assert client.post("/api/talk", json={"audio": "nope"}).status_code == 422
     assert client.post("/api/talk", json={"audio": wav64(), "listening": False}).json() == {"woke": False}
+
+
+def test_strict_mode_never_takes_the_next_voice_as_an_answer(monkeypatch):
+    reply = {"heard": "go gary hi", "say": "Hi! Short or long?", "do": None, "listen": True}
+    assert run(False, wake=lambda *a, **k: (True, reply))["listen"] is True
+    monkeypatch.setenv("GARY_TALK_STRICT", "on")
+    assert run(False, wake=lambda *a, **k: (True, reply))["listen"] is False
+    assert run(False, wake=lambda *a, **k: (True, None))["listen"] is True, '"Go Gary" alone still waits for the question'

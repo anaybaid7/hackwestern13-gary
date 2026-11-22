@@ -112,5 +112,6 @@ def turn(pcm, listening, history, seeing, app, gemini_key, eleven_key,
         raise brain.TalkError("Gemini gave no answer")
     said = brain.act(reply, app, say=lambda *_: None)
     audio = base64.b64encode(brain.as_wav(speak(said, eleven_key))).decode("ascii")
-    return {"woke": True, "heard": reply.get("heard") or "", "say": said, "listen": bool(reply.get("listen")),
-            "audio": audio}
+    # GARY_TALK_STRICT=on (a loud room): even the answer to Gary's own question needs "Go Gary"
+    listen = bool(reply.get("listen")) and os.environ.get("GARY_TALK_STRICT") != "on"
+    return {"woke": True, "heard": reply.get("heard") or "", "say": said, "listen": listen, "audio": audio}

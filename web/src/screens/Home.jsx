@@ -9,7 +9,7 @@ import { STAGE_NAMES } from '../words.js'
 // Where the device serves what Gary sees (device/qnx/live.sh), if anywhere.
 const LIVE_URL = import.meta.env.VITE_LIVE_URL
 
-export default function Home({ state, flash, onChoose, onShowMap, busy, where = null, now = new Date(), liveUrl = LIVE_URL }) {
+export default function Home({ state, flash, onChoose, onShowMap, busy, where = null, now = new Date(), liveUrl = LIVE_URL, children = null }) {
   const { gary, journal } = state
   const celebrating = Boolean(flash.find)
   // Right after a sniff: Gary on that thing, and a fact about it. Otherwise:
@@ -58,6 +58,7 @@ export default function Home({ state, flash, onChoose, onShowMap, busy, where = 
         busy={busy}
         where={where}
       />
+      {children}
     </div>
   )
 }

@@ -244,6 +244,7 @@ else
     GARY_SELF_URL="http://127.0.0.1:${GARY_BACKEND_PORT:-8800}"   # where a scout run started by the backend posts
     export GARY_SELF_URL
     [ -n "${GARY_SCOUT_AT:-}" ] && export GARY_SCOUT_AT   # gary.env: run the scout every day at this time
+    [ -n "${GARY_TALK_STRICT:-}" ] && export GARY_TALK_STRICT   # on: the page's talk needs "Go Gary" every time too
     exec $py -m uvicorn app:app --app-dir "$GARY_BACKEND" --host 0.0.0.0 \
       --port "${GARY_BACKEND_PORT:-8800}" < /dev/null >> logs/backend.log 2>&1
   ) &
