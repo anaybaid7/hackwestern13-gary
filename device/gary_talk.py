@@ -124,14 +124,17 @@ REPLY = """Reply with JSON only:
  "listen": true if Gary asked them something and should wait for their answer, else false}"""
 
 WAKE_PROMPT = """Listen to this short recording.
-heard: write down exactly the words that were said, nothing else.
-If the words start with a call to Gary ("Go Gary", "Hey Gary"...) followed by a question,
+heard: write down exactly the words that were said, nothing else. Never add or guess
+words: if "Gary" was not clearly said, do not write it. Unclear or no speech: heard is "".
+If the words start with "Go Gary" followed by a question,
 greeting or request, answer that part as below. Otherwise say is "" and do is null.
 """ + REPLY
 
-# "Go Gary" and its cousins, at the very start of what was said. Checked in code, not by
+# "Go Gary", at the very start of what was said. Checked in code, not by
 # Gemini, so talking ABOUT Gary ("Gary is a good name") never wakes him.
-WAKE_WORDS = ("go", "hey", "hi", "yo", "okay", "ok", "oi")
+# Only "go": "hey Gary" and "hi Gary" are common enough that Gemini wrote them down from
+# room noise (21 Nov). "Go Gary" is what every screen and line tells people to say.
+WAKE_WORDS = ("go",)
 GARY_SPELLINGS = ("gary", "garry", "gerry", "gary's", "garey", "geri")
 
 
@@ -470,20 +473,8 @@ class App:
         return got.get("quest")
 
     def create(self, target, place, time_, herd=False, today=None):
-        """Add a quest Gary was asked to make. -> the quest. Source "gary": never "tinyfish"."""
-        target = str(target or "").strip().lower()
-        if target not in self.things:
-            raise TalkError("Gary cannot find a %r" % target)
-        place = " ".join(str(place or "somewhere nearby").split())[:60] or "somewhere nearby"
-        is_long = time_ == "long"
-        day = (today or datetime.date.today()).isoformat()
-        spoken = {"bottle": "water bottle"}.get(target, target)
-        quest = {"id": "gary-%s-%s-%s" % (day, target.replace(" ", "-"), base64.b32encode(os.urandom(5)).decode().lower()[:6]),
-                 "title": "Find a %s at %s%s" % (spoken, place, ", with a friend" if herd else ""),
-                 "place": place, "time": "long" if is_long else "short", "minutes": 40 if is_long else 15,
-                 "target": target, "xp": 40 if is_long else 20, "herd": bool(herd),
-                 "note": "Gary made this one when you asked. Stay on public paths.",
-                 "source": "gary", "source_url": None, "day": day}
+        """Add a quest Gary was asked to make. -> the quest."""
+        quest = make_quest(target, place, time_, herd, self.things, today)
         headers = {"X-Scout-Key": self.scout_key} if self.scout_key else {}
         got = self._call("/api/quests", {"quests": [quest]}, headers)
         if quest["id"] not in (got.get("accepted") or []):
@@ -491,6 +482,23 @@ class App:
             raise TalkError("the app refused the quest: %s" % why)
         self.refresh()
         return quest
+
+
+def make_quest(target, place, time_, herd=False, things=(), today=None):
+    """A quest Gary was asked to make. Source "gary": never "tinyfish"."""
+    target = str(target or "").strip().lower()
+    if target not in things:
+        raise TalkError("Gary cannot find a %r" % target)
+    place = " ".join(str(place or "somewhere nearby").split())[:60] or "somewhere nearby"
+    is_long = time_ == "long"
+    day = (today or datetime.date.today()).isoformat()
+    spoken = {"bottle": "water bottle"}.get(target, target)
+    return {"id": "gary-%s-%s-%s" % (day, target.replace(" ", "-"), base64.b32encode(os.urandom(5)).decode().lower()[:6]),
+            "title": "Find a %s at %s%s" % (spoken, place, ", with a friend" if herd else ""),
+            "place": place, "time": "long" if is_long else "short", "minutes": 40 if is_long else 15,
+            "target": target, "xp": 40 if is_long else 20, "herd": bool(herd),
+            "note": "Gary made this one when you asked. Stay on public paths.",
+            "source": "gary", "source_url": None, "day": day}
 
 
 def tts(text, key, voice=None, opener=urllib.request.urlopen):
@@ -561,6 +569,35 @@ class Mouth:
         with open(path, "wb") as f:
             f.write(as_wav(pcm))
         self.play_file(path)
+
+
+def act(reply, app, say=print):
+    """Do what the reply asks in the app. Returns what Gary should say."""
+    do, said = reply.get("do"), reply["say"]
+    if not do:
+        return said
+    if not app or not app.api:
+        say("talk: no app address, so nothing was %s" % do.get("action"))
+        return "I can't reach the app from here, so I couldn't do that one. Try the buttons on the page?"
+    try:
+        if do["action"] == "choose_quest":
+            time_ = "long" if do.get("time") == "long" else "short"
+            quest = app.choose(time_)
+            if not quest:
+                return "No %s quests are open right now. Want a %s one instead?" % (
+                    time_, "long" if time_ == "short" else "short")
+            say("talk: picked %s" % quest.get("id"))
+            if quest.get("title") and quest["title"].lower() not in said.lower():
+                said = "Here's one: %s, at %s." % (quest["title"], quest.get("place"))
+            return said
+        if do["action"] == "create_quest":
+            quest = app.create(do.get("target"), do.get("place"), do.get("time"), do.get("herd") is True)
+            say("talk: made %s" % quest["id"])
+            return said or "Done! %s. It's in your quests." % quest["title"]
+    except TalkError as exc:
+        say("talk: %s" % exc)
+        return "Hmm, the app wouldn't let me do that one just now."
+    return said
 
 
 # --------------------------------------------------------------------------
@@ -713,32 +750,7 @@ class Talk:
             return "error"
 
     def act(self, reply):
-        """Do what the reply asks in the app. Returns what Gary should say."""
-        do, said = reply.get("do"), reply["say"]
-        if not do:
-            return said
-        if not self.app or not self.app.api:
-            self.say("talk: no app address, so nothing was %s" % do.get("action"))
-            return "I can't reach the app from here, so I couldn't do that one. Try the buttons on the page?"
-        try:
-            if do["action"] == "choose_quest":
-                time_ = "long" if do.get("time") == "long" else "short"
-                quest = self.app.choose(time_)
-                if not quest:
-                    return "No %s quests are open right now. Want a %s one instead?" % (
-                        time_, "long" if time_ == "short" else "short")
-                self.say("talk: picked %s" % quest.get("id"))
-                if quest.get("title") and quest["title"].lower() not in said.lower():
-                    said = "Here's one: %s, at %s." % (quest["title"], quest.get("place"))
-                return said
-            if do["action"] == "create_quest":
-                quest = self.app.create(do.get("target"), do.get("place"), do.get("time"), do.get("herd") is True)
-                self.say("talk: made %s" % quest["id"])
-                return said or "Done! %s. It's in your quests." % quest["title"]
-        except TalkError as exc:
-            self.say("talk: %s" % exc)
-            return "Hmm, the app wouldn't let me do that one just now."
-        return said
+        return act(reply, self.app, self.say)
 
     def speak_answer(self, reply, t0, thinking=None):
         reply = as_reply(reply)

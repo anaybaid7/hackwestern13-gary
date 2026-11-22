@@ -40,6 +40,7 @@ export default function Picks({ service, tiles = [], onTaken, pollMs = POLL_MS, 
   const [view, setView] = useState(null)
   const [problem, setProblem] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false) // folded until tapped, so the home screen stays short
   const alive = useRef(true)
 
   const offered = typeof service.getPicks === 'function'
@@ -72,6 +73,7 @@ export default function Picks({ service, tiles = [], onTaken, pollMs = POLL_MS, 
   }, [running, load, pollMs])
 
   async function ask() {
+    setOpen(true)
     setBusy(true)
     setProblem(null)
     try {
@@ -103,26 +105,30 @@ export default function Picks({ service, tiles = [], onTaken, pollMs = POLL_MS, 
   return (
     <section className="picks" aria-labelledby="picks-title">
       <div className="picks-head">
-        <h3 id="picks-title">Picked for you</h3>
+        <h3 id="picks-title">
+          <button type="button" className="picks-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <span aria-hidden="true">{open ? '▾' : '▸'}</span> Picked for you{picks.length > 0 && !open ? ` (${Math.min(picks.length, SHOWN)})` : ''}
+          </button>
+        </h3>
         {view?.ready && (
           <button type="button" className="button" onClick={ask} disabled={busy || running}>
             {running ? 'Scouting…' : picks.length ? 'New picks' : 'Find places for me'}
           </button>
         )}
       </div>
-      {running && (
+      {open && running && (
         <p className="small" role="status">
           The scout is reading live London pages for you. This takes a minute or two.
         </p>
       )}
-      {problem && <p className="small" role="alert">{problem}</p>}
-      {view?.error && !running && (
+      {open && problem && <p className="small" role="alert">{problem}</p>}
+      {open && view?.error && !running && (
         <p className="small" role="status">
           The last request did not work: {view.error}
           {picks.length > 0 && ' Showing the last good picks.'}
         </p>
       )}
-      {picks.length > 0 && (
+      {open && picks.length > 0 && (
         <>
           <ol className="pick-list">
             {picks.slice(0, SHOWN).map((pick) => (

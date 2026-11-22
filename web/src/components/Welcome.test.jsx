@@ -52,7 +52,6 @@ test('five beats: wake him, sniff through his eye, pick a walk, say how you feel
   expect(screen.getByText("That's a duck! Ooh, a new one for the journal!")).toBeTruthy()
   expect(container.querySelector('.welcome-reticle.locked').textContent).toBe('duck')
   expect(container.querySelector('.welcome-flash')).toBeTruthy() // the shutter
-  expect(screen.getByText('Gary keeps the name. He never keeps the photo.')).toBeTruthy()
   expect(meter('Adventure')).toBe('Adventure: 1 of 2') // a sniff is adventure
 
   click('Next')
@@ -69,7 +68,7 @@ test('five beats: wake him, sniff through his eye, pick a walk, say how you feel
   click('Next')
   click('4: Good')
   expect(screen.getByText(/Only you see it/)).toBeTruthy()
-  expect(screen.getByText('Just practice: nothing was saved.')).toBeTruthy()
+  expect(screen.getByText(/Just practice: nothing was saved/)).toBeTruthy()
   expect(meter('Health')).toBe('Health: 2 of 2')
 
   click('Next')

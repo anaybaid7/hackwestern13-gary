@@ -186,7 +186,7 @@ describe('the page', () => {
     const after = await screen.findByRole('dialog', { name: 'Now that you are back' })
     fireEvent.click(within(after).getByRole('button', { name: '4: Good' }))
     await waitFor(() => expect(service.postMood).toHaveBeenCalledWith('after', 4))
-    fireEvent.click(await screen.findByRole('button', { name: 'Off we go' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Done' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -268,7 +268,7 @@ describe('the page', () => {
     await screen.findByRole('heading', { name: 'Find a water bottle at your table' })
     fireEvent.click(screen.getByRole('button', { name: /Long/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Start quest' }))
-    await waitFor(() => expect(service.chooseQuest).toHaveBeenCalledWith('long'))
+    await waitFor(() => expect(service.chooseQuest).toHaveBeenCalledWith('long', step(0).quest_options.long.id)) // the quest you looked at
     expect(await screen.findByRole('heading', { name: 'Find a bird at Kains Woods' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Long/ }).getAttribute('aria-pressed')).toBe('true')
     expect(service.getState.mock.calls.length).toBe(1) // no extra round trip: the reply carried the state
@@ -370,4 +370,17 @@ describe('Been there: the page knows you are at the quest, and says only that', 
     expect(await screen.findByText(/km from you, as the crow flies/)).toBeTruthy()
     expect(service.postVisit).not.toHaveBeenCalled()
   })
+})
+
+test('five quick taps on the title send the scout out (a hidden demo control)', async () => {
+  const state = step(0)
+  let runs = 0
+  const service = { mode: 'live', api: '', now: () => new Date(), getState: async () => state, runScout: async () => { runs += 1; return { sent: true } } }
+  render(<Shell service={service} pollMs={60000} askCheckIn={false} />)
+  const title = await screen.findByText('G.A.R.Y')
+  for (let i = 0; i < 4; i += 1) fireEvent.click(title)
+  expect(runs).toBe(0)
+  fireEvent.click(title)
+  expect(await screen.findByText(/The scout is out looking/)).toBeTruthy()
+  expect(runs).toBe(1)
 })

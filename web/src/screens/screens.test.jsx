@@ -146,7 +146,7 @@ describe('Quest card (issue #28)', () => {
     expect(within(sheet).getByText(/Long quest · trail walk/)).toBeTruthy()
     expect(onChoose).not.toHaveBeenCalled() // looking is not choosing
     fireEvent.click(within(sheet).getByRole('button', { name: 'Start quest' }))
-    await waitFor(() => expect(onChoose).toHaveBeenCalledWith('long'))
+    await waitFor(() => expect(onChoose).toHaveBeenCalledWith('long', step(2).quest_options.long.id))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 
     // the active quest: everything about it, another of the same length, or the map
@@ -157,7 +157,7 @@ describe('Quest card (issue #28)', () => {
     expect(within(active).getByText(scoutQuest.note)).toBeTruthy()
     expect(within(active).getByRole('link', { name: 'london.ca' })).toBeTruthy()
     fireEvent.click(within(active).getByRole('button', { name: 'Another short' }))
-    await waitFor(() => expect(onChoose).toHaveBeenLastCalledWith('short'))
+    await waitFor(() => expect(onChoose).toHaveBeenLastCalledWith('short', undefined)) // no id: the next one
     fireEvent.click(screen.getByRole('button', { name: scoutQuest.title }))
     fireEvent.click(screen.getByRole('button', { name: 'See on map' }))
     expect(onShowMap).toHaveBeenCalledWith('Springbank Park')
@@ -242,6 +242,19 @@ describe('Map (issue #26)', () => {
     expect(screen.getByText(/bench · .* · Herd/)).toBeTruthy()
     fireEvent.click(screen.getAllByRole('button', { name: 'Fog' })[0])
     expect(screen.getByRole('heading', { name: 'Still in fog' })).toBeTruthy()
+  })
+
+  test('an open quest on the map can be made your quest from there', () => {
+    const other = { id: 'q-demo-backpack', title: 'Find a backpack at the next table', place: 'Hack Western, the next table', time: 'short', xp: 20 }
+    const onPickQuest = vi.fn()
+    render(<MapScreen map={example.map} flash={NO_FLASH} quest={example.quest} quests={[example.quest, other]} onPickQuest={onPickQuest} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fog' }))
+    expect(screen.getByRole('heading', { name: 'Hack Western, the next table' })).toBeTruthy()
+    expect(screen.getByText(/Find a backpack at the next table · Short · \+20 XP/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Make this my quest' }))
+    expect(onPickQuest).toHaveBeenCalledWith(other)
+    fireEvent.click(screen.getByRole('button', { name: 'Fog. Your quest is here' }))
+    expect(screen.queryByRole('button', { name: 'Make this my quest' })).toBeNull() // already your quest
   })
 
   test('"See on map" opens the map on that place, with the scout\'s note on where to stand', () => {
@@ -769,4 +782,34 @@ describe('The check-in pop-up and Settings', () => {
     expect((await screen.findByRole('alert')).textContent).toBe('Gary could not be reset (HTTP 500).')
     expect(screen.getByRole('button', { name: 'Yes, reset' }).disabled).toBe(false)
   })
+})
+
+describe('short means near you', () => {
+  test('only quests within 5.2 km count, nearest first, and "another" moves on', async () => {
+    const { nearby, nextNearby } = await import('../places.js')
+    const me = [43.0096, -81.2737] // Western University
+    const quests = [
+      { id: 'far', place: 'Springbank Park', lat: 42.9655, lng: -81.3005 }, // about 5.3 km
+      { id: 'gibbons', place: 'Gibbons Park', lat: 42.9995, lng: -81.2585 }, // about 1.6 km
+      { id: 'victoria', place: 'Victoria Park', lat: 42.9876, lng: -81.2464 }, // about 3.2 km
+      { id: 'nowhere', place: 'Somewhere nearby' },
+    ]
+    const close = nearby(me, quests)
+    expect(close.map((q) => q.id)).toEqual(['gibbons', 'victoria'])
+    expect(nextNearby(close, 'gibbons').id).toBe('victoria')
+    expect(nextNearby(close, 'victoria').id).toBe('gibbons')
+    expect(nextNearby(close, 'unknown').id).toBe('gibbons')
+    expect(nearby(null, quests)).toEqual([])
+  })
+})
+
+test('Settings credits the four people who built Gary at Hack Western 13', async () => {
+  const { default: Settings } = await import('./Settings.jsx')
+  const service = { mode: 'mock', api: '', now: () => new Date(), getWellness: async () => ({ checkins: [], pairs: [], outdoor: [], locked: false }) }
+  render(<Settings service={service} stamp="" status="mock" onReset={() => {}} onMeet={() => {}} />)
+  fireEvent.click(screen.getByText('About G.A.R.Y'))
+  expect(screen.getByText(/Built at Hack Western 13/)).toBeTruthy()
+  for (const [name, login] of [['Anay Baid', 'anaybaid7'], ['Ashmita Haldar', 'ashmitahaldar'], ['Mohammed Owda', 'mowda2'], ['Tristan Beley', 'tristanbeley92']]) {
+    expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(`https://github.com/${login}`)
+  }
 })

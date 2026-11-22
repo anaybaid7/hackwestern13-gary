@@ -656,11 +656,10 @@ def test_gary_says_found_not_it_or_move_closer():
 def test_go_gary_wakes_him_only_when_said_to_him():
     gt = load("gary_talk")
     assert gt.wake_split("Go Gary, what am I looking at?") == (True, "what am i looking at")
-    assert gt.wake_split("Hey Garry!") == (True, "")
+    assert gt.wake_split("Go Garry!") == (True, "")
     assert gt.wake_split("uh, go Gary what's that") == (True, "what's that")
-    assert gt.wake_split("Okay Gary.")[0] and gt.wake_split("yo gary")[0]
     for chatter in ("Gary is a good name", "I think the goat project is cool, go Gary go",
-                    "let's go", "", None, "go team"):
+                    "let's go", "", None, "go team", "hey Gary can you give me a task", "okay Gary"):
         assert gt.wake_split(chatter)[0] is False, chatter
 
     # Gemini only writes down what it heard; the code decides. "Go Gary" alone gets "Go ahead".

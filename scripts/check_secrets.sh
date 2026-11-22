@@ -21,7 +21,7 @@ git rev-parse --git-dir >/dev/null 2>&1 || { echo "$ROOT is not a git repository
 # ..., your-key-here, a local test database with no password) are not matched.
 PATTERNS='postgres(ql)?://[A-Za-z0-9_.-]+:[^@/[:space:]]{6,}@|AIza[0-9A-Za-z_-]{30,}|sk-[A-Za-z0-9_-]{24,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(TINYFISH_API_KEY|GEMINI_API_KEY|SCOUT_KEY|GARY_ADMIN_KEY)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9_/+-]{12,}|GARY_PRIVATE_KEY[[:space:]]*=[[:space:]]*["'"'"']?[A-Za-z0-9_/+-]{4,}'
 # Lines that are known to be examples, not secrets.
-ALLOW='PASSWORD@HOST|:PASSWORD@|<[a-z -]+>|\.\.\.|[=:] *choose-|[=:] *change-me|[=:] *["'"'"']?your[-_][a-z_-]+["'"'"']?[[:space:]]*$|for-test|secret-[123]|the-real-one|example\.'
+ALLOW='PASSWORD@HOST|:PASSWORD@|<[a-z -]+>|\.\.\.|[=:] *choose-|[=:] *change-me|[=:] *["'"'"']?your[-_][a-z_-]+["'"'"']?([[:space:]]+\(.*)?[[:space:]]*$|for-test|secret-[123]|the-real-one|example\.'
 
 found=0
 hide() { sed -E 's/(GARY_PRIVATE_KEY[[:space:]]*=[[:space:]]*).*/\1****/; s/(:[^@/[:space:]]{2})[^@/[:space:]]+@/\1****@/; s/((AIza|sk-)[A-Za-z0-9_-]{4})[A-Za-z0-9_-]+/\1****/; s/((KEY)[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9_/+-]{3})[A-Za-z0-9_/+-]+/\1****/'; }

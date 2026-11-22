@@ -162,10 +162,10 @@ def test_picks_requests_are_kept_by_the_store_and_cleared_by_a_reset(tinyfish, c
 
 def test_the_key_can_come_from_the_scouts_own_settings(tmp_path, monkeypatch):
     env = {}
+    monkeypatch.setattr(picks, "SCOUT", tmp_path)  # never the developer's real scout/.env
     assert picks.api_key(env) == ""  # nothing anywhere: not set up
     assert picks.api_key({"TINYFISH_API_KEY": " k1 "}) == "k1"
     assert picks.api_key({"GARY_NO_ENV_FILE": "1"}) == ""  # the tests never read a real key
     scout_env = tmp_path / ".env"
     scout_env.write_text("TINYFISH_API_KEY=k2\nAUTH0_DOMAIN=not-for-the-backend\n")
-    monkeypatch.setattr(picks, "SCOUT", tmp_path)
     assert picks.api_key({}) == "k2"

@@ -66,12 +66,20 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     now: () => new Date(),
     /** Everything the page draws. */
     getState: () => call('/api/state'),
-    /** "short" or "long" -> {quest, state}. */
-    chooseQuest: (time) => call('/api/quest/choose', { time }),
+    /** "short" or "long" -> {quest, state}. With a quest id: that quest. */
+    chooseQuest: (time, questId) => call('/api/quest/choose', questId ? { time, quest_id: questId } : { time }),
+    /** Every open quest, with its position: the page picks the nearest short one itself. */
+    getQuests: () => call('/api/quests').then((out) => out.quests),
     /** A private check-in: phase "before" or "after", value 1 to 5. */
     postMood: (phase, value) => call('/api/mood', { phase, value }, true),
     /** The page is at this quest's place. Only the id is sent, never a position. */
     postVisit: (questId) => call('/api/visit', { quest_id: questId }),
+    /** {enabled}: whether this server can talk (gary_talk.py and both keys). */
+    talkConfig: () => call('/api/talk'),
+    /** The question after "Go Gary": {audio: base64 WAV, history} -> Gary's reply. */
+    talk: (body) => call('/api/talk', body),
+    /** Send the scout out now: {sent, running, ...}. A run takes minutes; its quests arrive on their own. */
+    runScout: () => call('/api/scout/run', {}),
     /** Picks for you: the last good picks, the request running now, and the last few requests. */
     getPicks: () => call('/api/picks'),
     /** Start a picks request. `near` is the name of a known place, or null: never a position. */

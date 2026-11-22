@@ -178,3 +178,14 @@ def test_a_reset_that_keeps_the_quests_opens_them_all_again(client):
     for body in ({"keep_quests": "yes"}, {}, [], "keep"):
         assert client.post("/api/dev/reset", json=body).json()["quests_kept"] is False
 
+
+
+def test_the_page_can_pick_the_nearest_quest_by_id(client):
+    """Short means near you: the page works out the nearest quest in the browser
+    and sends only its id."""
+    ids = [q["id"] for q in client.get("/api/quests").json()["quests"]]
+    last = ids[-1]
+    reply = client.post("/api/quest/choose", json={"time": "short", "quest_id": last}).json()
+    assert reply["quest"]["id"] == last
+    assert reply["state"]["quest"]["id"] == last and reply["state"]["quest_choice"] == "short"
+    assert client.post("/api/quest/choose", json={"time": "short", "quest_id": "nope"}).status_code == 422

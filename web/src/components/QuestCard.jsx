@@ -11,10 +11,10 @@ import QuestDetail from './QuestDetail.jsx'
 const MINUTES = { short: 15, long: 40 }
 
 export default function QuestCard({ quest, choice, options = {}, onChoose, onShowMap, busy = false, where = null }) {
-  const [open, setOpen] = useState(null) // the quest whose details are showing
+  const [open, setOpen] = useState(null) // {quest, time}: the quest whose details are showing, and which button
 
-  async function start(time) {
-    await onChoose?.(time)
+  async function start(time, questId) {
+    await onChoose?.(time, questId)
     setOpen(null)
   }
 
@@ -24,7 +24,7 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
         <div className={`sign${quest.herd ? ' sign-herd' : ''}`}>
           <p className="sign-top">{choice ? `Your ${choice} quest` : "Today's quest"}</p>
           <h3 id="quest-title">
-            <button type="button" className="sign-open" onClick={() => setOpen(quest)}>
+            <button type="button" className="sign-open" onClick={() => setOpen({ quest, time: choice ?? quest.time })}>
               {quest.title}
             </button>
           </h3>
@@ -59,7 +59,7 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
             className="choice-button"
             aria-pressed={choice === time}
             disabled={!options?.[time]}
-            onClick={() => setOpen(options[time])}
+            onClick={() => setOpen({ quest: options[time], time })}
           >
             <span className="choice-name">{time === 'short' ? 'Short' : 'Long'}</span>
             <span className="choice-detail">
@@ -71,14 +71,14 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
 
       {open && (
         <QuestDetail
-          quest={open}
-          active={Boolean(quest && open.id === quest.id && choice === open.time)}
+          quest={open.quest}
+          active={Boolean(quest && open.quest.id === quest.id && choice === open.time)}
           busy={busy}
-          onStart={() => start(open.time)}
+          onStart={() => start(open.time, open.quest.id)}
           onAnother={() => start(open.time)}
           onShowMap={() => {
             setOpen(null)
-            onShowMap?.(open.place)
+            onShowMap?.(open.quest.place)
           }}
           onClose={() => setOpen(null)}
         />

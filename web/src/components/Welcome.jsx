@@ -192,7 +192,6 @@ export default function Welcome({ onDone }) {
             Sniff!
           </button>
         )}
-        {beat === 'sniff' && answered && <p className="small">Gary keeps the name. He never keeps the photo.</p>}
         {beat === 'quest' && !answered && (
           <div className="welcome-things" role="group" aria-label="Pick a walk">
             {WALKS.map((walk) => (
@@ -214,7 +213,12 @@ export default function Welcome({ onDone }) {
             ))}
           </div>
         )}
-        {beat === 'feel' && answered && <p className="small">Just practice: nothing was saved.</p>}
+        {beat === 'feel' && !answered && (
+          <p className="small">Gary asks before and after each walk, so you can see whether getting outside lifts your mood. Only you see it.</p>
+        )}
+        {beat === 'feel' && answered && (
+          <p className="small">Just practice: nothing was saved. Your real check-ins and how they change after walks are in Settings, under Wellness.</p>
+        )}
         {answered && beat !== 'go' && (
           <button ref={next} type="button" className="button primary" onClick={() => setAt(at + 1)}>
             Next
