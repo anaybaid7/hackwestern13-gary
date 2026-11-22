@@ -115,11 +115,16 @@ def now_context(seeing, today=None):
         view, friend, today.strftime("%B"), "morning" if today.hour < 12 else "afternoon" if today.hour < 18 else "evening")
 
 
-def read_seeing(path, fresh=FRESH, clock=time.time):
-    """seeing.json, if Gary wrote it in the last few seconds. Else None."""
+def read_seeing(path, fresh=FRESH, clock=time.time, opener=urllib.request.urlopen):
+    """seeing.json, if Gary wrote it in the last few seconds. Else None.
+    `path` may be a URL (the backend's /api/seeing), so talk can run on a laptop."""
     try:
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
+        if path.startswith(("http://", "https://")):
+            with opener(path, timeout=2) as r:
+                data = json.load(r)
+        else:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
     except (OSError, ValueError):
         return None
     if not isinstance(data, dict) or clock() - float(data.get("ts", 0)) > fresh:
@@ -467,6 +472,8 @@ def main(argv=None):
     ap.add_argument("--dir", default=HERE, help="the device folder (seeing.json, sounds/, .env)")
     ap.add_argument("--rec-cmd", default=os.environ.get("GARY_TALK_REC") or None,
                     help="recorder writing raw 16-bit mono 16 kHz PCM to stdout (or GARY_TALK_REC in gary.env)")
+    ap.add_argument("--seeing", help="what Gary sees: a file, or a URL such as http://localhost:8800/api/seeing "
+                    "(talk on a laptop, Gary on the Pi). Default: seeing.json in --dir")
     ap.add_argument("--audio-cmd", help='player command, for example "aplay -q -D plughw:2,0"')
     ap.add_argument("--from-wav", help="listen to this WAV file instead of a microphone (testing)")
     ap.add_argument("--ask", help="a typed question: Gary answers it out loud, then exits (testing)")
@@ -478,7 +485,7 @@ def main(argv=None):
     if not gkey or not ekey:
         sys.exit("Put GEMINI_API_KEY and ELEVENLABS_API_KEY in device/.env (ignored by Git).")
     mouth = Mouth(os.path.join(args.dir, "sounds"), args.audio_cmd)
-    talk = Talk(mouth, gkey, ekey, os.path.join(args.dir, "seeing.json"))
+    talk = Talk(mouth, gkey, ekey, args.seeing or os.path.join(args.dir, "seeing.json"))
 
     if args.ask:
         print(talk.respond(args.ask, read_seeing(talk.seeing_path)))

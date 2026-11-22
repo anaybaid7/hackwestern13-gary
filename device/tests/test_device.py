@@ -715,6 +715,13 @@ def test_gary_hears_only_fresh_labels_and_never_a_person():
             json.dump({"labels": {"bird": 0.86, "tree": 0.5}, "friend": True, "ts": 1000}, f)
         assert gt.read_seeing(path, clock=lambda: 1001.0)["labels"]["bird"] == 0.86
         assert gt.read_seeing(path, clock=lambda: 1010.0) is None, "old: Gary is not looking any more"
+        import io
+        url = gt.read_seeing("http://localhost:8800/api/seeing", clock=lambda: 1001.0,
+                             opener=lambda u, timeout: io.BytesIO(open(path, "rb").read()))
+        assert url["labels"]["bird"] == 0.86, "talk on a laptop reads the Pi's seeing over HTTP"
+        def down(u, timeout):
+            raise OSError("no route")
+        assert gt.read_seeing("http://localhost:8800/api/seeing", opener=down) is None
         said = gt.now_context(gt.read_seeing(path, clock=lambda: 1001.0))
         assert "bird (86%), tree (50%)" in said and "A friend is in the frame." in said
         assert "person" not in said and "nothing he can name" in gt.now_context(None)

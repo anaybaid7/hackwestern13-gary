@@ -44,6 +44,7 @@ pinned. Do not edit them by hand. `backend/tests` fails if they are out of date.
 | `POST /api/dev/reset` | demos, tests, the page's "Reset Gary" button | optional `{"keep_quests": true}`; header `X-Admin-Key` if the server sets `GARY_ADMIN_KEY` | with `keep_quests`: forgets events and moods, keeps every quest and opens them all again. Without it: forgets events and moods, reloads seed quests |
 | `GET /api/auth/config` | web, device (`pair.py`) | | `{"enabled", "domain", "audience", "client_id", "device_client_id"}`. `enabled` is false when the server has no Auth0 tenant |
 | `GET /api/me` | web | header `Authorization: Bearer <token>` | `{"signed_in": false}`, or `{"signed_in": true, "fingerprint", "paired", "permissions"}` |
+| `GET /api/seeing` | `gary_talk.py` on a laptop | | Gary's `seeing.json`: `{"labels": {label: score}, "friend", "ts"}`, labels only, never a picture. `{}` when the server has none (`GARY_SEEING` unset) |
 | `GET /api/health` | deploy checks | | `{"ok": true, "events", "quests", "last_event", "store": "memory"\|"postgres", ...}` |
 
 `reaction` is one of `quest_complete`, `new_discovery`, `seen_before`, `miss`, `mood`.

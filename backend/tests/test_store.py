@@ -278,3 +278,13 @@ def test_sqlite_keeps_gary_across_a_restart(tmp_path, monkeypatch):
     assert stores.SqliteStore(tmp_path / "gary.db", SEED).counts()["events"] == 0
     monkeypatch.setenv("GARY_DB", str(tmp_path / "other.db"))
     assert stores.make_store(SEED).kind == "sqlite"
+
+
+def test_seeing_serves_garys_labels_or_nothing(client, monkeypatch, tmp_path):
+    assert client.get("/api/seeing").json() == {}
+    path = tmp_path / "seeing.json"
+    path.write_text('{"labels": {"bird": 0.86}, "friend": false, "ts": 1000}')
+    monkeypatch.setenv("GARY_SEEING", str(path))
+    assert client.get("/api/seeing").json()["labels"] == {"bird": 0.86}
+    path.write_text("not json")
+    assert client.get("/api/seeing").json() == {}

@@ -24,9 +24,11 @@ file (or in the repo root):
     GARY_TZ            where days and weeks turn over. Default America/Toronto
     GARY_SEED          the quests a fresh backend starts with
     GARY_LIVE_DIR      a folder to serve at /live/: Gary's live view, on the Pi
+    GARY_SEEING        Gary's seeing.json, served at /api/seeing (labels only)
 """
 import datetime as dt
 import hmac
+import json
 import mimetypes
 import os
 import re
@@ -302,6 +304,17 @@ def current(events=None, quests=None):
     return rules.compute(store.events() if events is None else events,
                          store.quests() if quests is None else quests,
                          OUTDOOR, now(), nap_seconds(), TZ)
+
+
+@app.get("/api/seeing")
+def seeing():
+    """What Gary is sure he sees right now: seeing.json, labels only, never a
+    picture. Lets gary_talk.py run on a laptop while Gary looks on the Pi."""
+    path = os.environ.get("GARY_SEEING")
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
+    except (OSError, ValueError):
+        return {}
 
 
 @app.get("/api/health")

@@ -237,6 +237,8 @@ else
       GARY_LIVE_DIR="$DIR/$(dirname "$GARY_LIVE")"
       mkdir -p "$GARY_LIVE_DIR" && cp qnx/live.html "$GARY_LIVE_DIR/index.html"
       export GARY_LIVE_DIR
+GARY_SEEING="$DIR/seeing.json"   # served at /api/seeing, for gary_talk.py on a laptop
+export GARY_SEEING
     fi
     exec $py -m uvicorn app:app --app-dir "$GARY_BACKEND" --host 0.0.0.0 \
       --port "${GARY_BACKEND_PORT:-8800}" < /dev/null >> logs/backend.log 2>&1
