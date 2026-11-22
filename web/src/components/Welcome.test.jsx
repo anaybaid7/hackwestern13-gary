@@ -136,7 +136,7 @@ test('a new person meets Gary before the home screen; someone he knows goes stra
   const first = render(<App service={service} />)
   await screen.findByRole('button', { name: 'Start' }) // the landing page first
   click('Start')
-  expect(screen.getByRole('region', { name: 'Meet Gary' })).toBeTruthy()
+  expect(await screen.findByRole('region', { name: 'Meet Gary' })).toBeTruthy()
   expect(service.postMood).not.toHaveBeenCalled()
   click('Skip')
   await screen.findByText('Scrambler') // the home screen
@@ -146,6 +146,24 @@ test('a new person meets Gary before the home screen; someone he knows goes stra
 
   render(<App service={fakeService()} />)
   expect(screen.queryByRole('region', { name: 'Meet Gary' })).toBeNull()
+})
+
+test('through the landing page: someone Gary knows goes home, and a reset Gary introduces himself again', async () => {
+  writeMet(true)
+  window.history.replaceState(null, '', '#settings') // where they were last time
+  render(<Shell service={fakeService()} askCheckIn={false} landing />)
+  await screen.findByRole('button', { name: 'Start' })
+  click('Start')
+  await screen.findByText('Scrambler')
+  expect(window.location.hash).toBe('#home')
+  expect(screen.queryByRole('region', { name: 'Meet Gary' })).toBeNull()
+  cleanup()
+
+  const reset = { ...exampleState, gary: { ...exampleState.gary, xp: 0 }, journal: [] }
+  render(<Shell service={{ ...fakeService(), getState: vi.fn(async () => reset) }} askCheckIn={false} landing />)
+  await screen.findByRole('button', { name: 'Start' })
+  click('Start')
+  expect(await screen.findByRole('region', { name: 'Meet Gary' })).toBeTruthy()
 })
 
 test('Settings can bring the hello back', async () => {

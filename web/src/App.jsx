@@ -48,6 +48,9 @@ export default function App({ service: given }) {
   return <Shell service={service} landing={!readStarted()} welcome={!readMet()} />
 }
 
+/** A Gary with nothing yet: just made, or just reset. */
+export const freshGary = (state) => state.gary.xp === 0 && state.journal.length === 0
+
 /** What is new in `next` compared with `prev`: the things worth a small celebration. */
 export function whatChanged(prev, next) {
   if (!prev) return null
@@ -94,6 +97,7 @@ function readTab() {
 
 export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), landing = false, welcome = false }) {
   const [atDoor, setAtDoor] = useState(landing) // the landing page, once a visit
+  const [deciding, setDeciding] = useState(false) // just through the door: onboarding or home, once the state is in
   const [state, setState] = useState(null)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState(readTab)
@@ -123,6 +127,14 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), landi
     if (!service.getQuests) return // the map lists them too, so they are fetched with or without a position
     service.getQuests().then(setOpenQuests, () => setOpenQuests(null))
   }, [questsStamp, service])
+  // Through the landing page: Gary introduces himself to someone new, and again
+  // after he was reset (from this page or anywhere else). Everyone else goes home.
+  useEffect(() => {
+    if (!deciding || !state) return
+    setMeeting(!readMet() || freshGary(state))
+    setDeciding(false)
+  }, [deciding, state])
+
   const close = me.at && openQuests ? nearby(me.at, openQuests) : null
   const activeShort = close && state?.quest_choice === 'short' ? close.find((q) => q.id === state.quest?.id) : null
   const shown = close && state ? { ...state, quest_options: { ...state.quest_options, short: activeShort ?? close[0] ?? null } } : state
@@ -238,10 +250,19 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), landi
   if (atDoor) {
     return (
       <Handheld onPick={() => {}}>
-        <Landing service={service} onStart={() => setAtDoor(false)} />
+        <Landing
+          service={service}
+          onStart={() => {
+            setAtDoor(false)
+            setDeciding(true)
+            pick('home')
+          }}
+        />
       </Handheld>
     )
   }
+
+  if (deciding) return <Splash>Waking Gary.</Splash>
 
   // Gary's hello needs nothing from the backend, so it does not wait for it.
   if (meeting) {

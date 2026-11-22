@@ -6,7 +6,7 @@
 const OFF = (reason) => ({ enabled: false, reason, signedIn: false, token: async () => '' })
 
 /**
- * -> {enabled, reason?, signedIn, signIn(), signOut(), token()}.
+ * -> {enabled, reason?, signedIn, signIn(screen to come back to), signOut(), token()}.
  * `load` brings in Auth0's library only when a tenant is set up.
  */
 export async function createAuth({
@@ -38,21 +38,22 @@ export async function createAuth({
     useRefreshTokens: true,
   })
 
-  // Coming back from Auth0: finish the sign-in and tidy the address.
+  // Coming back from Auth0: finish the sign-in and go back to the screen it started from.
   const query = new URLSearchParams(location.search)
   if (query.has('state') && (query.has('code') || query.has('error'))) {
+    let back = ''
     try {
-      await client.handleRedirectCallback()
+      back = (await client.handleRedirectCallback())?.appState?.screen ?? ''
     } catch {
       // a stale or refused sign-in: stay signed out
     }
-    history.replaceState(null, '', `${location.pathname}#settings`)
+    history.replaceState(null, '', `${location.pathname}${back ? `#${back}` : ''}`)
   }
 
   const auth = {
     enabled: true,
     signedIn: await client.isAuthenticated(),
-    signIn: () => client.loginWithRedirect(),
+    signIn: (screen = '') => client.loginWithRedirect({ appState: { screen } }),
     signOut: () => client.logout({ logoutParams: { returnTo: location.origin } }),
     token: async () => {
       if (!auth.signedIn) return ''

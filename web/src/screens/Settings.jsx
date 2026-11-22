@@ -73,7 +73,7 @@ function Account({ service, onChange }) {
       ) : (
         <>
           <p>Sign in to keep your check-ins as yours, and to pair a Gary with you.</p>
-          <button type="button" className="button primary" onClick={() => account.signIn()}>
+          <button type="button" className="button primary" onClick={() => account.signIn('settings')}>
             Sign in
           </button>
         </>
