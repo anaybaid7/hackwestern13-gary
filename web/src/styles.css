@@ -675,6 +675,30 @@ body {
   font-style: italic;
 }
 
+/* the page the pick came from: a plain link inside the quote, not a button */
+.pick-why .link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-style: normal;
+  text-transform: none;
+  text-decoration: underline;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.pick-why .link:active { transform: none; box-shadow: none; }
+
+.pick .chips { gap: 6px; }
+.chip-plain {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--cream);
+}
+
 .pick .button {
   justify-self: start;
 }
