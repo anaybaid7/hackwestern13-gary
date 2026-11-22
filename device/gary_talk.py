@@ -68,6 +68,7 @@ TTS_SPEED = 1.2                  # ElevenLabs' fastest allowed; 1.08 sounded slo
 LISTEN_FOR = 7.0                 # seconds to wait for the question after "Go ahead"
 FRESH = 3.0                      # seeing.json older than this: Gary is not looking
 CONVERSATION_FOR = 120.0         # seconds Gary remembers the conversation (in memory only)
+CHECKS = 3                       # "Go Gary" checks that may run at once
 HUSH = 0.5                       # seconds the microphone stays ignored after Gary stops speaking: his own
                                  # last words, still in the room or in the recorder's buffer, are not a question
 LABELS = os.path.join(HERE, "..", "contract", "labels.json")
@@ -190,8 +191,12 @@ class Utterances:
     goes, so a loud hall and a quiet trail both work."""
 
     def __init__(self, start_frames=4, end_silence=0.6, pre_roll=0.3, longest=8.0, shortest=0.3,
-                 min_level=350.0, ratio=3.0):
+                 min_level=350.0, ratio=3.0, below_peak=0.25):
         self.start_frames, self.ratio, self.min_level = start_frames, ratio, min_level
+        # In a loud room the chatter never drops below the room's own level, so a sentence
+        # would never end. A voice close to the microphone is much louder than the room:
+        # it has ended once the sound stays under a quarter of its own loudest moment.
+        self.below_peak, self.peak = below_peak, 0.0
         self.end_frames = int(end_silence * 1000 / 20)
         self.pre = int(pre_roll * 1000 / 20)
         self.longest, self.shortest = int(longest * 1000 / 20), int(shortest * 1000 / 20)
@@ -209,10 +214,11 @@ class Utterances:
             self.history = (self.history + [frame])[-self.pre - self.start_frames:]
             self.loud = self.loud + 1 if level > self.threshold() else 0
             if self.loud >= self.start_frames:
-                self.speech, self.quiet = list(self.history), 0
+                self.speech, self.quiet, self.peak = list(self.history), 0, level
             return None
         self.speech.append(frame)
-        self.quiet = self.quiet + 1 if level <= self.threshold() else 0
+        self.peak = max(self.peak, level)
+        self.quiet = self.quiet + 1 if level <= max(self.threshold(), self.below_peak * self.peak) else 0
         if self.quiet >= self.end_frames or len(self.speech) >= self.longest:
             said, self.speech, self.history, self.loud = self.speech, None, [], 0
             if len(said) - self.quiet < self.shortest:
@@ -572,10 +578,16 @@ class Talk:
         # strict: every question needs "Go Gary", also the answer to something Gary asked.
         # For a loud room, where the next voice he hears may not be yours.
         self.strict = strict
-        # Checking for "Go Gary" takes Gemini a second or two, and people do not wait for
-        # "Go ahead": they go straight on to the question. So what is said meanwhile is kept
-        # (`pending`, the latest thing only), and `hearing` says whether they are mid-sentence.
-        self.pending, self.hearing = None, lambda: False
+        # Checking for "Go Gary" takes Gemini a second or two. In a loud room most of what the
+        # microphone catches is other people, so checks run side by side (up to CHECKS at once):
+        # a neighbour's sentence being checked must never make Gary deaf to "Go Gary".
+        # People also do not wait for "Go ahead": they go straight on to the question. So the
+        # last few things heard are kept (`recent`, in memory only), and `hearing` says whether
+        # someone is mid-sentence right now.
+        self.recent, self.seq, self.checking = [], 0, 0
+        self.count = threading.Lock()
+        self.hearing = lambda: False
+        self.verbose = False
         self.state, self.until = self.IDLE, 0.0
         self.busy = threading.Lock()
         # The conversation, in memory only: (what they said, what Gary said). Never written down.
@@ -615,25 +627,50 @@ class Talk:
 
     def heard(self, pcm):
         """One thing said (PCM). Returns what Gary did, for the log and the tests."""
-        if not self.busy.acquire(blocking=False):
-            return "busy"
+        if self.state == self.LISTENING:
+            if not self.busy.acquire(blocking=False):
+                return "busy"
+            try:
+                if self.state != self.LISTENING:
+                    return "busy"
+                self.state = self.IDLE
+                return self.respond(pcm, read_seeing(self.seeing_path))
+            finally:
+                self.busy.release()
+        if self.busy.locked():
+            return "busy"  # Gary is answering: nothing said now is a new call
+        if len(pcm) > 6 * RATE * 2:
+            return self.note("ignored", "too long to be a call to Gary")  # someone talking nearby
+        with self.count:
+            if self.checking >= CHECKS:
+                return self.note("busy", "too many voices at once")
+            self.checking += 1
+            self.seq += 1
+            mine = self.seq
+            self.recent = (self.recent + [(mine, pcm)])[-4:]
+        t0 = self.clock()
         try:
             seeing = read_seeing(self.seeing_path)
-            if self.state == self.LISTENING:
-                self.state = self.IDLE
-                return self.respond(pcm, seeing)
-            if len(pcm) > 6 * RATE * 2:
-                return "ignored"  # too long to be "Go Gary": someone talking nearby
-            t0 = self.clock()
             woke, reply = self.call(self.ask_wake, pcm, self.gemini_key, seeing)
-            if not woke:
-                return "ignored"
+        except TalkError as exc:
+            self.say("talk: %s" % exc)
+            return "error"
+        finally:
+            with self.count:
+                self.checking -= 1
+        if not woke:
+            return self.note("ignored", "not a call to Gary (%.1f s)" % (self.clock() - t0))
+        if not self.busy.acquire(blocking=False):
+            return "busy"  # he is already answering another call
+        try:
             self.say("talk: \"Go Gary\" (%.1f s)" % (self.clock() - t0))
             if reply:
                 return self.speak_answer(as_reply(reply), t0)
-            question, self.pending = self.pending, None
-            if question:
-                return self.respond(question, seeing)  # they asked while he was checking: answer it
+            with self.count:
+                later = [said for n, said in self.recent if n > mine]
+                self.recent = []
+            if later:
+                return self.respond(later[-1], seeing)  # they asked while he was checking: answer it
             if self.hearing():
                 self.say("talk: listening (they are already asking)")
                 self.listen()  # mid-question: do not talk over them with "Go ahead"
@@ -644,8 +681,12 @@ class Talk:
             self.say("talk: %s" % exc)
             return "error"
         finally:
-            self.pending = None  # whatever else was said meanwhile was not for Gary
             self.busy.release()
+
+    def note(self, result, why):
+        if self.verbose:
+            self.say("talk: %s" % why)  # never the words, only what Gary did with the sound
+        return result
 
     def thinking_clip(self):
         """One of the "let me think" lines, never the same one twice running."""
@@ -776,6 +817,10 @@ def main(argv=None):
     ap.add_argument("--strict", action="store_true", default=os.environ.get("GARY_TALK_STRICT") == "on",
                     help='every question needs "Go Gary", also your answer to something Gary asked. For a loud '
                          "room, where he would take the next voice he hears as your answer (or GARY_TALK_STRICT=on)")
+    ap.add_argument("--below-peak", type=float, default=float(os.environ.get("GARY_TALK_BELOW_PEAK") or 0.25),
+                    help="a sentence has ended once the sound stays under this share of its loudest moment "
+                         "(default 0.25). In a loud room use 0.45, so voices nearby do not keep it open")
+    ap.add_argument("--verbose", action="store_true", help="say what Gary did with each sound he heard (never the words)")
     ap.add_argument("--min-level", type=float, default=float(os.environ.get("GARY_TALK_MIN_LEVEL") or 350),
                     help="how loud a sound must be to count as speech (default 350). Raise it, for example to "
                          "1500, so only a voice close to the microphone counts")
@@ -814,8 +859,16 @@ def main(argv=None):
             sys.exit("No recorder found. Set GARY_TALK_REC in gary.env, or pass --rec-cmd (see the top of this file).")
         frames = frames_from_command(cmd)
 
-    ears = Utterances(min_level=args.min_level)
+    ears = Utterances(min_level=args.min_level, below_peak=args.below_peak)
     talk.hearing = lambda: ears.speech is not None
+    talk.verbose = args.verbose
+    if sys.stdin and sys.stdin.isatty():
+        # Push to talk, for a room too loud for "Go Gary": Enter is the same as holding the button.
+        def keys():
+            for _ in sys.stdin:
+                threading.Thread(target=talk.wake, daemon=True).start()
+        threading.Thread(target=keys, daemon=True).start()
+        print("Too loud for \"Go Gary\"? Press Enter, wait for \"Go ahead\", then ask.")
     spoke_at = 0.0
     print("Gary is listening. Say \"Go Gary\".%s" % (" Every question needs it." if args.strict else ""))
     try:
@@ -829,9 +882,6 @@ def main(argv=None):
                 ears.reset()  # nor its tail
                 continue
             said = ears.feed(frame)
-            if said and talk.busy.locked() and not args.from_wav:
-                talk.pending = said  # said while Gary was checking for "Go Gary": maybe the question
-                continue
             if said:
                 if args.from_wav:
                     talk.heard(said)  # in order, so a test file plays like a conversation
