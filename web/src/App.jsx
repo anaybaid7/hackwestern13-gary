@@ -99,6 +99,16 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
   const [busy, setBusy] = useState(false)
   const [asking, setAsking] = useState(askCheckIn) // once per visit
   const [meeting, setMeeting] = useState(welcome) // a new person: Gary introduces himself first
+
+  // Back from signing in (Auth0 sends you here with ?code=...&state=...): finish the sign-in now,
+  // and show Settings, where it says who you are. Without this it waited until Settings was opened,
+  // and the code in the address could run out first.
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search)
+    if (!query.has('state') || !(query.has('code') || query.has('error')) || !service.account) return
+    service.account().then(() => setTab('settings'), () => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the page opens
+  }, [])
   const [mapFocus, setMapFocus] = useState(null) // a place "See on map" asked for
   const [reward, setReward] = useState(null) // a finished quest, until it is dismissed
   const [afterCheckIn, setAfterCheckIn] = useState(false) // the check-in that follows it
