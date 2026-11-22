@@ -53,7 +53,7 @@ export default function Landing({ service, onStart }) {
       <p className="landing-kicker">Pocket</p>
       <h1 className="landing-title">G.A.R.Y.</h1>
       <p className="landing-tagline">Go Anywhere, Rediscover Yourself</p>
-      <img className="landing-gary" src={garySrc('kid', false)} alt="Gary the goat" width="176" height="176" />
+      <img className="landing-gary" src={garySrc('scrambler', false)} alt="Gary the goat" width="176" height="176" />
       <p className="landing-pitch">A goat who only grows when you go outside.</p>
       <div className="landing-actions">
         {!account ? (

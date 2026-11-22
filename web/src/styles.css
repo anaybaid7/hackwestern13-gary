@@ -2141,7 +2141,7 @@ body {
   text-align: center;
   background: var(--cream);
 }
-.landing-kicker { margin: 0 0 4px; font-family: var(--pixel); font-size: 22px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink-2); }
+.landing-kicker { margin: 0 0 -8px; line-height: 1; font-family: var(--pixel); font-size: 22px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--ink-2); }
 .landing-title { margin: 0; font-family: var(--pixel); font-size: clamp(36px, 11vw, 52px); line-height: 1; text-shadow: 3px 3px 0 var(--coral); }
 .landing-tagline { margin: 2px 0 8px; font-family: var(--pixel); font-size: 11px; color: var(--ink-2); }
 .landing-gary { image-rendering: pixelated; padding: 14px; border: var(--line); border-radius: 50%; background: var(--lcd); box-shadow: var(--lift); animation: landing-bob 1.2s steps(2) infinite; }
