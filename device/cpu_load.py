@@ -12,9 +12,14 @@ ready thread always runs first, so Gary at priority 20 is not kept waiting.
 """
 import argparse
 import os
+import signal
 import subprocess
 import sys
 import time
+
+
+def stop(*_):
+    raise KeyboardInterrupt
 
 
 def main():
@@ -22,7 +27,11 @@ def main():
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--procs", type=int, default=os.cpu_count() or 4, help="busy processes (default: one per core)")
     args = ap.parse_args()
-    busy = [subprocess.Popen([sys.executable, "-c", "while True: pass"]) for _ in range(max(1, args.procs))]
+    signal.signal(signal.SIGTERM, stop)  # kill must stop the busy processes too, not leave them spinning
+    # each also ends on its own, should this one die without cleaning up (kill -9)
+    end = time.time() + args.seconds + 5
+    busy = [subprocess.Popen([sys.executable, "-c", "import time\nwhile time.time() < %r: pass" % end])
+            for _ in range(max(1, args.procs))]
     print("%d busy processes for %.0f seconds. Ctrl-C stops them early." % (len(busy), args.seconds), flush=True)
     try:
         time.sleep(args.seconds)
