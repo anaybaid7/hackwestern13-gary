@@ -206,6 +206,7 @@ describe('the 3D map', () => {
     expect(map.data.fog.geometry.coordinates[0]).toHaveLength(2) // the fog's outline and Harris Park
     expect(map.data.beacon.features).toHaveLength(1)
     expect(map.data.rim.features.length).toBeGreaterThan(0)
+    expect(map.data.wall.features.length).toBeGreaterThan(0) // the fog's wall round the clearing
   })
 
   test('the trail joins cleared places; "All places" fits them all', async () => {

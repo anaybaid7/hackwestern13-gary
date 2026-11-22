@@ -1153,6 +1153,24 @@ body {
   height: 0;
 }
 
+/* in 3D the quest and the uncovered places are named all the time: you can see where things are at a glance */
+.world-3d .tile.here .tile-name,
+.world-3d .tile.cleared .tile-name {
+  display: block;
+}
+
+.world-3d .tile .pin {
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+}
+
+.world-3d .tile.cleared .pin {
+  width: 18px;
+  height: 26px;
+  background-size: 15px 12px;
+}
+
 .maplibregl-marker.tile:focus-visible .pin {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
