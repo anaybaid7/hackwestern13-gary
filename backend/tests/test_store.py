@@ -288,3 +288,23 @@ def test_seeing_serves_garys_labels_or_nothing(client, monkeypatch, tmp_path):
     assert client.get("/api/seeing").json()["labels"] == {"bird": 0.86}
     path.write_text("not json")
     assert client.get("/api/seeing").json() == {}
+
+
+def test_a_reset_beside_gary_gives_him_a_fresh_start_too(client, monkeypatch, tmp_path):
+    import time
+    mark = tmp_path / "gary-restarted"
+    # no hook (the Vultr server, a laptop): only the backend is reset
+    monkeypatch.delenv("GARY_ON_RESET", raising=False)
+    assert client.post("/api/dev/reset", json={"keep_quests": True}).json()["device_restarting"] is False
+    monkeypatch.setenv("GARY_ON_RESET", "off")
+    assert client.post("/api/dev/reset").json()["device_restarting"] is False
+    # beside Gary, start_gary.sh sets the hook: it runs after the reply, on its own
+    monkeypatch.setenv("GARY_ON_RESET", "touch %s" % mark)
+    reply = client.post("/api/dev/reset", json={"keep_quests": True}).json()
+    assert reply == {"ok": True, "quests_kept": True, "device_restarting": True}
+    assert not mark.exists(), "not before the reply is out"
+    for _ in range(40):
+        if mark.exists():
+            break
+        time.sleep(0.1)
+    assert mark.exists()

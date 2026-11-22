@@ -894,6 +894,24 @@ def test_a_close_voice_ends_when_it_stops_even_if_the_room_never_goes_quiet():
     assert len(close) == 1 and 40 <= close[0] <= 40 + 15 + 31, close   # the voice and the short quiet after
 
 
+def test_gary_tries_ipv4_before_ipv6_so_a_dead_ipv6_route_costs_nothing():
+    gt = load("gary_talk")
+    import socket
+    six = (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:db8::1", 443, 0, 0))
+    four = (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.0.2.1", 443))
+    asked = []
+
+    def resolver(*args, **kwargs):
+        asked.append(args)
+        return [six, four, six]
+
+    lookup = gt.ipv4_first(resolver)
+    assert lookup("api.example", 443) == [four, six, six], "IPv4 first, the others kept, in their order"
+    assert asked == [("api.example", 443)]
+    assert gt.ipv4_first(lookup) is lookup, "wrapping twice changes nothing"
+    assert getattr(socket.getaddrinfo, "ipv4_first", False), "on for the whole process once gary_talk is loaded"
+
+
 def test_gary_reads_the_app_but_never_a_mood():
     gt = load("gary_talk")
     with open(os.path.join(DEVICE, "..", "contract", "examples", "state.json"), encoding="utf-8") as f:

@@ -7,7 +7,7 @@ discover new places and bring a friend. Built at Hack Western 13.
 
 **Other apps count your steps. Gary counts your stories.**
 
-Live: http://149.248.50.153 (hosted on Vultr) · Devpost: [link] · Demo video: [link] · TinyFish post: [link]
+Live: https://goatside.fit (hosted on Vultr) · Devpost: [link] · Demo video: [link] · TinyFish post: [link]
 
 <p>
   <img src="docs/img/home.png" width="23%" alt="Home: Gary as a Scrambler on a lime screen, his line about a dog, his XP bar, and today's quest">
@@ -106,7 +106,7 @@ Update this table as each row is done.
 | --- | --- | --- |
 | The Sniff Test, C++ for QNX | Built and tested on Linux with stand-ins for QNX's camera | [not yet: issue #4] |
 | Button and buzzer | Tested with stand-in pins | [not yet: issues #10, #11] |
-| Backend | Tested in memory and on PostgreSQL 16 | Runs on Vultr at http://149.248.50.153. Tiger Data is verified from a laptop; [the Vultr server itself still keeps its data in memory] |
+| Backend | Tested in memory and on PostgreSQL 16 | Runs on Vultr at https://goatside.fit, with its data in Tiger Data (TimescaleDB, the events hypertable) since Sun 22 Nov |
 | Web page | Tested, and looked at in Chrome at phone and desktop sizes | [not yet on a real phone] |
 | Scout | Tested against a stand-in for TinyFish | Live TinyFish runs on London pages: each one is recorded in `scout/runs.jsonl` and listed in `scout/EVIDENCE.md` |
 
@@ -124,4 +124,3 @@ Update this table as each row is done.
 - Camera wrapper and build recipe on QNX: [qnx/QNX-AI-workshop](https://github.com/qnx/QNX-AI-workshop) (Apache-2.0).
 - Typefaces: Silkscreen and Space Mono (SIL Open Font License), through Fontsource.
 - Map: [Leaflet](https://leafletjs.com) (BSD 2-Clause), with street tiles and data from [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
-- [How the team used AI coding tools.]

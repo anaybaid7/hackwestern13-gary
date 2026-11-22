@@ -43,6 +43,7 @@ import os
 import shlex
 import shutil
 import signal
+import socket
 import struct
 import subprocess
 import sys
@@ -58,6 +59,32 @@ import wave
 HERE = os.path.dirname(os.path.abspath(__file__))
 RATE = 16000
 FRAME = 320                      # samples: 20 ms
+
+
+def ipv4_first(lookup=None):
+    """Make this process try a name's IPv4 addresses before its IPv6 ones.
+
+    Measured on the Pi behind a laptop's Internet Sharing (22 Nov): Google's
+    API resolves to an IPv6 address first, there is no IPv6 route, and Python
+    waits out the whole timeout there before trying IPv4. That put five
+    seconds or more on every Gemini call, and with the backup model after a
+    slow answer, 15 seconds before Gary spoke. IPv4 connects in 0.1 s.
+    Nothing is lost where IPv6 works: those addresses are still tried, after."""
+    lookup = lookup or socket.getaddrinfo
+    if getattr(lookup, "ipv4_first", False):
+        return lookup
+
+    def getaddrinfo(*args, **kwargs):
+        found = lookup(*args, **kwargs)
+        return sorted(found, key=lambda entry: entry[0] != socket.AF_INET)  # stable: IPv4, then the rest
+
+    getaddrinfo.ipv4_first = True
+    return getaddrinfo
+
+
+if os.environ.get("GARY_IPV4_FIRST", "on") != "off":
+    socket.getaddrinfo = ipv4_first()
+
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent"
 GEMINI_MODEL = "gemini-3.1-flash-lite"   # 1 to 1.7 s with audio; 3.5-flash-lite took 4 to 7 s (21 Nov)
 BACKUP_MODEL = "gemini-2.5-flash"         # 1.4 to 1.9 s; asked when the fast one is slow or busy
