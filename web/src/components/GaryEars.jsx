@@ -13,6 +13,10 @@ import { VOICE, isPlaying, playAndWait } from '../sound.js'
 const LISTEN_MS = 7000 // how long Gary waits for the question after "Go ahead"
 const ECHO_MS = 250 // the room's echo of Gary's last word
 const CHECKS = 3 // "Go Gary" checks at once, as on the laptop (gary_talk.py)
+// Each check is a Gemini call, and a busy hall talks all the time. These keep a key's quota alive:
+const WAKE_SECONDS = [0.4, 4] // "Go Gary, what am I looking at?" is about 2.5 s; longer is someone's conversation
+const CHECKS_PER_MINUTE = 12
+const REST_MS = 30000 // after Gemini says "too many requests" (HTTP 429)
 const THINKING = ['say_thinking', 'say_thinking_2', 'say_thinking_3', 'say_thinking_4', 'say_thinking_5'].filter((n) => VOICE[n])
 const EARS_KEY = 'gary.ears'
 
@@ -24,6 +28,7 @@ const LABEL = {
   off: 'Voice off',
   waiting: 'Tap to talk to Gary',
   denied: 'Mic blocked',
+  resting: 'Ears resting…',
   insecure: 'Voice needs https',
 }
 
@@ -122,7 +127,15 @@ export default function GaryEars({ service }) {
     const t = talk.current
     const listening = Date.now() < t.listenUntil
     const secs = (pcm.length / 16000).toFixed(1)
-    if (!listening && t.checks >= CHECKS) return log(`dropped ${secs} s of speech: ${CHECKS} checks already running`)
+    if (!listening) {
+      const now = Date.now()
+      t.recent = (t.recent ?? []).filter((at) => now - at < 60000)
+      if (now < (t.restUntil ?? 0)) return log(`skipped ${secs} s of speech: resting after "too many requests"`)
+      if (secs < WAKE_SECONDS[0] || secs > WAKE_SECONDS[1]) return log(`skipped ${secs} s of speech: too ${secs < WAKE_SECONDS[0] ? 'short' : 'long'} to be "Go Gary"`)
+      if (t.checks >= CHECKS) return log(`dropped ${secs} s of speech: ${CHECKS} checks already running`)
+      if (t.recent.length >= CHECKS_PER_MINUTE) return log(`dropped ${secs} s of speech: ${CHECKS_PER_MINUTE} checks this minute already`)
+      t.recent.push(now)
+    }
     log(listening ? `question: ${secs} s of speech, sending` : `${secs} s of speech, checking for "Go Gary" (${t.checks + 1} running)`)
     const t0 = performance.now()
     if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
@@ -130,6 +143,12 @@ export default function GaryEars({ service }) {
     const thinking = listening ? thinkingClip() : Promise.resolve()
     const out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history }).catch(() => null)
     log(`  ${listening ? 'answered' : 'checked'} in ${since(t0)}:`, out?.woke ? `woke, heard "${out.heard ?? ''}"` : out?.error ?? (out?.busy ? 'server busy' : 'not "Go Gary"'))
+    if (/HTTP 429/.test(out?.error ?? '')) {
+      t.restUntil = Date.now() + REST_MS
+      log(`Gemini says too many requests: no checks for ${REST_MS / 1000} s`)
+      setMode('resting')
+      setTimeout(() => setMode((m) => (m === 'resting' ? 'idle' : m)), REST_MS)
+    }
     if (!listening) {
       t.checks -= 1
       if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
@@ -171,10 +190,8 @@ export default function GaryEars({ service }) {
   async function startMic() {
     const t = talk.current
     const ears = new Utterances()
-    let frames = 0
     try {
       t.close = await openMic((frame) => {
-        if (++frames % 250 === 0) log(`mic: room noise ${Math.round(ears.noise ?? 0)}, speech starts above ${Math.round(ears.threshold())}`) // every 5 s
         if (t.busy || isPlaying()) return ears.reset() // never answer Gary's own voice, a find's clip included
         if (t.listenUntil && Date.now() > t.listenUntil) {
           t.listenUntil = 0

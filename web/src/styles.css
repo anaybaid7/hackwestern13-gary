@@ -257,7 +257,7 @@ body {
 .ears-listening { background: var(--lcd); }
 .ears-listening .ears-dot { background: var(--coral); animation: blink 0.8s steps(2) infinite; }
 .ears-thinking .ears-dot, .ears-speaking .ears-dot { background: var(--orange); }
-.ears-denied, .ears-insecure { color: var(--ink-2); }
+.ears-denied, .ears-insecure, .ears-resting { color: var(--ink-2); }
 @keyframes blink { 50% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ears-listening .ears-dot { animation: none; } }
 
