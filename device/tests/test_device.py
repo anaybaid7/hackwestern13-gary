@@ -771,6 +771,39 @@ def test_go_gary_then_a_question_gets_go_ahead_then_an_answer():
     assert talk.heard(b"\1\0" * 16000 * 7) == "ignored", "too long for Go Gary: someone talking nearby"
 
 
+def test_in_a_loud_room_every_question_needs_go_gary_even_after_gary_asks_one():
+    gt = load("gary_talk")
+
+    class Mouth:
+        speaking = threading.Event()
+
+        def say_clip(self, name):
+            pass
+
+        def say_pcm(self, pcm):
+            pass
+
+    asks = {"say": "A short one or a long one?", "listen": True}
+    speech = b"\1\0" * 16000
+
+    def talk_with(strict):
+        woke = iter([(True, asks), (False, None)])
+        return gt.Talk(Mouth(), "g", "e", "none.json", say=lambda *_: None, strict=strict,
+                       ask_wake=lambda pcm, key, seeing: next(woke),
+                       ask_answer=lambda q, key, seeing: "Short it is.", speak=lambda text, key: b"")
+
+    easy = talk_with(False)
+    assert easy.heard(speech) == "answered" and easy.state == easy.LISTENING
+    assert easy.heard(speech) == "answered", "he asked, so the next thing said is taken as the answer"
+
+    strict = talk_with(True)
+    assert strict.heard(speech) == "answered" and strict.state == strict.IDLE
+    assert strict.heard(speech) == "ignored", "a voice nearby, with no Go Gary: not an answer"
+    # "Go Gary" alone still opens the short window for one question
+    strict.wake()
+    assert strict.state == strict.LISTENING
+
+
 def test_gary_reads_the_app_but_never_a_mood():
     gt = load("gary_talk")
     with open(os.path.join(DEVICE, "..", "contract", "examples", "state.json"), encoding="utf-8") as f:

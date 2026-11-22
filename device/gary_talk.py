@@ -68,6 +68,8 @@ TTS_SPEED = 1.2                  # ElevenLabs' fastest allowed; 1.08 sounded slo
 LISTEN_FOR = 7.0                 # seconds to wait for the question after "Go ahead"
 FRESH = 3.0                      # seeing.json older than this: Gary is not looking
 CONVERSATION_FOR = 120.0         # seconds Gary remembers the conversation (in memory only)
+HUSH = 0.5                       # seconds the microphone stays ignored after Gary stops speaking: his own
+                                 # last words, still in the room or in the recorder's buffer, are not a question
 LABELS = os.path.join(HERE, "..", "contract", "labels.json")
 # "Let me think" clips (make_voice.py), one picked at random, never the same twice running
 THINKING = ("say_thinking", "say_thinking_2", "say_thinking_3", "say_thinking_4", "say_thinking_5")
@@ -562,11 +564,14 @@ class Talk:
     IDLE, LISTENING = "idle", "listening"
 
     def __init__(self, mouth, gemini_key, eleven_key, seeing_path, say=print,
-                 ask_answer=answer, ask_wake=is_wake, speak=tts, clock=time.monotonic, app=None):
+                 ask_answer=answer, ask_wake=is_wake, speak=tts, clock=time.monotonic, app=None, strict=False):
         self.mouth, self.say = mouth, say
         self.gemini_key, self.eleven_key, self.seeing_path = gemini_key, eleven_key, seeing_path
         self.ask_answer, self.ask_wake, self.speak, self.clock = ask_answer, ask_wake, speak, clock
         self.app = app
+        # strict: every question needs "Go Gary", also the answer to something Gary asked.
+        # For a loud room, where the next voice he hears may not be yours.
+        self.strict = strict
         self.state, self.until = self.IDLE, 0.0
         self.busy = threading.Lock()
         # The conversation, in memory only: (what they said, what Gary said). Never written down.
@@ -695,7 +700,7 @@ class Talk:
         self.history.append((reply.get("heard") or "(something)", said))
         self.history = self.history[-6:]
         self.last_word = self.clock()
-        if reply.get("listen"):
+        if reply.get("listen") and not self.strict:
             self.listen()  # he asked them something: no "Go Gary" needed for the answer
         return "answered"
 
@@ -756,6 +761,12 @@ def main(argv=None):
     ap.add_argument("--audio-cmd", help='player command, for example "aplay -q -D plughw:2,0"')
     ap.add_argument("--from-wav", help="listen to this WAV file instead of a microphone (testing)")
     ap.add_argument("--ask", help="a typed question: Gary answers it out loud, then exits (testing)")
+    ap.add_argument("--strict", action="store_true", default=os.environ.get("GARY_TALK_STRICT") == "on",
+                    help='every question needs "Go Gary", also your answer to something Gary asked. For a loud '
+                         "room, where he would take the next voice he hears as your answer (or GARY_TALK_STRICT=on)")
+    ap.add_argument("--min-level", type=float, default=float(os.environ.get("GARY_TALK_MIN_LEVEL") or 350),
+                    help="how loud a sound must be to count as speech (default 350). Raise it, for example to "
+                         "1500, so only a voice close to the microphone counts")
     args = ap.parse_args(argv)
 
     load_env(os.path.join(args.dir, ".env"))
@@ -769,7 +780,7 @@ def main(argv=None):
         api = args.seeing.split("/api/")[0]
     app = App(api, os.environ.get("SCOUT_KEY"))
     print("Gary's app: %s" % (api or "none (set GARY_API or --api to answer about quests)"))
-    talk = Talk(mouth, gkey, ekey, args.seeing or os.path.join(args.dir, "seeing.json"), app=app)
+    talk = Talk(mouth, gkey, ekey, args.seeing or os.path.join(args.dir, "seeing.json"), app=app, strict=args.strict)
 
     if args.ask:
         app.refresh()
@@ -791,13 +802,18 @@ def main(argv=None):
             sys.exit("No recorder found. Set GARY_TALK_REC in gary.env, or pass --rec-cmd (see the top of this file).")
         frames = frames_from_command(cmd)
 
-    ears = Utterances()
-    print("Gary is listening. Say \"Go Gary\".")
+    ears = Utterances(min_level=args.min_level)
+    spoke_at = 0.0
+    print("Gary is listening. Say \"Go Gary\".%s" % (" Every question needs it." if args.strict else ""))
     try:
         for frame in frames:
             talk.tick()
             if mouth.speaking.is_set() or talk.busy.locked():
+                spoke_at = time.monotonic()
                 ears.reset()  # never answer Gary's own voice
+                continue
+            if time.monotonic() - spoke_at < HUSH:
+                ears.reset()  # nor its tail
                 continue
             said = ears.feed(frame)
             if said:

@@ -320,6 +320,11 @@ listening, so you just answer.
 
 - `gary_talk.py` runs beside Gary (`GARY_TALK=on` in `gary.env`; `start_gary.sh`
   starts it, log in `logs/talk.log`). Standard library only.
+- **In a loud room** run it with `--strict` (or `GARY_TALK_STRICT=on`): every question then
+  needs "Go Gary", also your answer to something Gary asked. Without it he takes the next
+  voice he hears as your answer. `--min-level 1500` makes only a close voice count. He also
+  ignores the microphone for half a second after he stops speaking, so he never answers
+  the tail of his own voice.
 - **What Gary sees:** both versions of Gary write `seeing.json` twice a second:
   the labels he is sure of, never a picture. Gemini gets those labels.
 - **Your voice** goes to Gemini (`gemini-3.1-flash-lite`, with `gemini-2.5-flash`
