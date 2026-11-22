@@ -30,7 +30,11 @@ echo "1. Building the web page"
 if [ "${SKIP_WEB_BUILD:-}" != 1 ]; then
   (
     cd web
-    [ -d node_modules ] || npm install
+    # install when there is nothing yet, or when package-lock.json has changed
+    # since the last install (a new library, such as the 3D map's)
+    if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+      npm install
+    fi
     npm run build
   )
 fi
