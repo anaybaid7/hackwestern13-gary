@@ -162,6 +162,13 @@ function ResetGary({ service, onReset }) {
   )
 }
 
+const MAKERS = [
+  ['Anay Baid', 'anaybaid7'],
+  ['Ashmita Haldar', 'ashmitahaldar'],
+  ['Mohammed Owda', 'mowda2'],
+  ['Tristan Beley', 'tristanbeley92'],
+]
+
 export default function Settings({ service, stamp, status, onReset, onMeet }) {
   const [ask, setAsk] = useState(readAsk)
   const [sound, setSound] = useState(readSound)
@@ -243,6 +250,23 @@ export default function Settings({ service, stamp, status, onReset, onMeet }) {
           <li>Herds are ranked. People never are.</li>
           <li>Check-ins never show in Gary's world or the herd.</li>
         </ul>
+      </section>
+
+      <section className="panel">
+        <details className="credits">
+          <summary>About G.A.R.Y</summary>
+          <p>Built at Hack Western 13 (November 2026) by:</p>
+          <ul>
+            {MAKERS.map(([name, login]) => (
+              <li key={login}>
+                <a href={`https://github.com/${login}`} target="_blank" rel="noreferrer">{name}</a>
+              </li>
+            ))}
+          </ul>
+          <p className="small">
+            <a href="https://github.com/anaybaid7/hackwestern13-gary" target="_blank" rel="noreferrer">The code on GitHub</a>
+          </p>
+        </details>
       </section>
     </div>
   )

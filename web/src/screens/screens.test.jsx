@@ -802,3 +802,14 @@ describe('short means near you', () => {
     expect(nearby(null, quests)).toEqual([])
   })
 })
+
+test('Settings credits the four people who built Gary at Hack Western 13', async () => {
+  const { default: Settings } = await import('./Settings.jsx')
+  const service = { mode: 'mock', api: '', now: () => new Date(), getWellness: async () => ({ checkins: [], pairs: [], outdoor: [], locked: false }) }
+  render(<Settings service={service} stamp="" status="mock" onReset={() => {}} onMeet={() => {}} />)
+  fireEvent.click(screen.getByText('About G.A.R.Y'))
+  expect(screen.getByText(/Built at Hack Western 13/)).toBeTruthy()
+  for (const [name, login] of [['Anay Baid', 'anaybaid7'], ['Ashmita Haldar', 'ashmitahaldar'], ['Mohammed Owda', 'mowda2'], ['Tristan Beley', 'tristanbeley92']]) {
+    expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(`https://github.com/${login}`)
+  }
+})

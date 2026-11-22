@@ -421,6 +421,17 @@ body {
   text-transform: uppercase;
 }
 
+/* Settings: who made Gary, folded away */
+.credits summary {
+  cursor: pointer;
+  font-family: var(--pixel);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+.credits[open] summary { margin-bottom: 8px; }
+.credits ul { margin: 6px 0 8px; padding-left: 18px; }
+.credits li { margin: 2px 0; }
+
 /* Herd badges: earned ones are lit, the rest say how to earn them */
 .badges {
   display: grid;
