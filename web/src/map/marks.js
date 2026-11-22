@@ -15,6 +15,11 @@ export function escape(text) {
   return String(text).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
 }
 
+/** "Swift Clover Goat" -> "Swift Clover": the label under an explorer's dot. */
+export function shortName(name) {
+  return String(name).replace(/ Goat$/, '')
+}
+
 export function pinHtml(tile, here) {
   const mark = tile.cleared ? '' : here ? '!' : '?'
   const name = tile.cleared || here ? `<span class="tile-name">${escape(tile.place)}</span>` : '' // shown on hover or tap

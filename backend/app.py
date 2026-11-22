@@ -573,7 +573,8 @@ def post_nearby(payload: dict = Body(...)):
         raise HTTPException(422, "lat and lon must be a real place")
     quest = payload.get("quest_id")
     quest = one_line(quest, 80) if isinstance(quest, str) and quest else None
-    return {"nearby": nearby.share(device, lat, lon, quest), "range_m": int(nearby.RANGE_M)}
+    return {"nearby": nearby.share(device, lat, lon, quest), "range_m": int(nearby.RANGE_M),
+            "rounded_m": nearby.rounded_m()}
 
 
 @app.post("/api/nearby/leave")

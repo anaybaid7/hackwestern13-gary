@@ -13,7 +13,7 @@
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useImperativeHandle, useRef } from 'react'
-import { CORAL, CREAM, INK, LIME, pinClass, pinHtml, pinLabel, stillPlease, trailOf } from '../map/marks.js'
+import { CORAL, CREAM, INK, LIME, escape, pinClass, pinHtml, pinLabel, shortName, stillPlease, trailOf } from '../map/marks.js'
 import { circle, dashes, fogShape, opening, polygons } from '../map/shapes.js'
 
 // Free vector tiles of the whole world (OpenStreetMap data, OpenMapTiles
@@ -356,7 +356,7 @@ export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, 
       const el = document.createElement('div')
       el.className = `other${other.same_quest ? ' same' : ''}`
       el.title = `${other.name}${other.same_quest ? ', on your quest' : ''}`
-      el.innerHTML = '<span></span>'
+      el.innerHTML = `<span></span><b>${escape(shortName(other.name))}</b>`
       return new maplibregl.Marker({ element: el }).setLngLat(lngLat([other.lat, other.lon])).addTo(here.map)
     })
     return () => dots.forEach((dot) => dot.remove())

@@ -7,6 +7,9 @@ on too. The rules here are the whole of the privacy story:
   - Nothing is stored. Positions live in this process's memory only, and one
     that has not been refreshed for STALE seconds is dropped.
   - Positions are rounded to about 100 m before they are kept or shown.
+    (GARY_NEARBY_ROUND=5 on the server makes that about 1 m: a showcase
+    setting, so people standing in one room can be told apart. The page
+    says so on the map when it is on.)
   - Nobody is named. A device makes up a random id; others only ever see a
     tag made from it, which the page turns into a goat name. The id itself,
     which is what lets a device move or remove its own dot, is never sent out.
@@ -15,6 +18,7 @@ on too. The rules here are the whole of the privacy story:
 """
 import hashlib
 import math
+import os
 import threading
 import time
 
@@ -43,10 +47,23 @@ def valid_id(device_id):
     return isinstance(device_id, str) and 16 <= len(device_id) <= 64 and device_id.isalnum()
 
 
+def places():
+    """Decimal places kept: ROUND, or GARY_NEARBY_ROUND (2 to 6) for a showcase."""
+    try:
+        return min(6, max(2, int(os.environ.get("GARY_NEARBY_ROUND") or ROUND)))
+    except ValueError:
+        return ROUND
+
+
+def rounded_m():
+    """How coarse a shown position is, in metres."""
+    return round(111000 / 10 ** places(), 1)
+
+
 def share(device_id, lat, lon, quest=None, now=None):
     """Put this device on the map and return the explorers near it."""
     now = time.time() if now is None else now
-    lat, lon = round(float(lat), ROUND), round(float(lon), ROUND)
+    lat, lon = round(float(lat), places()), round(float(lon), places())
     with _lock:
         for key in [k for k, spot in _spots.items() if now - spot["at"] > STALE]:
             del _spots[key]
@@ -61,7 +78,7 @@ def share(device_id, lat, lon, quest=None, now=None):
             same = bool(quest) and spot["quest"] == quest
             if far <= RANGE_M or same:
                 others.append({"tag": tag_of(key), "lat": spot["lat"], "lon": spot["lon"],
-                               "same_quest": same, "metres": int(round(far, -1)),
+                               "same_quest": same, "metres": int(round(far, -1 if places() <= 3 else 0)),
                                "seconds_ago": int(now - spot["at"])})
     others.sort(key=lambda o: o["metres"])
     return others

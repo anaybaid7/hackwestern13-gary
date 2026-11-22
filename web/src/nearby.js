@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 
 const ON_KEY = 'gary.nearby'
 const ID_KEY = 'gary.nearby.id'
-export const EVERY_MS = 6000
+export const EVERY_MS = 2000 // often enough that a walking dot looks like walking
 
 export function readNearby() {
   try {
@@ -54,18 +54,18 @@ export function leaveNearby(service) {
  * position yet) | 'on' | 'offline'.
  */
 export function useNearby(service, me, questId, on) {
-  const [seen, setSeen] = useState({ others: [], state: 'off' })
+  const [seen, setSeen] = useState({ others: [], state: 'off', exact: false })
   const latest = useRef({ me, questId })
   latest.current = { me, questId }
   const located = Boolean(me.at)
 
   useEffect(() => {
     if (!on || !service?.shareSpot) {
-      setSeen({ others: [], state: 'off' })
+      setSeen({ others: [], state: 'off', exact: false })
       return undefined
     }
     if (!located) {
-      setSeen({ others: [], state: 'waiting' })
+      setSeen({ others: [], state: 'waiting', exact: false })
       return undefined
     }
     const id = deviceId()
@@ -76,9 +76,10 @@ export function useNearby(service, me, questId, on) {
       if (!now.at) return
       try {
         const out = await service.shareSpot({ id, lat: now.at[0], lon: now.at[1], quest_id: quest || undefined })
-        if (alive) setSeen({ others: out.nearby ?? [], state: 'on' })
+        // exact: this server shows positions to a few metres (a showcase setting), not the usual 100 m
+        if (alive) setSeen({ others: out.nearby ?? [], state: 'on', exact: (out.rounded_m ?? 111) < 20 })
       } catch {
-        if (alive) setSeen((had) => ({ others: had.others, state: 'offline' }))
+        if (alive) setSeen((had) => ({ ...had, state: 'offline' }))
       }
     }
     tell()
