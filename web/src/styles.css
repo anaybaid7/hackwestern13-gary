@@ -1141,6 +1141,63 @@ body {
   left: 0;
 }
 
+/* ---- the 3D map (World3D): the same pins and buttons as the flat map ---- */
+/* MapLibre's own sheet makes its box position: relative, which would give it no height here */
+.world .world-map.world-3d {
+  position: absolute;
+  inset: 0;
+}
+
+.maplibregl-marker.tile {
+  width: 0;
+  height: 0;
+}
+
+.maplibregl-marker.tile:focus-visible .pin {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.world-3d .maplibregl-ctrl-group {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  display: grid;
+  gap: 6px;
+}
+
+.world-3d .maplibregl-ctrl-group button {
+  width: 36px;
+  height: 36px;
+  border: var(--line);
+  border-radius: 0;
+  background-color: var(--cream);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.world-3d .maplibregl-ctrl-group button + button {
+  border-top: var(--line);
+}
+
+.world-3d .maplibregl-ctrl-attrib {
+  font-size: 9px;
+}
+
+/* the 2D / 3D switch: the LCD lime, so it reads as a mode and not a jump */
+.map-tools button.look {
+  background: var(--lcd);
+  color: var(--ink);
+}
+
+.map-loading {
+  right: 10px;
+  bottom: auto;
+  top: 52px;
+  left: 10px;
+  width: max-content;
+}
+
 .me span {
   display: block;
   width: 18px;
@@ -1170,6 +1227,11 @@ body {
 
 .sheet .away {
   color: var(--ink-2);
+}
+
+.sheet .walk {
+  justify-self: start;
+  text-decoration: none;
 }
 
 /* what the marks on the map mean */

@@ -6,7 +6,7 @@ what is not, how to run it, and the rules for changing it.
 **Keep the status section current.** When a pull request finishes an issue,
 update the table here in the same pull request.
 
-Last updated: Sat 21 Nov 2026, 7:03 pm, with Gary's hello for new people, the name G.A.R.Y and talking to Gary.
+Last updated: Sun 22 Nov 2026, 12:30 am, with the 3D map and "Walk there".
 
 **Phases 1 to 5 are merged into `main`** (pull requests #42 to #46, merged Sat
 21 Nov between 8:10 and 8:22 am). What is still open needs a person: an
@@ -67,7 +67,7 @@ running on QNX on the Pi, and the scout working on live sites.
 | **Phase 4** | **Front end (C)** | | |
 | #24 | The React prototype, mock and live | **Partly** | Mock and live services behind one interface; every screen works in both. Restyled as **Pocket Pixel**: handheld frame, pixel Gary, Home / Map / Journal / Cup / Settings, quest details sheet, quest-complete screen, check-in pop-ups, OpenStreetMap with fog and your own location. The prototype's own code was never in this repo |
 | #25 | Gary: stages, naps, welcome back, his voice | **Done** | Gary is a 32 x 32 pixel sprite in `web/src/sprites.js`: one drawing plus a few edits per stage |
-| #26 | Fog-of-war map view | **Done** | Also: a lime frontier round cleared ground, a reveal when a place clears, a trail between cleared places, a quest beacon, "Quest" and "All places", a key, the distance from you, and a note when street tiles cannot load. The map now has a height in browsers without `dvh`, and no longer covers the quest-complete pop-up |
+| #26 | Fog-of-war map view | **Done** | Also: a lime frontier round cleared ground, a reveal when a place clears, a trail between cleared places, a quest beacon, "Quest" and "All places", a key, the distance from you, and a note when street tiles cannot load. The map now has a height in browsers without `dvh`, and no longer covers the quest-complete pop-up. **3D map**: where the browser has WebGL the map is a tilted 3D London (MapLibre, real building heights, fog as a cloud bank with clearings cut out, the trail over it, a beacon on the quest), with "2D" for the flat map, which is also the fallback. "Walk there" opens walking directions in the phone's maps app with only the place in the link |
 | #27 | Discovery journal and field guide | **Done** | |
 | #28 | Quest card, short or long | **Done** | |
 | #29 | Herd Mode screen, Herd Cup table | **Done** | No friends list: Gary never identifies anyone |
