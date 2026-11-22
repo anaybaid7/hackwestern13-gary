@@ -1,6 +1,7 @@
 // The browser's own location. It stays in the browser: the map draws it, and
 // the page works out from it whether you are at your quest's place. Only that
-// yes (a "visit" to a quest) is ever sent, never where you are.
+// yes (a "visit" to a quest) is ever sent, never where you are. The one
+// exception is yours to make: "Explorers nearby" in Settings (nearby.js).
 import { useEffect, useState } from 'react'
 
 const OFF = { state: 'off', at: null, accuracy: null }

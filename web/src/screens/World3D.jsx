@@ -183,7 +183,7 @@ function trailFeatures(route) {
   return { type: 'FeatureCollection', features: [...under, ...over] }
 }
 
-export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, onPick, me, first, onStreets, onFail }) {
+export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, onPick, me, others = [], first, onStreets, onFail }) {
   const box = useRef(null)
   const world = useRef(null) // { map, ready, markers, meMarker, born, frame }
 
@@ -346,6 +346,22 @@ export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, 
     el.innerHTML = '<span></span>'
     here.meMarker = new maplibregl.Marker({ element: el }).setLngLat(lngLat(me.at)).addTo(here.map)
   }, [me.at, me.accuracy])
+
+  // explorers nearby (only when you have switched it on): one dot each, moved as they move
+  const where = others.map((o) => `${o.tag}:${o.lat},${o.lon}:${o.same_quest}`).join('|')
+  useEffect(() => {
+    const here = world.current
+    if (!here) return undefined
+    const dots = others.map((other) => {
+      const el = document.createElement('div')
+      el.className = `other${other.same_quest ? ' same' : ''}`
+      el.title = `${other.name}${other.same_quest ? ', on your quest' : ''}`
+      el.innerHTML = '<span></span>'
+      return new maplibregl.Marker({ element: el }).setLngLat(lngLat([other.lat, other.lon])).addTo(here.map)
+    })
+    return () => dots.forEach((dot) => dot.remove())
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `where` is everything these dots draw
+  }, [where])
 
   return <div className="world-map world-3d" ref={box} aria-label="Map of London, Ontario, in 3D" />
 }

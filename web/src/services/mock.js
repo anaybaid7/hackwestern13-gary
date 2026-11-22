@@ -47,6 +47,33 @@ export function createMock({ step = 0, steps = story.steps } = {}) {
     // The story has no lock: nothing in it is anyone's own.
     unlock: async () => steps[index].wellness,
     forgetKey: () => {},
+    // The demo story's explorers: three made-up walkers circling near you, so the map can be shown moving.
+    shareSpot: async ({ lat, lon, quest_id: quest }) => {
+      const t = Date.now() / 1000
+      const walkers = [
+        { tag: '3a9f01c2', r: 0.0022, speed: 0.05, phase: 0.4, same: true },
+        { tag: 'b71e44d0', r: 0.0041, speed: -0.03, phase: 2.1, same: false },
+        { tag: '5c0d9e17', r: 0.0063, speed: 0.02, phase: 4.0, same: false },
+      ]
+      return {
+        demo: true,
+        range_m: 2000,
+        nearby: walkers.map((w) => {
+          const a = w.phase + t * w.speed
+          const dLat = Math.sin(a) * w.r
+          const dLon = Math.cos(a) * w.r * 1.36
+          return {
+            tag: w.tag,
+            lat: Math.round((lat + dLat) * 1000) / 1000,
+            lon: Math.round((lon + dLon) * 1000) / 1000,
+            same_quest: Boolean(quest) && w.same,
+            metres: Math.round(Math.hypot(dLat * 111000, dLon * 81000) / 10) * 10,
+            seconds_ago: 2,
+          }
+        }),
+      }
+    },
+    leaveNearby: async () => ({ ok: true }),
     // The demo story has no accounts.
     account: async () => ({ enabled: false, reason: 'demo', signedIn: false }),
     getMe: async () => ({ signed_in: false }),

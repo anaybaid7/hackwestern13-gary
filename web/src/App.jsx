@@ -287,7 +287,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
 
         <main className="view">
           {tab === 'home' && <Home state={shown} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }}>{service.mode === 'live' && <Picks service={service} tiles={state.map} onTaken={take} />}</Home>}
-          {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} quests={openQuests ?? []} busy={busy} onPickQuest={(q) => choose(q.time, q.id)} focusPlace={mapFocus} />}
+          {tab === 'map' && <MapScreen service={service} map={state.map} flash={flash} quest={state.quest} quests={openQuests ?? []} busy={busy} onPickQuest={(q) => choose(q.time, q.id)} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
           {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} onReset={refresh} onMeet={() => setMeeting(true)} />}

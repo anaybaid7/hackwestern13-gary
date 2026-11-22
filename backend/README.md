@@ -297,6 +297,7 @@ commit them: `python3 ../scripts/make_examples.py`. A test fails until you do.
 | --- | --- |
 | `rules.py` | Every rule. Pure functions, no HTTP, no storage |
 | `app.py` | The endpoints, the checks on what arrives, the clock correction |
+| `nearby.py` | Explorers nearby: opt-in positions, rounded, in memory only, gone after 45 seconds |
 | `picks.py` | Picks for you: runs `scout/personal.py` in the background, one request at a time, and keeps every request |
 | `store.py` | `MemoryStore` and `PostgresStore`, with the same methods |
 | `schema.sql` | The tables |
