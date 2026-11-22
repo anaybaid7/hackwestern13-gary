@@ -106,7 +106,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk() }) {
   // the quest has a real position. The backend hears "visited quest X" only.
   const spot = realSpot(state?.quest)
   const me = useWhereAmI(Boolean(spot) && service.mode === 'live')
-  const near = isNear(me.at, me.accuracy, spot)
+  const near = isNear(me.at, spot)
   const questId = state?.quest?.id
   useEffect(() => {
     if (!near || !questId || visited.current.has(questId) || !service.postVisit) return

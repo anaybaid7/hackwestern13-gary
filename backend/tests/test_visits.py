@@ -1,5 +1,5 @@
-"""Been there: the page says you were at a quest's place, and finishing that
-quest near then earns a bonus. No position ever reaches the backend."""
+"""In range: the page says you were within 1 km of a quest's place, and only
+then does a sniff finish that quest. No position ever reaches the backend."""
 import rules
 import app as backend
 from conftest import post, quest, sniff, state_of
@@ -9,23 +9,31 @@ def visit(client, quest_id, **extra):
     return client.post("/api/visit", json=dict({"quest_id": quest_id}, **extra))
 
 
-def test_a_quest_finished_after_a_visit_earns_the_bonus(client, clock):
+def test_a_quest_finished_in_range_counts_and_is_marked(client, clock):
     clock.set("2026-11-21T05:00:00Z")
     assert visit(client, "q-demo-bottle").json() == {"ok": True}
     clock.set("2026-11-21T05:21:00Z")
-    out = post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"))
-    assert out["results"][0]["xp"] == 20 + rules.XP_BEEN_THERE
+    out = post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"), there=False)
+    assert out["results"][0]["reaction"] == "quest_complete" and out["results"][0]["xp"] == 20
     state = state_of(client)
     assert state["journal"][0]["been_there"] is True
     tile = next(t for t in state["map"] if t["quest_id"] == "q-demo-bottle")
     assert tile["visited"] is True
 
 
-def test_no_visit_means_no_bonus_and_the_quest_still_counts(client):
-    out = post(client, sniff("bottle"))
-    assert out["results"][0] == {"id": out["results"][0]["id"], "xp": 20, "reaction": "quest_complete",
-                                 "new": True, "quest_id": "q-demo-bottle"}
-    assert state_of(client)["journal"][0]["been_there"] is False
+def test_out_of_range_the_sniff_is_an_ordinary_find_and_the_quest_stays_open(client):
+    out = post(client, sniff("bottle"), there=False)
+    assert out["results"][0] == {"id": out["results"][0]["id"], "xp": rules.XP_NEW_INDOOR,
+                                 "reaction": "new_discovery", "new": True, "quest_id": None}
+    state = state_of(client)
+    assert state["journal"][0]["been_there"] is False and state["journal"][0]["quest_id"] is None
+    assert "q-demo-bottle" in [q["id"] for q in client.get("/api/quests").json()["quests"]]
+
+
+def test_a_quest_with_no_position_completes_anywhere(client):
+    client.post("/api/quests", json=quest("q-free", "dog", "Somewhere"))
+    out = post(client, sniff("dog"), there=False)
+    assert out["results"][0]["reaction"] == "quest_complete" and out["results"][0]["quest_id"] == "q-free"
 
 
 def test_a_visit_to_another_quest_or_too_long_ago_does_not_count(client, clock):
@@ -33,23 +41,16 @@ def test_a_visit_to_another_quest_or_too_long_ago_does_not_count(client, clock):
     visit(client, "q-demo-bottle")             # over 2 hours before the sniff
     visit(client, "q-harris-bench")            # a different quest
     clock.set("2026-11-21T05:21:00Z")          # the backend never dates a sniff in the future
-    out = post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"))
-    assert out["results"][0]["xp"] == 20
+    out = post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"), there=False)
+    assert out["results"][0]["quest_id"] is None
 
 
 def test_a_visit_reported_just_after_the_sniff_still_counts(client, clock):
-    post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"))
-    clock.set("2026-11-21T05:40:00Z")          # 20 minutes later
+    post(client, sniff("bottle", ts="2026-11-21T05:20:00Z"), there=False)
+    clock.set("2026-11-21T05:40:00Z")          # 20 minutes later: the page reports late
     visit(client, "q-demo-bottle")
-    assert state_of(client)["journal"][0]["xp"] == 20 + rules.XP_BEEN_THERE
-
-
-def test_the_bonus_is_not_doubled_by_a_friend(client, clock):
-    clock.set("2026-11-21T05:10:00Z")
-    visit(client, "q-demo-backpack")
-    clock.set("2026-11-21T05:21:00Z")
-    out = post(client, sniff("backpack", friend=True, ts="2026-11-21T05:20:00Z"))
-    assert out["results"][0]["xp"] == 20 * rules.FRIEND_MULTIPLIER + rules.XP_BEEN_THERE
+    entry = state_of(client)["journal"][0]
+    assert entry["quest_id"] == "q-demo-bottle" and entry["xp"] == 20 and entry["been_there"] is True
 
 
 def test_a_visit_keeps_only_the_quest_id_and_refuses_an_unknown_quest(client):

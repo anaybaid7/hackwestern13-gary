@@ -59,7 +59,7 @@
       "latency_ms": 41.0,
       "xp": 80,
       "place": "Harris Park",
-      "been_there": false
+      "been_there": true
     }
   ],
   "guide": {
@@ -104,7 +104,7 @@
       ],
       "lat": 42.9862,
       "lng": -81.2563,
-      "visited": false
+      "visited": true
     }
   ],
   "herd": {

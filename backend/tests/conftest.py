@@ -107,7 +107,16 @@ def quest(quest_id, target, place, time="short", herd=False, source="tinyfish", 
     return q
 
 
-def post(client, *events, **extra):
+def post(client, *events, there=True, **extra):
+    """Post events the way the device does. `there`: also say the page was in
+    range of every quest each sniff could finish (a quest with a position
+    completes only then), as it is when someone uses the app outside."""
+    if there:
+        quests = backend.store.quests()
+        backend.store.add([{"id": "visit-%s-%s" % (ev["id"], q["id"]), "ts": ev["ts"], "type": "visit",
+                            "quest_id": q["id"]}
+                           for ev in events if ev.get("type") == "discovery"
+                           for q in quests if q["target"] == ev.get("label") and q.get("lat") is not None])
     return client.post("/api/events", json=dict({"events": list(events)}, **extra)).json()
 
 
