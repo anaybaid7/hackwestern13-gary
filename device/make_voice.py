@@ -62,6 +62,18 @@ CUES = {
 PREFIX_CUES = (("say_found_", "[excited] "), ("say_", "[curious] "))
 
 
+# Talking to Gary (gary_talk.py): these clips play right before or around a live
+# answer, so they use the same fast model and speed as the answer, and sound alike.
+TALK_CLIPS = ("say_go_ahead", "say_thinking", "say_thinking_2", "say_thinking_3", "say_thinking_4",
+              "say_thinking_5", "say_ears")
+TALK_MODEL = "eleven_flash_v2_5"
+TALK_SETTINGS = {"stability": 0.35, "similarity_boost": 0.75, "style": 0.4, "speed": 1.2}
+
+
+def model_for(clip):
+    return TALK_MODEL if clip in TALK_CLIPS else (os.environ.get("ELEVENLABS_MODEL") or DEFAULT_MODEL)
+
+
 def performed(clip, text, model):
     """The text sent to ElevenLabs: with eleven_v3's cues, or as it is for other models."""
     if not model.startswith("eleven_v3"):
@@ -88,6 +100,10 @@ FIXED = {
     # Talking to Gary (gary_talk.py)
     "say_go_ahead": "Go ahead!",
     "say_thinking": "Ooh, let me think...",
+    "say_thinking_2": "Hmm, good question...",
+    "say_thinking_3": "Let me sniff around in my brain...",
+    "say_thinking_4": "One sec, I'm chewing on that...",
+    "say_thinking_5": "Ooh, hang on a moment...",
     "say_ears": "Hmm, my ears are a bit fuzzy. Try me again?",
 }
 
@@ -148,11 +164,12 @@ def write_wav(path, pcm, rate=RATE):
     os.replace(tmp, path)  # never leave half a clip for Gary to play
 
 
-def speak(text, key, voice, model=DEFAULT_MODEL, opener=urllib.request.urlopen, tries=3):
+def speak(text, key, voice, model=DEFAULT_MODEL, opener=urllib.request.urlopen, tries=3, settings=None):
     """One line -> raw 16-bit mono PCM at RATE."""
-    model = os.environ.get("ELEVENLABS_MODEL") or model
-    body = json.dumps({"text": text, "model_id": model,
-                       "voice_settings": V3_SETTINGS if model.startswith("eleven_v3") else VOICE_SETTINGS}).encode("utf-8")
+    if model != TALK_MODEL:
+        model = os.environ.get("ELEVENLABS_MODEL") or model
+    settings = settings or (V3_SETTINGS if model.startswith("eleven_v3") else VOICE_SETTINGS)
+    body = json.dumps({"text": text, "model_id": model, "voice_settings": settings}).encode("utf-8")
     req = urllib.request.Request(URL % (voice, RATE), data=body,
                                  headers={"xi-api-key": key, "Content-Type": "application/json"})
     for attempt in range(tries):
@@ -191,8 +208,7 @@ def main(argv=None):
     if not args.force:
         todo = {c: t for c, t in todo.items() if not os.path.exists(os.path.join(args.sounds, c + ".wav"))}
 
-    model = os.environ.get("ELEVENLABS_MODEL") or DEFAULT_MODEL
-    todo = {clip: performed(clip, text, model) for clip, text in todo.items()}
+    todo = {clip: performed(clip, text, model_for(clip)) for clip, text in todo.items()}
     if args.dry_run:
         for clip, text in todo.items():
             print("%-28s %s" % (clip, text))
@@ -206,7 +222,9 @@ def main(argv=None):
     voice = os.environ.get("ELEVENLABS_VOICE_ID") or DEFAULT_VOICE
     os.makedirs(args.sounds, exist_ok=True)
     for n, (clip, text) in enumerate(todo.items(), 1):
-        write_wav(os.path.join(args.sounds, clip + ".wav"), speak(text, key, voice))
+        model = model_for(clip)
+        write_wav(os.path.join(args.sounds, clip + ".wav"),
+                  speak(text, key, voice, model, settings=TALK_SETTINGS if clip in TALK_CLIPS else None))
         print("[%d/%d] %-26s %s" % (n, len(todo), clip, text))
     print("%d clips made in %s." % (len(todo), args.sounds))
 
