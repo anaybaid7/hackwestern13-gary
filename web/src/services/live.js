@@ -76,7 +76,7 @@ export function createLive(api = '', fetchFn = (...args) => fetch(...args), make
     postVisit: (questId) => call('/api/visit', { quest_id: questId }),
     /** {enabled}: whether this server can talk (gary_talk.py and both keys). */
     talkConfig: () => call('/api/talk'),
-    /** One thing said: {audio: base64 WAV, listening, history} -> Gary's reply. */
+    /** The question after "Go Gary": {audio: base64 WAV, history} -> Gary's reply. */
     talk: (body) => call('/api/talk', body),
     /** Send the scout out now: {sent, running, ...}. A run takes minutes; its quests arrive on their own. */
     runScout: () => call('/api/scout/run', {}),

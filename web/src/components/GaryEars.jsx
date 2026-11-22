@@ -1,34 +1,32 @@
-// Talk to Gary, hands free: say "Go Gary", then ask. The microphone opens on
-// the first tap anywhere (browsers need one) and stays on; tap the pill to
-// turn it off.
+// Talk to Gary, hands free: say "Go Gary", then ask (or tap the pill instead
+// of saying it). The microphone opens on the first tap anywhere (browsers need
+// one) and stays on; the small button beside the pill turns it off.
 //
-// Two ways to hear. Where the browser has speech recognition (Chrome, Safari),
-// it writes down what is said as it is said, so "Go Gary" is spotted here at
-// once and only the question goes to the backend, as text. Elsewhere the page
-// cuts the mic into things said and the backend checks each for "Go Gary".
+// "Go Gary" is heard here, by Vosk, offline, in every browser: nothing leaves
+// the page until he is called. Then only the question goes to the backend, cut
+// out of the last seconds of sound by the times Vosk gives each word.
 import { useEffect, useRef, useState } from 'react'
-import { Utterances, openMic, wakeSplit, wavBase64 } from '../ears.js'
+import { GRAMMAR, RATE, Tape, openMic, wakeIn, wavBase64 } from '../ears.js'
 import { VOICE, isPlaying, playAndWait } from '../sound.js'
 
-const LISTEN_MS = 7000 // how long Gary waits for the question after "Go ahead"
+const MODEL = import.meta.env.VITE_EARS_MODEL || `${import.meta.env.BASE_URL}vosk/model.tar.gz`
+const LISTEN_MS = 7000 // how long Gary waits for the question to start
+const LONGEST_S = 8 // a question longer than this is cut off (a loud room never goes quiet)
 const ECHO_MS = 250 // the room's echo of Gary's last word
-const CHECKS = 3 // "Go Gary" checks at once, as on the laptop (gary_talk.py)
-// Each check is a Gemini call, and a busy hall talks all the time. These keep a key's quota alive:
-const WAKE_SECONDS = [0.4, 4] // "Go Gary, what am I looking at?" is about 2.5 s; longer is someone's conversation
-const CHECKS_PER_MINUTE = 12
-const REST_MS = 30000 // after Gemini says "too many requests" (HTTP 429)
+const BATCH = 5 // 20 ms frames per message to Vosk's worker
 const THINKING = ['say_thinking', 'say_thinking_2', 'say_thinking_3', 'say_thinking_4', 'say_thinking_5'].filter((n) => VOICE[n])
 const EARS_KEY = 'gary.ears'
 
 const LABEL = {
+  waiting: 'Tap to talk to Gary',
+  loading: 'Getting ears…',
   idle: 'Say "Go Gary"',
   listening: 'Listening…',
   thinking: 'Thinking…',
   speaking: 'Gary is talking',
   off: 'Voice off',
-  waiting: 'Tap to talk to Gary',
   denied: 'Mic blocked',
-  resting: 'Ears resting…',
+  broken: 'Voice unavailable',
   insecure: 'Voice needs https',
 }
 
@@ -36,7 +34,14 @@ const LABEL = {
 const log = (...args) => console.log('%c[ears]', 'color:#c94634;font-weight:bold', ...args)
 const since = (t0) => `${((performance.now() - t0) / 1000).toFixed(2)} s`
 
-const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
+let model = null // loaded once a visit, about 40 MB, then the browser caches it
+function loadModel() {
+  model ??= import('vosk-browser').then((vosk) => vosk.createModel(MODEL)).catch((err) => {
+    model = null
+    throw err
+  })
+  return model
+}
 
 function readEars() {
   try {
@@ -57,7 +62,9 @@ function writeEars(on) {
 export default function GaryEars({ service }) {
   const [enabled, setEnabled] = useState(false)
   const [mode, setMode] = useState(readEars() ? 'waiting' : 'off')
-  const talk = useRef({ busy: false, checks: 0, listenUntil: 0, history: [], close: null, rec: null, lastThinking: null })
+  // busy: Gary is thinking or talking. listenUntil: waiting for a question.
+  // base: the tape's sample number where the current recognizer's clock starts.
+  const talk = useRef({ busy: false, listenUntil: 0, speechAt: 0, history: [], close: null, rec: null, model: null, tape: null, base: 0, batch: [], lastThinking: null })
 
   useEffect(() => {
     if (!service.talkConfig) return
@@ -75,191 +82,139 @@ export default function GaryEars({ service }) {
     return playAndWait([VOICE[t.lastThinking]])
   }
 
-  /** Say what the backend answered. Called with t.busy set; clears it. */
-  async function respond(out, thinking, asked) {
+  /** A fresh recognizer after each turn, so nothing heard before Gary spoke runs into what comes after. */
+  function newRecognizer() {
     const t = talk.current
-    log('reply:', out ? (out.error ? `error: ${out.error}` : out.busy ? 'server busy' : out.say ? `"${out.say}"${out.listen ? ' (then listens)' : ''}` : '"Go ahead"') : 'no answer (network?)')
-    t.rec?.abort() // the recognizer must not hear Gary
+    t.rec?.remove()
+    t.rec = null
+    if (!t.model || !t.close) return
+    const rec = new t.model.KaldiRecognizer(RATE, JSON.stringify(GRAMMAR))
+    rec.setWords(true)
+    rec.on('partialresult', (m) => onPartial(m.result.partial))
+    rec.on('result', (m) => onResult(m.result.result))
+    t.rec = rec
+    t.base = t.tape.heard
+    t.batch = []
+    t.speechAt = 0
+  }
+
+  /** Say what the backend answered. Called with t.busy set; clears it. */
+  async function respond(out, thinking) {
+    const t = talk.current
+    log('reply:', out ? (out.error ? `error: ${out.error}` : out.busy ? 'server busy' : `"${out.say}"${out.listen ? ' (then listens)' : ''}`) : 'no answer (network?)')
     t.listenUntil = 0
-    if (!out || out.busy || out.error) {
-      if (asked && VOICE.say_ears) await thinking.then(() => playAndWait([VOICE.say_ears]))
-    } else if (!out.say) {
-      setMode('speaking')
-      await playAndWait([VOICE.say_go_ahead].filter(Boolean))
-      t.listenUntil = Date.now() + LISTEN_MS
+    await thinking
+    if (!out?.say) {
+      if (VOICE.say_ears) await playAndWait([VOICE.say_ears])
     } else {
-      await thinking
       setMode('speaking')
       await playAndWait([`data:audio/wav;base64,${out.audio}`])
       t.history = [...t.history, [out.heard || '(something)', out.say]].slice(-4)
       if (out.listen) t.listenUntil = Date.now() + LISTEN_MS
     }
     await new Promise((r) => setTimeout(r, ECHO_MS))
+    newRecognizer()
     t.busy = false
     setMode(Date.now() < t.listenUntil ? 'listening' : 'idle')
-    resume()
   }
 
-  /** A question, written down by the browser: answered straight away. */
-  async function ask(text) {
+  /** The question, seconds from..to on the recognizer's clock: sent, answered. */
+  async function ask(from, to) {
     const t = talk.current
     t.busy = true
-    t.rec?.abort()
+    const base = t.base / RATE
+    const pcm = t.tape.cut(base + from, base + Math.min(to, from + LONGEST_S))
     const thinking = thinkingClip()
     const t0 = performance.now()
-    log('asking, as text:', `"${text}"`)
-    const out = await service.talk({ text, history: t.history }).catch((err) => log('request failed:', err.message) ?? null)
+    log(`asking: ${(pcm.length / RATE).toFixed(1)} s of speech`)
+    const out = await service.talk({ audio: wavBase64(pcm), history: t.history }).catch((err) => log('request failed:', err.message) ?? null)
     log('answered in', since(t0))
-    await respond(out, thinking, true)
+    await respond(out, thinking)
   }
 
-  /** "Go Gary" alone, spotted by the browser: no round trip before "Go ahead". */
-  function goAhead() {
-    log('"Go Gary" spotted in the browser: "Go ahead"')
-    talk.current.busy = true
-    respond({ woke: true, say: '' }, Promise.resolve(), false)
-  }
-
-  // Checking for "Go Gary" takes Gemini a second or two, and in a loud room most of what the mic
-  // catches is other people. So checks run side by side, and the ears stay open while they do:
-  // a neighbour's sentence being checked must never make Gary deaf to yours.
-  async function hear(pcm) {
+  /** "Go Gary" alone, or a tap on the pill: "Go ahead", then wait for the question. */
+  async function goAhead() {
     const t = talk.current
-    const listening = Date.now() < t.listenUntil
-    const secs = (pcm.length / 16000).toFixed(1)
-    if (!listening) {
-      const now = Date.now()
-      t.recent = (t.recent ?? []).filter((at) => now - at < 60000)
-      if (now < (t.restUntil ?? 0)) return log(`skipped ${secs} s of speech: resting after "too many requests"`)
-      if (secs < WAKE_SECONDS[0] || secs > WAKE_SECONDS[1]) return log(`skipped ${secs} s of speech: too ${secs < WAKE_SECONDS[0] ? 'short' : 'long'} to be "Go Gary"`)
-      if (t.checks >= CHECKS) return log(`dropped ${secs} s of speech: ${CHECKS} checks already running`)
-      if (t.recent.length >= CHECKS_PER_MINUTE) return log(`dropped ${secs} s of speech: ${CHECKS_PER_MINUTE} checks this minute already`)
-      t.recent.push(now)
-    }
-    log(listening ? `question: ${secs} s of speech, sending` : `${secs} s of speech, checking for "Go Gary" (${t.checks + 1} running)`)
-    const t0 = performance.now()
-    if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
-    else t.checks += 1
-    const thinking = listening ? thinkingClip() : Promise.resolve()
-    const out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history }).catch(() => null)
-    log(`  ${listening ? 'answered' : 'checked'} in ${since(t0)}:`, out?.woke ? `woke, heard "${out.heard ?? ''}"` : out?.error ?? (out?.busy ? 'server busy' : 'not "Go Gary"'))
-    if (/HTTP 429/.test(out?.error ?? '')) {
-      t.restUntil = Date.now() + REST_MS
-      log(`Gemini says too many requests: no checks for ${REST_MS / 1000} s`)
-      setMode('resting')
-      setTimeout(() => setMode((m) => (m === 'resting' ? 'idle' : m)), REST_MS)
-    }
-    if (!listening) {
-      t.checks -= 1
-      if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
-      t.busy = true
-    }
-    await respond(out, thinking, listening)
+    t.busy = true
+    setMode('speaking')
+    await playAndWait([VOICE.say_go_ahead].filter(Boolean))
+    await new Promise((r) => setTimeout(r, ECHO_MS))
+    t.listenUntil = Date.now() + LISTEN_MS
+    newRecognizer()
+    t.busy = false
+    setMode('listening')
   }
 
-  function onResult(event) {
+  function onPartial(partial) {
     const t = talk.current
-    t.lastResult = Date.now()
-    if (t.busy) return log('(ignored: Gary is busy)')
-    const result = event.results[event.results.length - 1]
-    const said = result[0].transcript.trim()
-    if (!said) return
-    log(result.isFinal ? 'heard (final):' : 'hearing…', `"${said}"`, result.isFinal ? `confidence ${result[0].confidence?.toFixed(2) ?? '?'}` : '')
+    if (t.busy || !partial) return
     if (Date.now() < t.listenUntil) {
-      if (result.isFinal) ask(said)
-      else t.listenUntil = Date.now() + LISTEN_MS // still talking: keep waiting
-      return
+      t.speechAt ||= Date.now()
+      t.listenUntil = Date.now() + LISTEN_MS // still talking: keep waiting
+      if (Date.now() - t.speechAt > LONGEST_S * 1000) t.rec?.retrieveFinalResult()
+    } else if (partial.startsWith('go gary')) {
+      setMode('listening') // show it while they finish
     }
-    const [woke, rest] = wakeSplit(said)
-    if (!woke) return
-    if (!result.isFinal) return setMode('listening') // heard "Go Gary": show it while they finish
-    if (rest.split(' ').filter(Boolean).length >= 2) ask(rest)
+  }
+
+  function onResult(words) {
+    const t = talk.current
+    if (t.busy || !words?.length) return
+    log('heard:', words.map((w) => `${w.word}(${w.conf.toFixed(2)})`).join(' '))
+    if (Date.now() < t.listenUntil) return ask(words[0].start, words[words.length - 1].end)
+    const wake = wakeIn(words)
+    if (!wake) return setMode((m) => (m === 'listening' ? 'idle' : m))
+    log('"Go Gary"', wake.question ? 'with a question' : 'alone')
+    if (wake.question) ask(...wake.question)
     else goAhead()
   }
 
-  function resume() {
+  function onFrame(frame) {
     const t = talk.current
-    if (!t.rec || t.busy) return
-    try {
-      t.rec.start()
-    } catch {
-      // already running
+    if (!t.rec || t.busy || isPlaying()) return // never hear Gary's own voice, a find's clip included
+    if (t.listenUntil && Date.now() > t.listenUntil && !t.speechAt) {
+      t.listenUntil = 0
+      setMode('idle')
     }
+    t.tape.push(frame)
+    t.batch.push(frame)
+    if (t.batch.length < BATCH) return
+    const samples = new Float32Array(BATCH * frame.length)
+    t.batch.forEach((f, i) => samples.set(f, i * f.length))
+    t.batch = []
+    t.rec.acceptWaveformFloat(samples, RATE)
   }
 
-  async function startMic() {
+  async function start() {
     const t = talk.current
-    const ears = new Utterances()
+    if (t.close) return
+    setMode('loading')
     try {
-      t.close = await openMic((frame) => {
-        if (t.busy || isPlaying()) return ears.reset() // never answer Gary's own voice, a find's clip included
-        if (t.listenUntil && Date.now() > t.listenUntil) {
-          t.listenUntil = 0
-          setMode('idle')
-        }
-        const said = ears.feed(frame)
-        if (said && t.rec) watch(said)
-        else if (said) hear(said)
-      })
-      if (!t.rec) log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
-      setMode('idle')
+      t.close = await openMic(onFrame)
     } catch (err) {
       log('could not open the microphone:', err?.message ?? err)
-      setMode('denied')
+      return setMode('denied')
     }
-  }
-
-  // Some browsers have a recognizer that never hears anything (Chromium forks without Google's
-  // speech service, Safari with dictation off). The page's own mic runs beside it: speech the mic
-  // heard with no word from the recognizer means it is deaf, so the page's own ears take over.
-  function watch(pcm) {
-    const t = talk.current
-    const startedAt = Date.now() - (pcm.length / 16000) * 1000
-    log(`mic heard ${(pcm.length / 16000).toFixed(1)} s of speech`)
-    setTimeout(() => {
-      if (!t.rec || t.busy || (t.lastResult ?? 0) >= startedAt) return
-      log('the recognizer heard nothing while the mic heard speech: switching to the page\'s own ears')
-      const rec = t.rec
-      t.rec = null
-      rec.abort()
-      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
-      hear(pcm)
-    }, 2500)
-  }
-
-  function start() {
-    const t = talk.current
-    if (t.close || t.rec) return
-    if (!Recognition) return startMic()
-    const rec = new Recognition()
-    rec.continuous = true
-    rec.interimResults = true
-    rec.lang = 'en-CA'
-    rec.onresult = onResult
-    rec.onend = () => {
-      log('recognizer stopped', talk.current.busy ? '(Gary is talking)' : '- starting it again')
-      if (talk.current.rec === rec) resume() // it stops on its own after a while
+    t.tape = new Tape()
+    const t0 = performance.now()
+    try {
+      t.model = await loadModel()
+    } catch (err) {
+      log('could not load the "Go Gary" model from', MODEL, err?.message ?? err)
+      stop()
+      return setMode('broken')
     }
-    rec.onstart = () => log('recognizer listening')
-    rec.onerror = (event) => {
-      log('recognizer error:', event.error)
-      if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') return
-      t.rec = null // no recognizer here after all: the page's own ears instead
-      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
-    }
-    t.rec = rec
-    log('using the browser\'s speech recognition: "Go Gary" is spotted here, only questions are sent')
-    resume()
-    startMic() // beside it, to notice a recognizer that hears nothing
+    log('ears ready in', since(t0))
+    newRecognizer()
+    setMode(t.close ? 'idle' : 'off')
   }
 
   function stop() {
     const t = talk.current
     t.close?.()
     t.close = null
-    const rec = t.rec
+    t.rec?.remove()
     t.rec = null
-    rec?.abort()
     t.listenUntil = 0
   }
 
@@ -273,34 +228,33 @@ export default function GaryEars({ service }) {
 
   useEffect(() => stop, [])
 
-  // the pill goes back to "Say Go Gary" once the wait for a question is over
-  useEffect(() => {
-    if (mode !== 'listening') return undefined
-    const timer = setInterval(() => {
-      const t = talk.current
-      if (!t.busy && Date.now() >= t.listenUntil + 1500) setMode('idle')
-    }, 500)
-    return () => clearInterval(timer)
-  }, [mode])
-
   if (!enabled) return null
   const shown = secure ? mode : 'insecure'
-  const toggle = () => {
-    if (!secure || mode === 'waiting') return // the tap itself opens the microphone
-    if (mode === 'off' || mode === 'denied') {
-      writeEars(true)
-      start()
-    } else {
+  const on = !['off', 'denied', 'broken', 'insecure', 'waiting'].includes(shown)
+  const tap = () => {
+    if (shown === 'idle') goAhead()
+    else if (shown === 'off' || shown === 'denied' || shown === 'broken') power()
+  }
+  const power = () => {
+    if (on) {
       writeEars(false)
       stop()
       setMode('off')
+    } else {
+      writeEars(true)
+      start()
     }
   }
   return (
-    <button type="button" className={`ears ears-${shown}`} onClick={toggle} aria-live="polite"
-      title={shown === 'insecure' ? 'Browsers only allow the microphone on https or localhost' : 'Tap to turn voice on or off'}>
-      <span className="ears-dot" aria-hidden="true" />
-      {LABEL[shown]}
-    </button>
+    <span className="ears-wrap">
+      <button type="button" className={`ears ears-${shown}`} onClick={tap} aria-live="polite"
+        title={shown === 'insecure' ? 'Browsers only allow the microphone on https or localhost' : shown === 'idle' ? 'Tap instead of saying "Go Gary"' : ''}>
+        <span className="ears-dot" aria-hidden="true" />
+        {LABEL[shown]}
+      </button>
+      {on && (
+        <button type="button" className="ears-power" onClick={power} aria-label="Turn voice off" title="Turn voice off">×</button>
+      )}
+    </span>
   )
 }

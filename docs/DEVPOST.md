@@ -56,7 +56,7 @@ Gary never punishes. There are no streaks. After a quiet spell he naps, and your
   - A note on where it's safe to stand.
 
   OpenStreetMap gives each place real coordinates. The scout runs on the Pi on a daily schedule, and there's a hidden control to rerun it.
-- **Voice.** The browser listens and cuts out each thing said. The server checks for "Go Gary" and answers with Gemini, which gets only Gary's labels (never an image) and the app's state. ElevenLabs speaks the answer. The keys never reach the browser, and nothing said is stored.
+- **Voice.** The browser hears "Go Gary" itself, offline, with Vosk, so nothing leaves the page until you call him. Then only your question goes to the server, which answers with Gemini, which gets only Gary's labels (never an image) and the app's state. ElevenLabs speaks the answer. The keys never reach the browser, and nothing said is stored.
 - **Auth0** sign-in is built and optional, including pairing a device through Auth0's device flow.
 
 The four parts (device, backend, web, scout) share only a small written contract of JSON shapes, so each was built and tested on its own.
@@ -68,6 +68,7 @@ The four parts (device, backend, web, scout) share only a small written contract
 - **The webcam mic doesn't work on QNX.** QNX's sound service sees the C270's microphone but refuses it, because the device doesn't support a transfer mode QNX requires. The Pi has no speaker either. So we moved Gary's voice to the browser: the phone does the listening and speaking, and the Pi does the seeing.
 - **A Pi with no network doesn't know the time.** A fresh sniff could look a year old and put Gary to sleep. The device now tells the backend what its clock reads, and the backend corrects the timestamps.
 - **Gary kept hearing himself.** His own voice clips would set him off. The mic now ignores the room while he speaks, and the speech model is told never to invent the wake word.
+- **A loud hackathon hall ate our AI quota.** At first every sound went to Gemini to check for "Go Gary", which was slow, used up a day's quota in an hour, and woke Gary on words nobody said. Now the browser listens for the wake word itself with Vosk, an offline recognizer that may only choose from a dozen words, and Gemini hears only real questions.
 - **Browsers only allow location and the microphone over HTTPS**, and the Pi is just a local address. We tunnel it through Cloudflare, so a phone gets a secure link.
 - **Building on QNX**: newer FastAPI needs a library that won't compile there, so the backend on the Pi pins older versions.
 - **Text from the open web ends up in our app.** The backend cleans every quest as it arrives, and only a real agent run gets shown as "Found by the scout".

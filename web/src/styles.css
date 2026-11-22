@@ -239,8 +239,8 @@ body {
 .status-stale { color: var(--coral); }
 
 /* talk to Gary: the microphone's pill */
+.ears-wrap { margin-left: auto; display: inline-flex; }
 .ears {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -257,9 +257,20 @@ body {
 .ears-listening { background: var(--lcd); }
 .ears-listening .ears-dot { background: var(--coral); animation: blink 0.8s steps(2) infinite; }
 .ears-thinking .ears-dot, .ears-speaking .ears-dot { background: var(--orange); }
-.ears-denied, .ears-insecure, .ears-resting { color: var(--ink-2); }
+.ears-denied, .ears-insecure, .ears-broken, .ears-loading { color: var(--ink-2); }
+.ears-loading .ears-dot { animation: blink 0.8s steps(2) infinite; }
+.ears-power {
+  font-family: var(--pixel);
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 2px solid var(--ink);
+  border-left: 0;
+  background: var(--paper);
+  color: var(--ink-2);
+  cursor: pointer;
+}
 @keyframes blink { 50% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .ears-listening .ears-dot { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ears-listening .ears-dot, .ears-loading .ears-dot { animation: none; } }
 
 .toast {
   position: absolute; /* inside the handheld's screen (.app), not over the whole page */

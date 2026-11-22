@@ -1,77 +1,65 @@
-// Gary's ears in the browser: the microphone, cut into the things said.
-// The same loudness check as Utterances in device/gary_talk.py, so the page
-// and the laptop hear alike. Only a thing said leaves the page, as a short
-// 16 kHz WAV to the backend (POST /api/talk), and only while the ears are on.
+// Gary's ears in the browser. "Go Gary" is heard here, offline; only the
+// question after it leaves the page, as a short 16 kHz WAV to the backend
+// (POST /api/talk).
 export const RATE = 16000
 
-// "Go Gary", at the very start of what was said: the same rule as
-// wake_split in device/gary_talk.py, so talking ABOUT Gary never wakes him.
-const WAKE_WORDS = new Set(['go']) // only "Go Gary": "hey Gary" is too easy to mishear in a room
-const GARY_SPELLINGS = new Set(['gary', 'garry', 'gerry', "gary's", 'garey', 'geri', 'carey', 'gari'])
-
-/** -> [woke, the words after the call]. "Go Gary, what's that?" -> [true, "what's that"]. */
-export function wakeSplit(heard) {
-  const words = String(heard ?? '').toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean)
-  for (let i = 0; i < Math.min(2, words.length); i += 1) {
-    if (i + 1 < words.length && WAKE_WORDS.has(words[i]) && GARY_SPELLINGS.has(words[i + 1])) {
-      return [true, words.slice(i + 2).join(' ')]
-    }
-  }
-  return [false, '']
-}
 const FRAME = 320 // 20 ms
 
-const rms = (frame) => {
-  let sum = 0
-  for (const s of frame) sum += s * s
-  return Math.sqrt(sum / frame.length)
+// "Go Gary" is spotted in the page by Vosk (an offline recognizer, in a worker), told to hear only
+// these words. With so few words it cannot invent a sentence, and the near misses ("so Gary",
+// "hey Gary", "go carry") have words of their own instead of becoming "go gary".
+export const GRAMMAR = ['go gary', 'go', 'gary', 'so', 'no', 'oh', 'carry', 'go carry', 'go get', 'okay', 'hey', '[unk]']
+const SURE = 0.9 // "oh Gary" comes out as "go" at about 0.8
+const QUESTION_SECONDS = 0.5 // speech after "Go Gary" shorter than this is not a question
+
+/**
+ * Vosk's words for one thing said ([{word, conf, start, end}], times in seconds)
+ * -> null if it is not "Go Gary" at the start, else {question: [start, end] of
+ * what was said after it, or null when "Go Gary" was said alone}.
+ */
+export function wakeIn(words) {
+  const list = words ?? []
+  for (let i = 0; i < Math.min(2, list.length - 1); i += 1) {
+    if (list[i].word === 'go' && list[i].conf >= SURE && list[i + 1].word === 'gary') {
+      const rest = list.slice(i + 2)
+      const from = list[i + 1].end
+      const to = rest.length ? rest[rest.length - 1].end : from
+      return { question: to - from >= QUESTION_SECONDS ? [from, to] : null }
+    }
+  }
+  return null
 }
 
-/** Feed 20 ms frames (Int16Array); get back each thing said, or null. */
-export class Utterances {
-  constructor({ startFrames = 4, endSilence = 0.6, preRoll = 0.3, longest = 8, shortest = 0.3, minLevel = 350, ratio = 3 } = {}) {
-    Object.assign(this, { startFrames, minLevel, ratio })
-    this.endFrames = Math.round((endSilence * 1000) / 20)
-    this.pre = Math.round((preRoll * 1000) / 20)
-    this.longest = Math.round((longest * 1000) / 20)
-    this.shortest = Math.round((shortest * 1000) / 20)
-    this.noise = null
-    this.reset()
+/** The last seconds the mic heard, so a question can be cut out of it by Vosk's word times. */
+export class Tape {
+  constructor(seconds = 20) {
+    this.keep = seconds * RATE
+    this.frames = []
+    this.first = 0 // the sample number of frames[0]
+    this.heard = 0 // samples so far: Vosk's clock
   }
 
-  threshold() {
-    return Math.max(this.minLevel, (this.noise ?? 0) * this.ratio)
-  }
-
-  feed(frame) {
-    const level = rms(frame)
-    if (this.speech === null) {
-      this.noise = this.noise === null ? level : 0.98 * this.noise + 0.02 * level
-      this.history = [...this.history, frame].slice(-this.pre - this.startFrames)
-      this.loud = level > this.threshold() ? this.loud + 1 : 0
-      if (this.loud >= this.startFrames) {
-        this.speech = [...this.history]
-        this.quiet = 0
-      }
-      return null
+  push(frame) {
+    this.frames.push(frame)
+    this.heard += frame.length
+    while ((this.frames.length - 1) * FRAME > this.keep) {
+      this.first += this.frames.shift().length
     }
-    this.speech.push(frame)
-    this.quiet = level <= this.threshold() ? this.quiet + 1 : 0
-    if (this.quiet < this.endFrames && this.speech.length < this.longest) return null
-    const said = this.speech
-    const quiet = this.quiet
-    this.reset()
-    if (said.length - quiet < this.shortest) return null // a cough or a bump
-    const out = new Int16Array(said.length * FRAME)
-    said.forEach((f, i) => out.set(f, i * FRAME))
-    return out
   }
 
-  reset() {
-    this.speech = null
-    this.history = []
-    this.loud = 0
-    this.quiet = 0
+  /** Samples from..to (seconds on Vosk's clock), with room either side: Vosk's word ends run early. */
+  cut(from, to, before = 0.2, after = 0.5) {
+    const a = Math.max(this.first, Math.floor((from - before) * RATE))
+    const b = Math.min(this.heard, Math.ceil((to + after) * RATE))
+    const out = new Int16Array(Math.max(0, b - a))
+    let at = this.first
+    for (const f of this.frames) {
+      const lo = Math.max(a, at)
+      const hi = Math.min(b, at + f.length)
+      if (hi > lo) out.set(f.subarray(lo - at, hi - at), lo - a)
+      at += f.length
+    }
+    return out
   }
 }
 

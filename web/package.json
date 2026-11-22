@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ears-model": "test -f public/vosk/model.tar.gz || (mkdir -p public/vosk && curl -fL -o public/vosk/model.tar.gz https://ccoreilly.github.io/vosk-browser/models/vosk-model-small-en-us-0.15.tar.gz)"
   },
   "dependencies": {
     "@auth0/auth0-spa-js": "^2.30.0",
@@ -15,7 +16,8 @@
     "@fontsource/space-mono": "^5.3.0",
     "leaflet": "^1.9.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "vosk-browser": "0.0.8"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",

@@ -565,10 +565,9 @@ def talk_config():
 
 @app.post("/api/talk")
 def post_talk(payload: dict = Body(...)):
-    """One thing said on the web page: {"audio": base64 WAV (16 kHz mono),
-    "listening": Gary asked something or was just woken, "history": the last
-    few [said, replied]}. Or {"text": the question}, when the browser heard
-    "Go Gary" itself: it is answered straight away. Nothing said is stored or logged."""
+    """A question asked on the web page, after it heard "Go Gary" itself:
+    {"audio": base64 WAV (16 kHz mono)} or {"text": ...}, and "history": the
+    last few [said, replied]. Nothing said is stored or logged."""
     if not talk.enabled():
         raise HTTPException(503, "talking is off: this server needs gary_talk.py and both keys")
     text = talk.text_of(payload.get("text"))
@@ -594,7 +593,7 @@ def post_talk(payload: dict = Body(...)):
         things = [name for name in OUTDOOR_LABELS if name != FRIEND]
         seeing = talk.brain.read_seeing(os.environ.get("GARY_SEEING") or "")
         gemini_key, eleven_key = talk.keys()
-        return talk.turn(pcm, bool(text) or payload.get("listening") is True, talk.history_of(payload.get("history")), seeing,
+        return talk.turn(pcm, talk.history_of(payload.get("history")), seeing,
                          talk.App(state, choose, post_quest, things), gemini_key, eleven_key)
     except talk.brain.TalkError as exc:
         return {"error": str(exc)}

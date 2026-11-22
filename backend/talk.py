@@ -1,13 +1,13 @@
 """Talk to Gary from the web page: one thing said in, Gary's spoken reply out.
 
 The page listens (the browser has the microphone and the speaker the Pi
-lacks) and sends each thing said here. The brain is device/gary_talk.py, so
-the page and the laptop say the same things: "Go Gary" wakes him, Gemini
-answers with what he sees and what the app says, ElevenLabs speaks it.
+lacks), hears "Go Gary" itself, and sends only the question here. The brain
+is device/gary_talk.py, so the page and the laptop say the same things:
+Gemini answers with what he sees and what the app says, ElevenLabs speaks it.
 The keys stay on this server. Nothing said is stored or logged.
 
-The page keeps the conversation (the last few lines) and whether Gary is
-waiting for an answer, and sends both each time, so this side keeps no state.
+The page keeps the conversation (the last few lines) and sends it each
+time, so this side keeps no state.
 """
 import base64
 import binascii
@@ -96,29 +96,15 @@ def pcm_of(audio):
         return None
 
 
-def turn(pcm, listening, history, seeing, app, gemini_key, eleven_key,
-         wake=None, answer=None, speak=None):
-    """One thing said -> what the page should do.
-
-    {"woke": False}: not for Gary. {"woke": True, "say": "", "listen": True}:
-    "Go Gary" alone, so the page says "Go ahead" and listens. Otherwise
-    "say", "heard", "listen" and "audio": Gary's reply as a base64 WAV."""
-    wake, answer, speak = wake or brain.is_wake, answer or brain.answer, speak or brain.tts
-    if listening:
-        reply = answer(pcm, gemini_key, seeing, app_text=app.text(), history=history)
-    else:
-        if len(pcm) > 6 * brain.RATE * 2:
-            return {"woke": False}  # too long to be "Go Gary": someone talking nearby
-        woke, reply = wake(pcm, gemini_key, seeing, app_text=app.text(), history=history)
-        if not woke:
-            return {"woke": False}
-        if not reply:
-            return {"woke": True, "heard": "", "say": "", "listen": True}
-    reply = brain.as_reply(reply)
+def turn(question, history, seeing, app, gemini_key, eleven_key, answer=None, speak=None):
+    """The question (PCM, or text) -> {"say", "heard", "listen", "audio": Gary's
+    reply as a base64 WAV}. The page heard "Go Gary" itself before sending it."""
+    answer, speak = answer or brain.answer, speak or brain.tts
+    reply = brain.as_reply(answer(question, gemini_key, seeing, app_text=app.text(), history=history))
     if not reply["say"] and not reply.get("do"):
         raise brain.TalkError("Gemini gave no answer")
     said = brain.act(reply, app, say=lambda *_: None)
     audio = base64.b64encode(brain.as_wav(speak(said, eleven_key))).decode("ascii")
     # GARY_TALK_STRICT=on (a loud room): even the answer to Gary's own question needs "Go Gary"
     listen = bool(reply.get("listen")) and os.environ.get("GARY_TALK_STRICT") != "on"
-    return {"woke": True, "heard": reply.get("heard") or "", "say": said, "listen": listen, "audio": audio}
+    return {"heard": reply.get("heard") or "", "say": said, "listen": listen, "audio": audio}
