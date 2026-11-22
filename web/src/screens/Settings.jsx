@@ -91,13 +91,15 @@ function ResetGary({ service, onReset }) {
   const [needsKey, setNeedsKey] = useState(false)
   const [adminKey, setAdminKey] = useState('')
   const [problem, setProblem] = useState('')
+  const [device, setDevice] = useState(false) // the backend is also giving Gary a fresh journal
 
   async function reset(event) {
     event.preventDefault()
     setPhase('busy')
     setProblem('')
     try {
-      await service.resetGary(adminKey)
+      const out = await service.resetGary(adminKey)
+      setDevice(Boolean(out?.device_restarting))
       setAdminKey('')
       setNeedsKey(false)
       setPhase('done')
@@ -154,8 +156,9 @@ function ResetGary({ service, onReset }) {
         <>
           <p role="status">Gary is reset.</p>
           <p className="small">
-            Gary on the Pi keeps his own list of finished quests. To hear the quest sounds there again, restart him
-            with: sh start_gary.sh --fresh
+            {device
+              ? 'Gary himself is starting fresh too: give him about 15 seconds, then pick your quest again.'
+              : 'Gary on the Pi keeps his own list of finished quests. If he is running somewhere this server cannot reach, restart him with: sh start_gary.sh --fresh'}
           </p>
         </>
       )}

@@ -38,6 +38,7 @@ import json
 import mimetypes
 import os
 import re
+import subprocess
 import threading
 import uuid
 import zoneinfo
@@ -675,7 +676,25 @@ def dev_reset(payload: Any = Body(None), x_admin_key: Optional[str] = Header(Non
     keep = isinstance(payload, dict) and payload.get("keep_quests") is True
     with lock:
         store.reset(keep_quests=keep)
-    return {"ok": True, "quests_kept": keep}
+    return {"ok": True, "quests_kept": keep, "device_restarting": restart_device()}
+
+
+def restart_device():
+    """Gary keeps his own journal on the device, and in it the quests he has
+    finished. A reset that left it alone made the next sniff of a quest's
+    thing an ordinary find. So where the backend runs beside Gary (the Pi),
+    start_gary.sh sets GARY_ON_RESET to its own fresh start, and a reset runs
+    it: a moment later, so this reply gets out first, and on its own, because
+    it stops and starts this backend too. -> was it started?"""
+    hook = (os.environ.get("GARY_ON_RESET") or "").strip()
+    if not hook or hook == "off":
+        return False
+    try:
+        subprocess.Popen(["sh", "-c", "sleep 1; " + hook], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        return True
+    except OSError:
+        return False
 
 
 scouting.schedule(TZ)
