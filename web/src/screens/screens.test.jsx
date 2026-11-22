@@ -244,6 +244,19 @@ describe('Map (issue #26)', () => {
     expect(screen.getByRole('heading', { name: 'Still in fog' })).toBeTruthy()
   })
 
+  test('an open quest on the map can be made your quest from there', () => {
+    const other = { id: 'q-demo-backpack', title: 'Find a backpack at the next table', place: 'Hack Western, the next table', time: 'short', xp: 20 }
+    const onPickQuest = vi.fn()
+    render(<MapScreen map={example.map} flash={NO_FLASH} quest={example.quest} quests={[example.quest, other]} onPickQuest={onPickQuest} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Fog' }))
+    expect(screen.getByRole('heading', { name: 'Hack Western, the next table' })).toBeTruthy()
+    expect(screen.getByText(/Find a backpack at the next table · Short · \+20 XP/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Make this my quest' }))
+    expect(onPickQuest).toHaveBeenCalledWith(other)
+    fireEvent.click(screen.getByRole('button', { name: 'Fog. Your quest is here' }))
+    expect(screen.queryByRole('button', { name: 'Make this my quest' })).toBeNull() // already your quest
+  })
+
   test('"See on map" opens the map on that place, with the scout\'s note on where to stand', () => {
     const quest = { ...example.quest, note: 'Stay on public paths.' }
     render(<MapScreen map={example.map} flash={NO_FLASH} quest={quest} focusPlace="Hack Western, your table" />)

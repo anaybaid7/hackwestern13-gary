@@ -159,7 +159,7 @@ function trailOf(map, spots) {
     .map((stop) => stop.at)
 }
 
-export default function MapScreen({ map, flash, quest = null, focusPlace = null }) {
+export default function MapScreen({ map, flash, quest = null, focusPlace = null, quests = [], onPickQuest = null, busy = false }) {
   const [picked, setPicked] = useState(focusPlace)
   const [streets, setStreets] = useState('loading') // 'loading' | 'on' | 'off': whether street tiles arrive
   const box = useRef(null)
@@ -288,6 +288,8 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
   }
 
   const chosenAway = chosen && me.at ? away(me.at, spots.get(chosen.place)) : null
+  // an open quest at the tapped place, other than the one you are on: you can switch to it from here
+  const waiting = chosen && !chosen.cleared ? quests.find((q) => q.id === chosen.quest_id && q.id !== quest?.id) ?? null : null
 
   return (
     <div className="screen map-screen">
@@ -328,10 +330,23 @@ export default function MapScreen({ map, flash, quest = null, focusPlace = null 
 
       <div className="sheet" aria-live="polite">
         {!chosen && <p className="empty">Tap a pin.</p>}
-        {chosen && !chosen.cleared && (
+        {chosen && !chosen.cleared && (questPlace === chosen.place || !waiting) && (
           <>
             <h3>{questPlace === chosen.place ? chosen.place : 'Still in fog'}</h3>
             {questPlace === chosen.place && <p className="small">Your quest is here.{quest.note ? ` ${quest.note}` : ''}</p>}
+          </>
+        )}
+        {waiting && questPlace !== chosen.place && (
+          <>
+            <h3>{waiting.place}</h3>
+            <p className="small">
+              {waiting.title} · {waiting.time === 'long' ? 'Long' : 'Short'} · +{waiting.xp} XP
+            </p>
+            {onPickQuest && (
+              <button type="button" className="button primary" disabled={busy} onClick={() => onPickQuest(waiting)}>
+                Make this my quest
+              </button>
+            )}
           </>
         )}
         {chosen?.cleared && (

@@ -117,11 +117,10 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
   // from your position, which stays in the browser. Only the quest id is sent.
   const [openQuests, setOpenQuests] = useState(null)
   const questsStamp = `${state?.quests_open}:${state?.quest?.id}`
-  const located = Boolean(me.at)
   useEffect(() => {
-    if (!located || !service.getQuests) return
+    if (!service.getQuests) return // the map lists them too, so they are fetched with or without a position
     service.getQuests().then(setOpenQuests, () => setOpenQuests(null))
-  }, [located, questsStamp, service])
+  }, [questsStamp, service])
   const close = me.at && openQuests ? nearby(me.at, openQuests) : null
   const activeShort = close && state?.quest_choice === 'short' ? close.find((q) => q.id === state.quest?.id) : null
   const shown = close && state ? { ...state, quest_options: { ...state.quest_options, short: activeShort ?? close[0] ?? null } } : state
@@ -288,7 +287,7 @@ export function Shell({ service, pollMs = POLL_MS, askCheckIn = readAsk(), welco
 
         <main className="view">
           {tab === 'home' && <Home state={shown} flash={flash} now={now} onChoose={choose} busy={busy} onShowMap={(place) => pick('map', place)} where={{ near, away: me.at && spot ? away(me.at, spot) : null }}>{service.mode === 'live' && <Picks service={service} tiles={state.map} onTaken={take} />}</Home>}
-          {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} focusPlace={mapFocus} />}
+          {tab === 'map' && <MapScreen map={state.map} flash={flash} quest={state.quest} quests={openQuests ?? []} busy={busy} onPickQuest={(q) => choose(q.time, q.id)} focusPlace={mapFocus} />}
           {tab === 'journal' && <Guide guide={state.guide} journal={state.journal} now={now} flash={flash} />}
           {tab === 'cup' && <Herd herd={state.herd} journal={state.journal} flash={flash} />}
           {tab === 'settings' && <Settings service={service} stamp={stamp} status={status} onReset={refresh} onMeet={() => setMeeting(true)} />}
