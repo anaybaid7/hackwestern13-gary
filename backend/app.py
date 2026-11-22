@@ -554,7 +554,7 @@ def post_visit(payload: dict = Body(...)):
     return {"ok": True}
 
 
-talk_lock = threading.Lock()  # one conversation at a time: each turn costs Gemini and ElevenLabs calls
+talk_slots = threading.BoundedSemaphore(4)  # a few "Go Gary" checks side by side (the page sends up to 3), never a flood
 
 
 @app.get("/api/talk")
@@ -573,7 +573,7 @@ def post_talk(payload: dict = Body(...)):
     pcm = talk.pcm_of(payload.get("audio"))
     if pcm is None:
         raise HTTPException(422, "send audio: a base64 WAV, 16 kHz mono 16-bit, under 9 seconds")
-    if not talk_lock.acquire(blocking=False):
+    if not talk_slots.acquire(blocking=False):
         return {"busy": True}
     try:
         with lock:
@@ -597,7 +597,7 @@ def post_talk(payload: dict = Body(...)):
     except talk.brain.TalkError as exc:
         return {"error": str(exc)}
     finally:
-        talk_lock.release()
+        talk_slots.release()
 
 
 @app.get("/api/scout")

@@ -7,6 +7,7 @@ import { VOICE, isPlaying, playAndWait } from '../sound.js'
 
 const LISTEN_MS = 7000 // how long Gary waits for the question after "Go ahead"
 const ECHO_MS = 250 // the room's echo of Gary's last word
+const CHECKS = 3 // "Go Gary" checks at once, as on the laptop (gary_talk.py)
 const THINKING = ['say_thinking', 'say_thinking_2', 'say_thinking_3', 'say_thinking_4', 'say_thinking_5'].filter((n) => VOICE[n])
 const EARS_KEY = 'gary.ears'
 
@@ -40,7 +41,7 @@ function writeEars(on) {
 export default function GaryEars({ service }) {
   const [enabled, setEnabled] = useState(false)
   const [mode, setMode] = useState(readEars() ? 'waiting' : 'off')
-  const talk = useRef({ busy: false, listenUntil: 0, history: [], close: null, lastThinking: null })
+  const talk = useRef({ busy: false, checks: 0, listenUntil: 0, history: [], close: null, lastThinking: null })
 
   useEffect(() => {
     if (!service.talkConfig) return
@@ -49,10 +50,15 @@ export default function GaryEars({ service }) {
 
   const secure = typeof window !== 'undefined' && window.isSecureContext && navigator.mediaDevices?.getUserMedia
 
+  // Checking for "Go Gary" takes Gemini a second or two, and in a loud room most of what the mic
+  // catches is other people. So checks run side by side, and the ears stay open while they do:
+  // a neighbour's sentence being checked must never make Gary deaf to yours.
   async function hear(pcm) {
     const t = talk.current
     const listening = Date.now() < t.listenUntil
-    t.busy = true
+    if (!listening && t.checks >= CHECKS) return // the room is busy: drop this one, keep listening
+    if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
+    else t.checks += 1
     let thinking = Promise.resolve()
     if (listening && THINKING.length) {
       const pool = THINKING.filter((n) => n !== t.lastThinking)
@@ -60,24 +66,31 @@ export default function GaryEars({ service }) {
       setMode('thinking')
       thinking = playAndWait([VOICE[t.lastThinking]])
     }
+    let out = null
     try {
-      const out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history })
-      t.listenUntil = 0
-      if (!out || out.busy || out.error) {
-        if (listening && VOICE.say_ears) await thinking.then(() => playAndWait([VOICE.say_ears]))
-      } else if (out.woke && !out.say) {
-        setMode('speaking')
-        await playAndWait([VOICE.say_go_ahead].filter(Boolean))
-        t.listenUntil = Date.now() + LISTEN_MS
-      } else if (out.woke) {
-        await thinking
-        setMode('speaking')
-        await playAndWait([`data:audio/wav;base64,${out.audio}`])
-        t.history = [...t.history, [out.heard || '(something)', out.say]].slice(-4)
-        if (out.listen) t.listenUntil = Date.now() + LISTEN_MS
-      }
+      out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history })
     } catch {
-      t.listenUntil = 0
+      out = null
+    } finally {
+      if (!listening) t.checks -= 1
+    }
+    if (!listening) {
+      if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
+      t.busy = true
+    }
+    t.listenUntil = 0
+    if (!out || out.busy || out.error) {
+      if (listening && VOICE.say_ears) await thinking.then(() => playAndWait([VOICE.say_ears]))
+    } else if (!out.say) {
+      setMode('speaking')
+      await playAndWait([VOICE.say_go_ahead].filter(Boolean))
+      t.listenUntil = Date.now() + LISTEN_MS
+    } else {
+      await thinking
+      setMode('speaking')
+      await playAndWait([`data:audio/wav;base64,${out.audio}`])
+      t.history = [...t.history, [out.heard || '(something)', out.say]].slice(-4)
+      if (out.listen) t.listenUntil = Date.now() + LISTEN_MS
     }
     await new Promise((r) => setTimeout(r, ECHO_MS))
     t.busy = false
