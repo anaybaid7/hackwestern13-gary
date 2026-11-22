@@ -66,13 +66,15 @@ export function realSpot(quest) {
   return known(placeKey(quest.place))
 }
 
-const NEAR_METRES = 150 // "at the place": a park is bigger than this, a city block about this
-const FUZZ_CAP = 500 // a laptop's Wi-Fi location can be this rough; rougher than that says nothing
+// In range of a quest: a sniff finishes a quest with a real position only
+// within this distance of it (backend/rules.py). Wide enough for a laptop's
+// rough Wi-Fi fix and for a big park.
+export const RANGE_METRES = 1000
 
-/** Are you at `spot`? Allows for how rough the browser's fix is, up to a point. */
-export function isNear(me, accuracy, spot) {
+/** Are you in range of `spot`? */
+export function isNear(me, spot) {
   if (!me || !spot) return false
-  return metresBetween(me, spot) <= Math.max(NEAR_METRES, Math.min(accuracy ?? 0, FUZZ_CAP))
+  return metresBetween(me, spot) <= RANGE_METRES
 }
 
 /** place name -> [lat, lng] for every place: the same spot on every visit.

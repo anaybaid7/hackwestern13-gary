@@ -58,7 +58,7 @@ STORY = [
     ("Pick a short quest", "Short or long is the only choice. Gary takes the next quest the scout found today.",
      "2026-11-21T15:02:00Z", ("POST", "/api/quest/choose", {"time": "short"})),
     ("At Springbank Park: the Sniff Test", "The phone sees you are at the park and tells the backend only that. One press: "
-     "Gary's on-device model names a bicycle, the quest is done with a Been there bonus, and the fog lifts.",
+     "Gary's on-device model names a bicycle, and you are within 1 km of the park, so the quest is done and the fog lifts.",
      "2026-11-21T15:25:00Z",
      [("POST", "/api/visit", {"quest_id": "q-2026-11-21-springbank-park-bicycle"}),
       ("POST", "/api/events", {"events": [sniff(1, "2026-11-21T15:25:00Z", "bicycle",
@@ -68,8 +68,9 @@ STORY = [
      ("POST", "/api/events", {"events": [sniff(2, "2026-11-21T15:27:00Z", "fire hydrant", score=0.84, latency_ms=44.5)]})),
     ("A friend steps into the frame", "Herd Mode. The co-op quest completes, the sniff counts double, and your herd climbs the Herd Cup.",
      "2026-11-21T15:40:00Z",
-     ("POST", "/api/events", {"events": [sniff(3, "2026-11-21T15:40:00Z", "dog", friend=True,
-                                               quest_id="q-2026-11-21-gibbons-park-dog", score=0.96, latency_ms=36.0)]})),
+     [("POST", "/api/visit", {"quest_id": "q-2026-11-21-gibbons-park-dog"}),
+      ("POST", "/api/events", {"events": [sniff(3, "2026-11-21T15:40:00Z", "dog", friend=True,
+                                                quest_id="q-2026-11-21-gibbons-park-dog", score=0.96, latency_ms=36.0)]})]),
     ("Home again: the second check-in", "After the walk: 1 to 5 again. The wellness view reports what you said, nothing more.",
      "2026-11-21T16:05:00Z", ("POST", "/api/mood", {"phase": "after", "value": 4})),
     ("Sunday morning", "A night has passed. Gary is napping again. Nothing was taken away.",
@@ -78,8 +79,9 @@ STORY = [
      "2026-11-22T14:10:00Z", ("POST", "/api/quest/choose", {"time": "long"})),
     ("Welcome back", "A bird in Kains Woods. The first sniff after a nap earns a small welcome-back bonus.",
      "2026-11-22T14:40:00Z",
-     ("POST", "/api/events", {"events": [sniff(4, "2026-11-22T14:40:00Z", "bird",
-                                               quest_id="q-2026-11-21-kains-woods-bird", score=0.88, latency_ms=41.0)]})),
+     [("POST", "/api/visit", {"quest_id": "q-2026-11-21-kains-woods-bird"}),
+      ("POST", "/api/events", {"events": [sniff(4, "2026-11-22T14:40:00Z", "bird",
+                                                quest_id="q-2026-11-21-kains-woods-bird", score=0.88, latency_ms=41.0)]})]),
 ]
 
 
@@ -96,8 +98,9 @@ def build():
 
     out = {}
 
-    # state.json: a fresh backend, then the three example events.
+    # state.json: a fresh backend, the page in range of Harris Park, then the three example events.
     backend.store.reset()
+    call("POST", "/api/visit", {"quest_id": "q-harris-bench"})
     events = [read("event.mood.json"), read("event.discovery.json"), read("event.miss.json")]
     call("POST", "/api/events", {"events": events})
     out["state.json"] = call("GET", "/api/state")

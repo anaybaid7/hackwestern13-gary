@@ -31,11 +31,11 @@ export default function QuestCard({ quest, choice, options = {}, onChoose, onSho
           <p className="sign-facts">📍 {quest.place}</p>
           {where?.near ? (
             <>
-              <p className="sign-here" role="status">You're here. Sniff it now for a Been there bonus.</p>
+              <p className="sign-here" role="status">You're in range. Sniff it now to finish the quest.</p>
               {tidbitFor(quest) && <p className="sign-tidbit">Gary: {tidbitFor(quest)}</p>}
             </>
           ) : (
-            where?.away && <p className="sign-away">{where.away}</p>
+            where?.away && <p className="sign-away">{where.away} Get within 1 km to finish it.</p>
           )}
           <p className="chips">
             <span className="chip chip-xp">+{quest.xp} XP</span>

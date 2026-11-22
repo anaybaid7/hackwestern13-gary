@@ -641,7 +641,7 @@
     },
     {
       "title": "At Springbank Park: the Sniff Test",
-      "note": "The phone sees you are at the park and tells the backend only that. One press: Gary's on-device model names a bicycle, the quest is done with a Been there bonus, and the fog lifts.",
+      "note": "The phone sees you are at the park and tells the backend only that. One press: Gary's on-device model names a bicycle, and you are within 1 km of the park, so the quest is done and the fog lifts.",
       "now": "2026-11-21T15:25:00Z",
       "request": {
         "method": "POST",
@@ -667,7 +667,7 @@
         "gary": {
           "stage": "kid",
           "stage_index": 0,
-          "xp": 30,
+          "xp": 20,
           "stage_xp": 0,
           "next_stage_xp": 60,
           "napping": false,
@@ -739,7 +739,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -926,7 +926,7 @@
         "gary": {
           "stage": "kid",
           "stage_index": 0,
-          "xp": 40,
+          "xp": 30,
           "stage_xp": 0,
           "next_stage_xp": 60,
           "napping": false,
@@ -1011,7 +1011,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -1199,7 +1199,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 80,
+          "xp": 70,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -1269,7 +1269,7 @@
             "latency_ms": 36.0,
             "xp": 40,
             "place": "Gibbons Park",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1293,7 +1293,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -1369,7 +1369,7 @@
             ],
             "lat": 42.9995,
             "lng": -81.2585,
-            "visited": false
+            "visited": true
           },
           {
             "place": "Kains Woods",
@@ -1476,7 +1476,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 80,
+          "xp": 70,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -1546,7 +1546,7 @@
             "latency_ms": 36.0,
             "xp": 40,
             "place": "Gibbons Park",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1570,7 +1570,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -1646,7 +1646,7 @@
             ],
             "lat": 42.9995,
             "lng": -81.2585,
-            "visited": false
+            "visited": true
           },
           {
             "place": "Kains Woods",
@@ -1762,7 +1762,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 80,
+          "xp": 70,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": true,
@@ -1832,7 +1832,7 @@
             "latency_ms": 36.0,
             "xp": 40,
             "place": "Gibbons Park",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -1856,7 +1856,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -1932,7 +1932,7 @@
             ],
             "lat": 42.9995,
             "lng": -81.2585,
-            "visited": false
+            "visited": true
           },
           {
             "place": "Kains Woods",
@@ -2054,7 +2054,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 80,
+          "xp": 70,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": true,
@@ -2126,7 +2126,7 @@
             "latency_ms": 36.0,
             "xp": 40,
             "place": "Gibbons Park",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -2150,7 +2150,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -2226,7 +2226,7 @@
             ],
             "lat": 42.9995,
             "lng": -81.2585,
-            "visited": false
+            "visited": true
           },
           {
             "place": "Kains Woods",
@@ -2361,7 +2361,7 @@
         "gary": {
           "stage": "scrambler",
           "stage_index": 1,
-          "xp": 135,
+          "xp": 125,
           "stage_xp": 60,
           "next_stage_xp": 150,
           "napping": false,
@@ -2429,7 +2429,7 @@
             "latency_ms": 41.0,
             "xp": 55,
             "place": "Kains Woods",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795275600000-3",
@@ -2442,7 +2442,7 @@
             "latency_ms": 36.0,
             "xp": 40,
             "place": "Gibbons Park",
-            "been_there": false
+            "been_there": true
           },
           {
             "id": "gary-01-1795274820000-2",
@@ -2466,7 +2466,7 @@
             "new": true,
             "quest_id": "q-2026-11-21-springbank-park-bicycle",
             "latency_ms": 38.0,
-            "xp": 30,
+            "xp": 20,
             "place": "Springbank Park",
             "been_there": true
           }
@@ -2543,7 +2543,7 @@
             ],
             "lat": 42.9995,
             "lng": -81.2585,
-            "visited": false
+            "visited": true
           },
           {
             "place": "Kains Woods",
@@ -2560,7 +2560,7 @@
             ],
             "lat": 42.975,
             "lng": -81.358,
-            "visited": false
+            "visited": true
           }
         ],
         "herd": {

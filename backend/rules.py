@@ -22,7 +22,10 @@ XP_NEW_INDOOR = 2        # first find of an indoor thing
 XP_REPEAT = 1            # a thing Gary has seen before
 FRIEND_MULTIPLIER = 2    # a friend in frame doubles that sniff
 XP_WELCOME_BACK = 15     # first sniff after a nap; never doubled
-XP_BEEN_THERE = 10       # a quest finished at its place (the page said you were there); never doubled
+# A quest with a real position (lat/lng) completes only if the page said you
+# were within range of it (1 km, worked out in the browser) around the sniff.
+# Elsewhere the sniff is still an ordinary find. Quests without a position
+# complete anywhere.
 VISIT_BEFORE = 2 * 3600  # a visit this long before the sniff counts...
 VISIT_AFTER = 30 * 60    # ...and this long after (the page may report late)
 
@@ -103,18 +106,19 @@ def local_day(when, tz=dt.timezone.utc):
 # --------------------------------------------------------------------------
 # Quests: which one a sniff finishes, and which one is active
 # --------------------------------------------------------------------------
-def pick_quest(event, quests, done, active_id=None):
+def pick_quest(event, quests, done, active_id=None, in_range=lambda quest: True):
     """Which open quest, if any, does this discovery complete?
 
     A quest completes when its target is the thing found. A herd quest also
-    needs a friend in frame. When several open quests fit, the one the person
+    needs a friend in frame, and a quest with a real position needs you in
+    range of it (`in_range`). When several open quests fit, the one the person
     chose on the web page wins, then the one the device named, then the oldest.
     The device makes the same choice from the same facts (choose_quest in
     device/gary_device.py).
     """
     label, friend = event.get("label"), bool(event.get("friend"))
     fits = [q for q in quests
-            if q["id"] not in done and q["target"] == label and (friend or not q.get("herd"))]
+            if q["id"] not in done and q["target"] == label and (friend or not q.get("herd")) and in_range(q)]
     for wanted in (active_id, event.get("quest_id")):
         for q in fits:
             if wanted and q["id"] == wanted:
@@ -206,6 +210,9 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
         return bool(when) and any(at and -VISIT_AFTER <= (when - at).total_seconds() <= VISIT_BEFORE
                                   for at in visits.get(quest_id, []))
 
+    def has_spot(quest):
+        return isinstance(quest.get("lat"), (int, float)) and isinstance(quest.get("lng"), (int, float))
+
     def active_at(when):
         """The quest the person had chosen at that moment, or None."""
         picked = None
@@ -231,7 +238,8 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
         label, friend = ev.get("label"), bool(ev.get("friend"))
         when = parse_ts(ev.get("ts"))
         is_new = label not in found
-        quest = pick_quest(ev, quests, done, active_at(when))
+        quest = pick_quest(ev, quests, done, active_at(when),
+                           lambda q: not has_spot(q) or been_there(q["id"], when))
 
         if quest:
             gained, reaction = int(quest.get("xp", 0)), "quest_complete"
@@ -246,8 +254,6 @@ def compute(events, quests, outdoor, now, nap_seconds=NAP_SECONDS, tz=dt.timezon
             gained *= FRIEND_MULTIPLIER
             herd["shared"] += 1
         there = bool(quest) and been_there(quest["id"], when)
-        if there:
-            gained += XP_BEEN_THERE
 
         # A quest lifts the fog over its place. With a friend it also counts for the herd.
         place = None

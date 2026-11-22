@@ -456,7 +456,11 @@ def run_reset(api, args):
 # replay
 # --------------------------------------------------------------------------
 def pretend_sniff(api, n, label, friend=False):
-    """One discovery, the way the device writes it. -> the backend's verdict on it."""
+    """One discovery, the way the device writes it. -> the backend's verdict on it.
+    First the page's part: it says you are in range of the quests for this thing."""
+    for quest in call(api, "/api/quests")["quests"]:
+        if quest.get("target") == label:
+            call(api, "/api/visit", {"quest_id": quest["id"]})
     now = datetime.datetime.now(datetime.timezone.utc)
     event = {"id": "replay-%d-%d" % (int(now.timestamp() * 1000), n), "ts": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
              "type": "discovery", "device": "replay", "label": label, "score": 0.9, "friend": friend, "new": True,

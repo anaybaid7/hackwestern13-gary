@@ -9,7 +9,7 @@ def test_a_device_with_a_wrong_clock_is_put_right(client, clock):
     its clock reads at upload time; the difference from ours is the error."""
     clock.set("2026-11-21T15:00:00Z")
     # The Pi's clock is 400 days behind. The sniff was 20 minutes before the upload.
-    out = post(client, sniff("bench", ts="2025-10-17T14:40:00Z"), sent_at="2025-10-17T15:00:00.250Z")
+    out = post(client, sniff("bench", ts="2025-10-17T14:40:00Z"), there=False, sent_at="2025-10-17T15:00:00.250Z")
     assert out["accepted"] == 1
     state = state_of(client)
     entry = state["journal"][0]
@@ -22,8 +22,8 @@ def test_a_device_with_a_wrong_clock_is_put_right(client, clock):
 
 def test_a_clock_that_is_right_is_left_alone(client, clock):
     clock.set("2026-11-21T15:00:00Z")
-    post(client, sniff("bench", ts="2026-11-21T14:40:00Z"), sent_at="2026-11-21T14:59:59.400Z")   # 0.6 s apart
-    post(client, sniff("dog", ts="2026-11-20T09:00:00Z"))            # no sent_at: an offline day-old sniff
+    post(client, sniff("bench", ts="2026-11-21T14:40:00Z"), there=False, sent_at="2026-11-21T14:59:59.400Z")   # 0.6 s apart
+    post(client, sniff("dog", ts="2026-11-20T09:00:00Z"), there=False)            # no sent_at: an offline day-old sniff
     events = backend.store.events()
     assert [e["ts"] for e in events] == ["2026-11-21T14:40:00Z", "2026-11-20T09:00:00Z"]
     assert all("device_ts" not in e for e in events)
@@ -32,7 +32,7 @@ def test_a_clock_that_is_right_is_left_alone(client, clock):
 def test_an_event_is_never_dated_in_the_future(client, clock):
     clock.set("2026-11-21T15:00:00Z")
     post(client, sniff("bench", ts="2031-01-01T00:00:00Z"),          # a clock far ahead
-         dict(sniff("dog"), ts="not a time"), dict(sniff("bird"), ts=None))
+         dict(sniff("dog"), ts="not a time"), dict(sniff("bird"), ts=None), there=False)
     events = backend.store.events()
     assert [e["ts"] for e in events] == ["2026-11-21T15:00:00Z"] * 3
     assert events[0]["device_ts"] == "2031-01-01T00:00:00Z" and events[1]["device_ts"] == "not a time"
@@ -42,13 +42,13 @@ def test_an_event_is_never_dated_in_the_future(client, clock):
 def test_demo_mode_naps_after_seconds_and_welcomes_back(client, clock, monkeypatch):
     monkeypatch.setenv("GARY_NAP_SECONDS", "60")
     clock.set("2026-11-21T15:00:00Z")
-    post(client, sniff("dog", ts="2026-11-21T15:00:00Z"))
+    post(client, sniff("dog", ts="2026-11-21T15:00:00Z"), there=False)
     clock.forward(seconds=59)
     assert state_of(client)["gary"]["napping"] is False
     clock.forward(seconds=2)
     gary = state_of(client)["gary"]
     assert gary["napping"] is True and gary["xp"] == rules.XP_NEW_OUTDOOR, "a nap takes nothing away"
-    out = post(client, sniff("dog", ts="2026-11-21T15:01:01Z"))
+    out = post(client, sniff("dog", ts="2026-11-21T15:01:01Z"), there=False)
     assert out["results"][0]["xp"] == rules.XP_REPEAT + rules.XP_WELCOME_BACK
     gary = state_of(client)["gary"]
     assert gary["welcome_back"] is True and gary["napping"] is False

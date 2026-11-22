@@ -133,7 +133,7 @@ def test_the_scout_writes_quests_with_a_machine_token_that_has_the_permission(au
 
 
 def test_the_reset_needs_its_permission(auth0):
-    post(auth0, sniff("bottle"))
+    post(auth0, sniff("bottle"), there=False)
     assert auth0.post("/api/dev/reset").status_code == 401
     assert auth0.post("/api/dev/reset", headers=bearer("auth0|moe")).status_code == 401
     assert auth0.get("/api/health").json()["events"] == 1

@@ -60,7 +60,7 @@ describe('Gary (issue #25)', () => {
     cleanup()
     render(<Home state={step(7)} flash={NO_FLASH} now={at(story.steps[7].now)} />)
     expect(screen.getByAltText('Gary the goat, Scrambler, napping')).toBeTruthy()
-    expect(screen.getByText('80 XP · 70 to Ibex')).toBeTruthy()
+    expect(screen.getByText('70 XP · 80 to Ibex')).toBeTruthy()
   })
 
   test('the top of the mountain and an empty quest list do not break the page', () => {
@@ -333,10 +333,10 @@ describe('Where places sit on the map', () => {
 
   test('"at the place" allows for a rough fix, but not an endless one', () => {
     const park = [42.9862, -81.2563]
-    expect(isNear([42.9866, -81.2563], 10, park)).toBe(true) // about 45 m
-    expect(isNear([42.9892, -81.2563], 10, park)).toBe(false) // about 330 m, a sharp fix
-    expect(isNear([42.9892, -81.2563], 400, park)).toBe(true) // the same, from rough Wi-Fi
-    expect(isNear([42.9952, -81.2563], 5000, park)).toBe(false) // a kilometre off: too rough to say
+    expect(isNear([42.9866, -81.2563], park)).toBe(true) // about 45 m
+    expect(isNear([42.9942, -81.2563], park)).toBe(true) // about 900 m: in range
+    expect(isNear([42.9962, -81.2563], park)).toBe(false) // about 1.1 km: out of range
+    expect(isNear(null, park)).toBe(false)
     expect(isNear(null, 10, park)).toBe(false)
   })
 
