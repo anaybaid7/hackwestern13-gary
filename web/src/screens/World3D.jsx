@@ -1,9 +1,9 @@
 // The 3D map: London in MapLibre, tilted, with real building heights and the
-// Thames valley shaded in, drawn in Gary's Pocket Pixel colours. The fog is a
-// low bank of cloud over everything you have not explored; each cleared place
-// is a clearing cut out of it, with a lime rim along its edge. Your trail runs
-// over the top of the fog, and your quest is a coral beacon you can see from
-// across town.
+// Thames valley shaded in, drawn in Gary's Pocket Pixel colours, with street,
+// park, river and neighbourhood names. The fog dims all the ground you have not
+// explored (the buildings on it stay clear); each cleared place is a bright
+// clearing ringed by a wall of fog with a lime rim on top. Your trail floats
+// over it, and your quest is a coral beacon you can see from across town.
 //
 // Loaded only when this browser can draw it (MapScreen checks for WebGL), so
 // MapLibre never weighs on the first page load. If it fails to start, it says
@@ -21,22 +21,31 @@ import { circle, dashes, fogShape, opening, polygons } from '../map/shapes.js'
 const STREETS = 'https://tiles.openfreemap.org/planet'
 const HEIGHTS = 'https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png'
 
-const START_ZOOM = 15
-const PITCH = 58
+const GLYPHS = 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf'
+
+const START_ZOOM = 15.4
+const PITCH = 60
 const BEARING = -18
-const FOG_TOP = 32 // metres: above houses, below the downtown towers
+const FOG_TOP = 20 // metres: the wall of fog round each clearing
 const BEACON_TOP = 320 // metres: the quest can be seen from across town
 const EMPTY = { type: 'FeatureCollection', features: [] }
 
-const LAND = '#efe5cb'
-const PARK = '#cfe39a'
-const WOOD = '#b9d88a'
-const WATER = '#8fcbe2'
-const ROAD = '#fffaf0'
-const ROAD_EDGE = '#cdbf9f'
-const BUILDING = '#f7eed8'
-const TOWER = '#ffd49a'
-const FOG = '#2c3a4e'
+// Ground a shade darker than the buildings, so every building stands out of it
+const LAND = '#e6d9b8'
+const PARK = '#b9db7f'
+const WOOD = '#9fca6e'
+const WATER = '#6fbde0'
+const ROAD = '#ffffff'
+const ROAD_EDGE = '#b3a27c'
+const BUILDING = '#fcf2da'
+const TOWER = '#ffc97a'
+const FOG = '#3d4c63'
+const FOG_GROUND = 0.55 // unexplored ground is dimmed; the buildings on it stay clear
+const REGULAR = ['Noto Sans Regular']
+const BOLD = ['Noto Sans Bold']
+// every name has a cream halo, so it reads over fog, parks and roads alike
+const NAME = { 'text-color': INK, 'text-halo-color': CREAM, 'text-halo-width': 1.6, 'text-halo-blur': 0.2 }
+const NAME_TEXT = ['coalesce', ['get', 'name:en'], ['get', 'name']]
 
 function lngLat([lat, lng]) {
   return [lng, lat]
@@ -46,10 +55,14 @@ function lngLat([lat, lng]) {
 function style() {
   return {
     version: 8,
+    glyphs: GLYPHS,
+    // the sun from the south-west, so each building has a lit side and a shaded one
+    light: { anchor: 'viewport', color: '#ffffff', intensity: 0.42, position: [1.4, 225, 35] },
     sources: {
       streets: { type: 'vector', url: STREETS, attribution: '© OpenFreeMap · © OpenMapTiles · © OpenStreetMap contributors' },
       ground: { type: 'raster-dem', tiles: [HEIGHTS], encoding: 'terrarium', tileSize: 256, maxzoom: 13, attribution: 'Terrain: Mapzen, AWS' },
       fog: { type: 'geojson', data: EMPTY },
+      wall: { type: 'geojson', data: EMPTY },
       rim: { type: 'geojson', data: EMPTY },
       trail: { type: 'geojson', data: EMPTY },
       route: { type: 'geojson', data: EMPTY },
@@ -93,19 +106,21 @@ function style() {
       { id: 'path', type: 'line', source: 'streets', 'source-layer': 'transportation', minzoom: 14,
         filter: ['in', ['get', 'class'], ['literal', ['path', 'track']]],
         paint: { 'line-color': '#a08a5e', 'line-width': 1.5, 'line-dasharray': [2, 2] } },
+      // the fog: unexplored ground dimmed, the explored ground cut out of it bright
+      { id: 'fog', type: 'fill', source: 'fog', paint: { 'fill-color': FOG, 'fill-opacity': FOG_GROUND, 'fill-antialias': false } },
       { id: 'buildings', type: 'fill-extrusion', source: 'streets', 'source-layer': 'building', minzoom: 13,
         paint: {
           'fill-extrusion-color': ['interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 6], 0, BUILDING, 40, BUILDING, 90, TOWER],
           'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 14.5, ['coalesce', ['get', 'render_height'], 6]],
           'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-          'fill-extrusion-opacity': 0.95,
+          'fill-extrusion-opacity': 1,
           'fill-extrusion-vertical-gradient': true,
         } },
       { id: 'me-accuracy', type: 'fill', source: 'me', paint: { 'fill-color': '#3e8ede', 'fill-opacity': 0.18 } },
-      // the fog: a bank of cloud, with the explored ground cut out of it
-      { id: 'fog', type: 'fill-extrusion', source: 'fog',
+      // the fog round each clearing rises as a wall, so a clearing reads as a hole in the fog
+      { id: 'wall', type: 'fill-extrusion', source: 'wall',
         paint: { 'fill-extrusion-color': FOG, 'fill-extrusion-height': FOG_TOP, 'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': 0.84, 'fill-extrusion-vertical-gradient': true } },
+          'fill-extrusion-opacity': 0.8, 'fill-extrusion-vertical-gradient': true } },
       // the frontier: a dashed lime rim along the top of the fog's edge
       { id: 'rim', type: 'fill-extrusion', source: 'rim',
         minzoom: 14.5,
@@ -130,11 +145,32 @@ function style() {
       { id: 'beacon', type: 'fill-extrusion', source: 'beacon',
         paint: { 'fill-extrusion-color': CORAL, 'fill-extrusion-height': BEACON_TOP, 'fill-extrusion-base': 0,
           'fill-extrusion-opacity': 0.6, 'fill-extrusion-vertical-gradient': true } },
+      // names last, over everything, so the map says where you are even in the fog
+      { id: 'water-name', type: 'symbol', source: 'streets', 'source-layer': 'water_name', minzoom: 12,
+        layout: { 'text-field': NAME_TEXT, 'text-font': REGULAR, 'text-size': 12, 'symbol-placement': 'point' },
+        paint: { ...NAME, 'text-color': '#1f5f80' } },
+      { id: 'river-name', type: 'symbol', source: 'streets', 'source-layer': 'waterway', minzoom: 13,
+        layout: { 'text-field': NAME_TEXT, 'text-font': REGULAR, 'text-size': 12, 'symbol-placement': 'line', 'text-letter-spacing': 0.15 },
+        paint: { ...NAME, 'text-color': '#1f5f80' } },
+      { id: 'road-name', type: 'symbol', source: 'streets', 'source-layer': 'transportation_name', minzoom: 14,
+        filter: ['in', ['get', 'class'], ['literal', ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor']]],
+        layout: { 'text-field': NAME_TEXT, 'text-font': BOLD, 'symbol-placement': 'line', 'text-max-angle': 30,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 14, 11, 17, 15] },
+        paint: NAME },
+      { id: 'park-name', type: 'symbol', source: 'streets', 'source-layer': 'park', minzoom: 13,
+        filter: ['has', 'name'],
+        layout: { 'text-field': NAME_TEXT, 'text-font': BOLD, 'text-size': 12, 'text-max-width': 8 },
+        paint: { ...NAME, 'text-color': '#2f5212' } },
+      { id: 'area-name', type: 'symbol', source: 'streets', 'source-layer': 'place', minzoom: 11, maxzoom: 16,
+        filter: ['in', ['get', 'class'], ['literal', ['suburb', 'neighbourhood', 'quarter']]],
+        layout: { 'text-field': NAME_TEXT, 'text-font': BOLD, 'text-transform': 'uppercase', 'text-letter-spacing': 0.12,
+          'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10, 15, 13], 'text-max-width': 9 },
+        paint: { ...NAME, 'text-color': '#3b4654' } },
     ],
   }
 }
 
-/** The rim and the trail as GeoJSON, from the explored edges and the route. */
+/** The rim and the trail as GeoJSON, from the explored edges and the route. The rim sits on the fog's wall. */
 function rimOf(edges) {
   return polygons(edges.flatMap((ring) => dashes(ring, 9, 26, 16)))
 }
@@ -167,6 +203,7 @@ export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, 
         maxBounds: [[-81.7, 42.7], [-80.8, 43.25]],
         attributionControl: { compact: true },
         fadeDuration: 0,
+        canvasContextAttributes: { antialias: true }, // smooth building edges
       })
     } catch (error) {
       onFail(error)
@@ -280,6 +317,7 @@ export default function World3D({ ref, tiles, spots, questPlace, picked, fresh, 
       const { fog, edges } = fogShape(open)
       map.getSource('fog').setData({ type: 'Feature', properties: {}, geometry: fog })
       map.getSource('rim').setData(rimOf(edges))
+      map.getSource('wall').setData(polygons(edges.flatMap((ring) => dashes(ring, 8, 1e9))))
       map.getSource('trail').setData(trailFeatures(route))
       map.getSource('route').setData(route.length > 1
         ? { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: route.map(lngLat) } } : EMPTY)
