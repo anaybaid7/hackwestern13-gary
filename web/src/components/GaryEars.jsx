@@ -27,6 +27,10 @@ const LABEL = {
   insecure: 'Voice needs https',
 }
 
+// What the ears hear and do, in the browser's console: "[ears] ..." lines. Only here, never sent.
+const log = (...args) => console.log('%c[ears]', 'color:#c94634;font-weight:bold', ...args)
+const since = (t0) => `${((performance.now() - t0) / 1000).toFixed(2)} s`
+
 const Recognition = typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null
 
 function readEars() {
@@ -69,6 +73,7 @@ export default function GaryEars({ service }) {
   /** Say what the backend answered. Called with t.busy set; clears it. */
   async function respond(out, thinking, asked) {
     const t = talk.current
+    log('reply:', out ? (out.error ? `error: ${out.error}` : out.busy ? 'server busy' : out.say ? `"${out.say}"${out.listen ? ' (then listens)' : ''}` : '"Go ahead"') : 'no answer (network?)')
     t.rec?.abort() // the recognizer must not hear Gary
     t.listenUntil = 0
     if (!out || out.busy || out.error) {
@@ -96,12 +101,16 @@ export default function GaryEars({ service }) {
     t.busy = true
     t.rec?.abort()
     const thinking = thinkingClip()
-    const out = await service.talk({ text, history: t.history }).catch(() => null)
+    const t0 = performance.now()
+    log('asking, as text:', `"${text}"`)
+    const out = await service.talk({ text, history: t.history }).catch((err) => log('request failed:', err.message) ?? null)
+    log('answered in', since(t0))
     await respond(out, thinking, true)
   }
 
   /** "Go Gary" alone, spotted by the browser: no round trip before "Go ahead". */
   function goAhead() {
+    log('"Go Gary" spotted in the browser: "Go ahead"')
     talk.current.busy = true
     respond({ woke: true, say: '' }, Promise.resolve(), false)
   }
@@ -112,11 +121,15 @@ export default function GaryEars({ service }) {
   async function hear(pcm) {
     const t = talk.current
     const listening = Date.now() < t.listenUntil
-    if (!listening && t.checks >= CHECKS) return // the room is busy: drop this one, keep listening
+    const secs = (pcm.length / 16000).toFixed(1)
+    if (!listening && t.checks >= CHECKS) return log(`dropped ${secs} s of speech: ${CHECKS} checks already running`)
+    log(listening ? `question: ${secs} s of speech, sending` : `${secs} s of speech, checking for "Go Gary" (${t.checks + 1} running)`)
+    const t0 = performance.now()
     if (listening) t.busy = true // the question itself: answer it, deaf until Gary is done
     else t.checks += 1
     const thinking = listening ? thinkingClip() : Promise.resolve()
     const out = await service.talk({ audio: wavBase64(pcm), listening, history: t.history }).catch(() => null)
+    log(`  ${listening ? 'answered' : 'checked'} in ${since(t0)}:`, out?.woke ? `woke, heard "${out.heard ?? ''}"` : out?.error ?? (out?.busy ? 'server busy' : 'not "Go Gary"'))
     if (!listening) {
       t.checks -= 1
       if (!out?.woke || t.busy) return // not "Go Gary", or Gary is already busy with someone
@@ -127,10 +140,11 @@ export default function GaryEars({ service }) {
 
   function onResult(event) {
     const t = talk.current
-    if (t.busy) return
+    if (t.busy) return log('(ignored: Gary is busy)')
     const result = event.results[event.results.length - 1]
     const said = result[0].transcript.trim()
     if (!said) return
+    log(result.isFinal ? 'heard (final):' : 'hearing…', `"${said}"`, result.isFinal ? `confidence ${result[0].confidence?.toFixed(2) ?? '?'}` : '')
     if (Date.now() < t.listenUntil) {
       if (result.isFinal) ask(said)
       else t.listenUntil = Date.now() + LISTEN_MS // still talking: keep waiting
@@ -156,8 +170,10 @@ export default function GaryEars({ service }) {
   async function startMic() {
     const t = talk.current
     const ears = new Utterances()
+    let frames = 0
     try {
       t.close = await openMic((frame) => {
+        if (++frames % 250 === 0) log(`mic: room noise ${Math.round(ears.noise ?? 0)}, speech starts above ${Math.round(ears.threshold())}`) // every 5 s
         if (t.busy || isPlaying()) return ears.reset() // never answer Gary's own voice, a find's clip included
         if (t.listenUntil && Date.now() > t.listenUntil) {
           t.listenUntil = 0
@@ -166,8 +182,10 @@ export default function GaryEars({ service }) {
         const said = ears.feed(frame)
         if (said) hear(said)
       })
+      log('listening with the page\'s own ears (mic + loudness check). Every thing said goes to the backend to check for "Go Gary"')
       setMode('idle')
-    } catch {
+    } catch (err) {
+      log('could not open the microphone:', err?.message ?? err)
       setMode('denied')
     }
   }
@@ -181,13 +199,19 @@ export default function GaryEars({ service }) {
     rec.interimResults = true
     rec.lang = 'en-CA'
     rec.onresult = onResult
-    rec.onend = () => talk.current.rec === rec && resume() // it stops on its own after a while
+    rec.onend = () => {
+      log('recognizer stopped', talk.current.busy ? '(Gary is talking)' : '- starting it again')
+      if (talk.current.rec === rec) resume() // it stops on its own after a while
+    }
+    rec.onstart = () => log('recognizer listening')
     rec.onerror = (event) => {
+      log('recognizer error:', event.error)
       if (event.error !== 'not-allowed' && event.error !== 'service-not-allowed') return
       t.rec = null // no recognizer here after all: the page's own ears instead
       startMic()
     }
     t.rec = rec
+    log('using the browser\'s speech recognition: "Go Gary" is spotted here, only questions are sent')
     resume()
     setMode('idle')
   }
